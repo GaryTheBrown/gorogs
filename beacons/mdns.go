@@ -3,8 +3,8 @@ package beacons
 import (
 	"fmt"
 
-	"gorogs/app/config"
-	"gorogs/app/logger"
+	"gorogs/config"
+	"gorogs/logger"
 
 	"github.com/grandcat/zeroconf"
 )

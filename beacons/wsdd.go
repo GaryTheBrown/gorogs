@@ -9,8 +9,8 @@ import (
 	"sync"
 	"syscall"
 
-	"gorogs/app/config"
-	"gorogs/app/logger"
+	"gorogs/config"
+	"gorogs/logger"
 )
 
 type WsddBeacon struct {

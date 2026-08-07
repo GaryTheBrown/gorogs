@@ -6,12 +6,12 @@ import (
 	"syscall"
 	"time"
 
-	"gorogs/app/beacons"
-	"gorogs/app/config"
-	"gorogs/app/health"
-	"gorogs/app/logger"
-	"gorogs/app/shares"
-	"gorogs/app/utils"
+	"gorogs/beacons"
+	"gorogs/config"
+	"gorogs/health"
+	"gorogs/logger"
+	"gorogs/shares"
+	"gorogs/utils"
 )
 
 func main() {

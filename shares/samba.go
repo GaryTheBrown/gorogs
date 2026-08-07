@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"syscall"
 
-	"gorogs/app/config"
-	"gorogs/app/logger"
+	"gorogs/config"
+	"gorogs/logger"
 )
 
 type SambaShare struct {

@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"os"
 
-	"gorogs/app/beacons"
-	"gorogs/app/config"
-	"gorogs/app/logger"
-	"gorogs/app/shares"
+	"gorogs/beacons"
+	"gorogs/config"
+	"gorogs/logger"
+	"gorogs/shares"
 )
 
 // Updated maps to reference the full structural interfaces natively

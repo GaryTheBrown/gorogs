@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"gorogs/app/config"
-	"gorogs/app/logger"
+	"gorogs/config"
+	"gorogs/logger"
 )
 
 type NfsShare struct {

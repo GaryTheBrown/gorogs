@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"gorogs/app/logger"
+	"gorogs/logger"
 )
 
 func QueryNetworkLayout() (net.IP, net.IP, error) {

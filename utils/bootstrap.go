@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"gorogs/app/config"
-	"gorogs/app/logger"
+	"gorogs/config"
+	"gorogs/logger"
 )
 
 func InitializeRuntimeConfig() {
