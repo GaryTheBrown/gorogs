@@ -15,7 +15,6 @@ import (
 )
 
 type NfsShare struct {
-	rpcCmd     *exec.Cmd
 	ganeshaCmd *exec.Cmd
 }
 
@@ -25,11 +24,6 @@ func (n *NfsShare) Setup() error {
 	ganeshaPath := "/var/run/ganesha"
 	if err := os.MkdirAll(ganeshaPath, 0755); err != nil {
 		return fmt.Errorf("failed to construct mandatory NFS-Ganesha tracking path: %w", err)
-	}
-
-	rpcPath := "/run/sendsigs.omit.d"
-	if err := os.MkdirAll(rpcPath, 0755); err != nil {
-		return fmt.Errorf("failed to construct mandatory rpcbind system tracking directory: %w", err)
 	}
 
 	if err := n.writeGaneshaConfig(); err != nil {
@@ -69,34 +63,6 @@ func (n *NfsShare) writeGaneshaConfig() error {
 }
 
 func (n *NfsShare) Start() error {
-	logger.Info("NFS", "Spawning background system RPC portmapper daemon...")
-
-	rpcArgs := []string{"-w"}
-	if logger.IsDebugActive("rpcbind") {
-		rpcArgs = append(rpcArgs, "-d")
-	}
-
-	n.rpcCmd = exec.Command("/usr/sbin/rpcbind", rpcArgs...)
-	n.rpcCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-	// Capture both stdout and stderr pipes from rpcbind to capture all logs
-	rpcStdout, err := n.rpcCmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to link RPC stdout pipe: %w", err)
-	}
-	rpcStderr, err := n.rpcCmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to link RPC stderr pipe: %w", err)
-	}
-
-	if err := n.rpcCmd.Start(); err != nil {
-		return fmt.Errorf("failed to launch background rpcbind daemon: %w", err)
-	}
-
-	// Scan both stdout and stderr asynchronously for rpcbind logs
-	go n.streamSubsystemLogs("RPCBIND", rpcStdout)
-	go n.streamSubsystemLogs("RPCBIND", rpcStderr)
-
 	time.Sleep(200 * time.Millisecond)
 
 	logger.Info("NFS", "Spawning containerised user-space NFS-Ganesha storage engine...")
@@ -119,24 +85,22 @@ func (n *NfsShare) Start() error {
 		return fmt.Errorf("failed to initialize background ganesha.nfsd execution loop: %w", err)
 	}
 
-	go n.streamSubsystemLogs("NFS", ganeshaPipe)
+	go n.streamSubsystemLogs(ganeshaPipe)
 
 	logger.Info("NFS", fmt.Sprintf("NFS-Ganesha binary actively supervised under Process ID: %d", n.ganeshaCmd.Process.Pid))
 	return nil
 }
 
-func (n *NfsShare) streamSubsystemLogs(subsystem string, pipe io.ReadCloser) {
+func (n *NfsShare) streamSubsystemLogs(pipe io.ReadCloser) {
 	defer pipe.Close()
 	scanner := bufio.NewScanner(pipe)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if subsystem == "NFS" {
-			idx := strings.Index(line, "[")
-			if idx != -1 {
-				line = line[idx:]
-			}
+		idx := strings.Index(line, "[")
+		if idx != -1 {
+			line = line[idx:]
 		}
 
 		trimmedLine := strings.TrimSpace(line)
@@ -144,54 +108,34 @@ func (n *NfsShare) streamSubsystemLogs(subsystem string, pipe io.ReadCloser) {
 			continue
 		}
 
-		if logger.IsDebugActive(strings.ToLower(subsystem)) {
-			logger.Debug(subsystem, trimmedLine)
+		if logger.IsDebugActive("nfs") {
+			logger.Debug("NFS", trimmedLine)
 		} else {
-			logger.Info(subsystem, trimmedLine)
+			logger.Info("NFS", trimmedLine)
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		logger.Error(subsystem, "Log scanning utility loop encountered an underlying stream parsing error", err)
+		logger.Error("NFS", "Log scanning utility loop encountered an underlying stream parsing error", err)
 	}
 }
 
 func (n *NfsShare) Healthcheck() error {
-	if n.rpcCmd == nil || n.rpcCmd.Process == nil {
-		return fmt.Errorf("rpcbind background daemon tracking instance is uninitialized")
-	}
-	if err := n.rpcCmd.Process.Signal(syscall.Signal(0)); err != nil {
-		return fmt.Errorf("rpcbind background daemon has stalled or terminated unexpectedly: %w", err)
-	}
-
 	if n.ganeshaCmd == nil || n.ganeshaCmd.Process == nil {
 		return fmt.Errorf("nfs background system execution tracking instance is not initialized")
 	}
-	if err := n.ganeshaCmd.Process.Signal(syscall.Signal(0)); err != nil {
-		return fmt.Errorf("nfs background process loop has hung or terminated: %w", err)
-	}
-
-	return nil
+	return n.ganeshaCmd.Process.Signal(syscall.Signal(0))
 }
 
 func (n *NfsShare) IsCritical() bool { return true }
 
 func (n *NfsShare) Stop() error {
-	logger.Info("NFS", "Initiating graceful termination sequence on NFS-Ganesha and RPC process trees...")
-
 	if n.ganeshaCmd != nil && n.ganeshaCmd.Process != nil {
+		logger.Info("NFS", "Initiating graceful termination sequence on NFS-Ganesha process tree...")
 		if err := n.ganeshaCmd.Process.Signal(syscall.SIGTERM); err != nil {
 			_ = n.ganeshaCmd.Process.Kill()
 		}
 		_ = n.ganeshaCmd.Wait()
 	}
-
-	if n.rpcCmd != nil && n.rpcCmd.Process != nil {
-		if err := n.rpcCmd.Process.Signal(syscall.SIGTERM); err != nil {
-			_ = n.rpcCmd.Process.Kill()
-		}
-		_ = n.rpcCmd.Wait()
-	}
-
 	return nil
 }

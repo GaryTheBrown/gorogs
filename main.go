@@ -25,6 +25,21 @@ func main() {
 	logger.Info("CORE", "Initializing master storage orchestration supervisor engine...")
 	health.StartHealthServer()
 
+	rpcbind := &beacons.RpcbindBeacon{}
+	logger.Info("CORE", "Executing mandatory priority pre-flight checks for component: rpcbind")
+	rpcErr := rpcbind.Setup()
+
+	if rpcErr == beacons.ErrServiceDisabled {
+		logger.Info("CORE", "RPCBIND setup notice: Service is deactivated via environment toggles.")
+	} else if rpcErr != nil {
+		logger.Fatal("CORE", "Critical initialization failure during priority rpcbind configuration setup phase", rpcErr)
+	} else {
+		if err := rpcbind.Start(); err != nil {
+			logger.Fatal("CORE", "Failed to launch priority rpcbind daemon binary process tree", err)
+		}
+		health.TrackedBeacons["rpcbind"] = rpcbind
+	}
+
 	activeShares := []struct {
 		name  string
 		share shares.StorageShare
