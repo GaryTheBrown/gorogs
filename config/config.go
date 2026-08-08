@@ -30,6 +30,8 @@ type HubConfig struct {
 	RpcbindEnabled     bool
 	WsddEnabled        bool
 	MdnsEnabled        bool
+	MdnsNfsEnabled     bool
+	MdnsSambaEnabled   bool
 	LiveChangesEnabled bool
 }
 

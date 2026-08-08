@@ -2,15 +2,18 @@ package beacons
 
 import (
 	"fmt"
+	"net"
+	"time"
 
 	"gorogs/config"
 	"gorogs/logger"
 
-	"github.com/grandcat/zeroconf"
+	"github.com/miekg/dns"
 )
 
 type MdnsBeacon struct {
-	servers []*zeroconf.Server
+	conn *net.UDPConn
+	done chan struct{}
 }
 
 func (m *MdnsBeacon) Setup() error {
@@ -18,6 +21,11 @@ func (m *MdnsBeacon) Setup() error {
 
 	if !config.Instance.MdnsEnabled {
 		logger.Info("MDNS", "Global Zeroconf kill switch active. Bypassing mDNS beacon manager.")
+		return ErrServiceDisabled
+	}
+
+	if !config.Instance.MdnsNfsEnabled && !config.Instance.MdnsSambaEnabled {
+		logger.Info("MDNS", "All specific mDNS sub-protocol advertisements are disabled. Bypassing beacon setup.")
 		return ErrServiceDisabled
 	}
 
@@ -31,86 +39,247 @@ func (m *MdnsBeacon) Setup() error {
 }
 
 func (m *MdnsBeacon) Start() error {
-	logger.Info("MDNS", "Initializing unified mDNS networking engine...")
+	logger.Info("MDNS", "Initializing proactive proxy-routing mDNS discovery engine...")
 
-	nodeName := config.Instance.Name
-	containerIPStr := config.Instance.ContainerIP.String()
-
-	// --- DYNAMIC FQDN DOMAIN SELECTION ---
-	// Default back to standard multicast specs if bootstrap domain parsing fails
-	domainTarget := "local."
-	if config.Instance.DomainSuffix != "" && config.Instance.DomainSuffix != "local" {
-		// Ensure it terminates with a trailing dot matching DNS protocol expectations
-		domainTarget = config.Instance.DomainSuffix + "."
-		logger.Info("MDNS", fmt.Sprintf("Using network router resolved FQDN suffix: %s", domainTarget))
-	} else {
-		logger.Info("MDNS", "Router provided no valid domain suffix. Falling back to default: local.")
-	}
-	// -------------------------------------
-
-	if config.Instance.NfsEnabled {
-		logger.Info("MDNS", fmt.Sprintf("Compiling unified advertisement record: [%s] -> NFS Protocol over %s:2049", nodeName, containerIPStr))
-
-		logger.Debug("MDNS", "Invoking grandcat/zeroconf core API wrapper hooks for _nfs._tcp allocation")
-		nfsSrv, err := zeroconf.Register(
-			nodeName,
-			"_nfs._tcp",
-			domainTarget, // <-- FIXED: Passes the router resolved custom domain dynamically
-			2049,
-			[]string{},
-			nil,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to register NFS service record profile: %w", err)
-		}
-		m.servers = append(m.servers, nfsSrv)
+	multicastAddr, err := net.ResolveUDPAddr("udp4", "224.0.0.251:5353")
+	if err != nil {
+		return fmt.Errorf("failed to resolve multicast address block: %w", err)
 	}
 
-	if config.Instance.SambaEnabled {
-		logger.Info("MDNS", fmt.Sprintf("Compiling unified advertisement record: [%s] -> SMB Protocol over %s:445", nodeName, containerIPStr))
-
-		logger.Debug("MDNS", "Invoking grandcat/zeroconf core API wrapper hooks for _smb._tcp allocation")
-		smbSrv, err := zeroconf.Register(
-			nodeName,
-			"_smb._tcp",
-			domainTarget, // <-- FIXED: Passes the router resolved custom domain dynamically
-			445,
-			[]string{},
-			nil,
-		)
-		if err != nil {
-			m.Stop()
-			return fmt.Errorf("failed to register Samba service record profile: %w", err)
-		}
-		m.servers = append(m.servers, smbSrv)
+	conn, err := net.ListenMulticastUDP("udp4", nil, multicastAddr)
+	if err != nil {
+		return fmt.Errorf("failed to join kernel mDNS multicast loop: %w", err)
 	}
+	m.conn = conn
+	m.done = make(chan struct{})
 
-	logger.Info("MDNS", "Universal mDNS discovery beacons active and broadcasting over the physical wire.")
+	m.broadcastAnnouncement(120)
+
+	go m.listenForQueries()
+
+	logger.Info("MDNS", "Universal mDNS service discovery proxies active and broadcasting Hello packets.")
 	return nil
+}
+
+func (m *MdnsBeacon) listenForQueries() {
+	nodeName := config.Instance.Name
+	containerIP := config.Instance.ContainerIP
+
+	localHostTarget := fmt.Sprintf("%s.local.", nodeName)
+	fqdnHostTarget := fmt.Sprintf("%s.%s.", nodeName, config.Instance.DomainSuffix)
+
+	servicesMetaRecord := "_services._dns-sd._udp.local."
+	txtRecords := []string{"path=/", fmt.Sprintf("host=%s", fqdnHostTarget)}
+
+	buf := make([]byte, 1500)
+	for {
+		select {
+		case <-m.done:
+			return
+		default:
+			n, remoteAddr, err := m.conn.ReadFromUDP(buf)
+			if err != nil {
+				return
+			}
+
+			msg := new(dns.Msg)
+			if err := msg.Unpack(buf[:n]); err != nil {
+				continue
+			}
+
+			for _, q := range msg.Question {
+				logger.Debug("MDNS", fmt.Sprintf("Incoming Query from %s: Name=%s Type=%s", remoteAddr.String(), q.Name, dns.TypeToString[q.Qtype]))
+
+				if q.Name == localHostTarget || q.Name == fqdnHostTarget || q.Name == servicesMetaRecord || q.Name == "_nfs._tcp.local." || q.Name == "_smb._tcp.local." {
+					resp := new(dns.Msg)
+					resp.SetReply(msg)
+					resp.Compress = true
+					resp.Authoritative = true
+
+					// 1. Always append core A-Record translations to the payload
+					resp.Answer = append(resp.Answer, &dns.A{
+						Hdr: dns.RR_Header{Name: localHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 120},
+						A:   containerIP,
+					})
+					resp.Answer = append(resp.Answer, &dns.A{
+						Hdr: dns.RR_Header{Name: fqdnHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 120},
+						A:   containerIP,
+					})
+
+					// 2. Dynamic NFS response packing
+					if config.Instance.NfsEnabled && config.Instance.MdnsNfsEnabled && (q.Name == servicesMetaRecord || q.Name == "_nfs._tcp.local.") {
+						ptrName := "_nfs._tcp.local."
+						instanceName := fmt.Sprintf("%s.%s", nodeName, ptrName)
+
+						resp.Answer = append(resp.Answer, &dns.PTR{
+							Hdr: dns.RR_Header{Name: servicesMetaRecord, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 120},
+							Ptr: ptrName,
+						})
+						resp.Answer = append(resp.Answer, &dns.PTR{
+							Hdr: dns.RR_Header{Name: ptrName, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 120},
+							Ptr: instanceName,
+						})
+						resp.Answer = append(resp.Answer, &dns.SRV{
+							Hdr:      dns.RR_Header{Name: instanceName, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: 120},
+							Priority: 0, Weight: 0, Port: 2049, Target: fqdnHostTarget,
+						})
+						for _, txt := range txtRecords {
+							resp.Answer = append(resp.Answer, &dns.TXT{
+								Hdr: dns.RR_Header{Name: instanceName, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 120},
+								Txt: []string{txt},
+							})
+						}
+					}
+
+					// 3. Dynamic Samba response packing
+					if config.Instance.SambaEnabled && config.Instance.MdnsSambaEnabled && (q.Name == servicesMetaRecord || q.Name == "_smb._tcp.local.") {
+						ptrName := "_smb._tcp.local."
+						instanceName := fmt.Sprintf("%s.%s", nodeName, ptrName)
+
+						resp.Answer = append(resp.Answer, &dns.PTR{
+							Hdr: dns.RR_Header{Name: servicesMetaRecord, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 120},
+							Ptr: ptrName,
+						})
+						resp.Answer = append(resp.Answer, &dns.PTR{
+							Hdr: dns.RR_Header{Name: ptrName, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 120},
+							Ptr: instanceName,
+						})
+						resp.Answer = append(resp.Answer, &dns.SRV{
+							Hdr:      dns.RR_Header{Name: instanceName, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: 120},
+							Priority: 0, Weight: 0, Port: 445, Target: fqdnHostTarget,
+						})
+						for _, txt := range txtRecords {
+							resp.Answer = append(resp.Answer, &dns.TXT{
+								Hdr: dns.RR_Header{Name: instanceName, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 120},
+								Txt: []string{txt},
+							})
+						}
+					}
+
+					out, err := resp.Pack()
+					if err == nil {
+						logger.Debug("MDNS", fmt.Sprintf("Sending Targeted Response to %s for %s", remoteAddr.String(), q.Name))
+						_, _ = m.conn.WriteToUDP(out, remoteAddr)
+					}
+				}
+			}
+		}
+	}
+}
+
+func (m *MdnsBeacon) broadcastAnnouncement(ttl uint32) {
+	nodeName := config.Instance.Name
+	containerIP := config.Instance.ContainerIP
+
+	localHostTarget := fmt.Sprintf("%s.local.", nodeName)
+	fqdnHostTarget := fmt.Sprintf("%s.%s.", nodeName, config.Instance.DomainSuffix)
+
+	multicastAddr, _ := net.ResolveUDPAddr("udp4", "224.0.0.251:5353")
+
+	msg := new(dns.Msg)
+	msg.Response = true
+	msg.Authoritative = true
+	msg.Compress = true
+
+	msg.Answer = append(msg.Answer, &dns.A{
+		Hdr: dns.RR_Header{Name: localHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttl},
+		A:   containerIP,
+	})
+	msg.Answer = append(msg.Answer, &dns.A{
+		Hdr: dns.RR_Header{Name: fqdnHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttl},
+		A:   containerIP,
+	})
+
+	txtRecords := []string{
+		"path=/",
+		fmt.Sprintf("host=%s", fqdnHostTarget),
+	}
+
+	servicesMetaRecord := "_services._dns-sd._udp.local."
+
+	if config.Instance.NfsEnabled && config.Instance.MdnsNfsEnabled {
+		ptrName := "_nfs._tcp.local."
+		instanceName := fmt.Sprintf("%s.%s", nodeName, ptrName)
+
+		msg.Answer = append(msg.Answer, &dns.PTR{
+			Hdr: dns.RR_Header{Name: servicesMetaRecord, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
+			Ptr: ptrName,
+		})
+		msg.Answer = append(msg.Answer, &dns.PTR{
+			Hdr: dns.RR_Header{Name: ptrName, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
+			Ptr: instanceName,
+		})
+		msg.Answer = append(msg.Answer, &dns.SRV{
+			Hdr:      dns.RR_Header{Name: instanceName, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: ttl},
+			Priority: 0, Weight: 0, Port: 2049, Target: fqdnHostTarget,
+		})
+
+		for _, txt := range txtRecords {
+			msg.Answer = append(msg.Answer, &dns.TXT{
+				Hdr: dns.RR_Header{Name: instanceName, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: ttl},
+				Txt: []string{txt},
+			})
+		}
+	}
+
+	if config.Instance.SambaEnabled && config.Instance.MdnsSambaEnabled {
+		ptrName := "_smb._tcp.local."
+		instanceName := fmt.Sprintf("%s.%s", nodeName, ptrName)
+
+		msg.Answer = append(msg.Answer, &dns.PTR{
+			Hdr: dns.RR_Header{Name: servicesMetaRecord, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
+			Ptr: ptrName,
+		})
+		msg.Answer = append(msg.Answer, &dns.PTR{
+			Hdr: dns.RR_Header{Name: ptrName, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
+			Ptr: instanceName,
+		})
+		msg.Answer = append(msg.Answer, &dns.SRV{
+			Hdr:      dns.RR_Header{Name: instanceName, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: ttl},
+			Priority: 0, Weight: 0, Port: 445, Target: fqdnHostTarget,
+		})
+
+		for _, txt := range txtRecords {
+			msg.Answer = append(msg.Answer, &dns.TXT{
+				Hdr: dns.RR_Header{Name: instanceName, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: ttl},
+				Txt: []string{txt},
+			})
+		}
+	}
+
+	out, err := msg.Pack()
+	if err == nil {
+		logger.Debug("MDNS", fmt.Sprintf("Broadcasting Proactive Announcement Packet (Records: %d, TTL: %d)", len(msg.Answer), ttl))
+		_, _ = m.conn.WriteToUDP(out, multicastAddr)
+		time.Sleep(100 * time.Millisecond)
+		_, _ = m.conn.WriteToUDP(out, multicastAddr)
+	}
 }
 
 func (m *MdnsBeacon) Healthcheck() error {
-	if len(m.servers) == 0 {
-		return fmt.Errorf("unified mDNS discovery beacon array is uninitialized or empty")
+	if m.conn == nil {
+		return fmt.Errorf("unified mDNS discovery server connection instance is uninitialized")
 	}
 	return nil
 }
 
-func (m *MdnsBeacon) IsCritical() bool {
-	return false
-}
+func (m *MdnsBeacon) IsCritical() bool { return false }
 
 func (m *MdnsBeacon) Stop() error {
-	logger.Info("MDNS", "Initiating shutdown sequence on unified mDNS discovery channels...")
+	logger.Info("MDNS", "Initiating shutdown sequence on unified mDNS channels...")
 
-	for i, srv := range m.servers {
-		if srv != nil {
-			logger.Debug("MDNS", fmt.Sprintf("Shutting down active mDNS socket binding index reference: %d", i))
-			srv.Shutdown()
-		}
+	if m.done != nil {
+		close(m.done)
 	}
 
-	m.servers = nil
+	if m.conn != nil {
+		m.broadcastAnnouncement(0)
+		time.Sleep(500 * time.Millisecond)
+
+		_ = m.conn.Close()
+		m.conn = nil
+	}
+
 	logger.Info("MDNS", "mDNS broadcast beacons dropped cleanly from network space.")
 	return nil
 }

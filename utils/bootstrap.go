@@ -21,6 +21,8 @@ func InitializeRuntimeConfig() {
 	_, hasRpcbindKill := os.LookupEnv("DISABLE_RPCBIND")
 	_, hasWsddKill := os.LookupEnv("DISABLE_WSDD")
 	_, hasMdnsKill := os.LookupEnv("DISABLE_ZEROCONF")
+	_, hasMdnsNfsKill := os.LookupEnv("DISABLE_ZEROCONF_NFS")
+	_, hasMdnsSambaKill := os.LookupEnv("DISABLE_ZEROCONF_SAMBA")
 	_, hasLiveKill := os.LookupEnv("DISABLE_LIVECHANGES")
 
 	hEnv := strings.ToLower(os.Getenv("HEALTH_MODE"))
@@ -121,6 +123,8 @@ rpc:            db files
 		RpcbindEnabled:     !hasRpcbindKill && !hasNfsKill,
 		WsddEnabled:        !hasWsddKill && !hasSambaKill,
 		MdnsEnabled:        !hasMdnsKill,
+		MdnsNfsEnabled:     !hasNfsKill && !hasMdnsNfsKill,
+		MdnsSambaEnabled:   !hasSambaKill && !hasMdnsSambaKill,
 		LiveChangesEnabled: !hasLiveKill,
 	}
 
