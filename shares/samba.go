@@ -1,19 +1,24 @@
 package shares
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"syscall"
+	"time"
 
 	"gorogs/config"
 	"gorogs/logger"
 )
 
 type SambaShare struct {
-	cmd *exec.Cmd
+	cmd       *exec.Cmd
+	readyChan chan struct{} // Synchronises Go lifecycle with Samba state
 }
 
 func (s *SambaShare) Setup() error {
@@ -42,6 +47,7 @@ func (s *SambaShare) writeMasterSambaConfig() error {
 		"    server role = standalone server\n" +
 		"    map to guest = bad user\n" +
 		"    usershare allow guests = yes\n" +
+		"    usershare max shares = 0\n" +
 		"    local master = no\n" +
 		"    preferred master = no\n" +
 		"    domain master = no\n\n" +
@@ -63,12 +69,10 @@ func (s *SambaShare) writeDynamicSharesConfig() error {
 		return err
 	}
 
-	// Regex pattern validating standard Samba folder character guidelines
-	validShareName := regexp.MustCompile(`^[a-zA-Z0-9_.\s()\-]+$`)
+	validShareName := regexp.MustCompile(`^[a-zA-Z0-9_\-\.\s()]+$`)
 
 	for _, entry := range entries {
 		if entry.IsDir() && entry.Name() != "." && entry.Name() != ".." {
-			// CRITICAL SANITISATION: Flag invalid characters to stdout logs
 			if !validShareName.MatchString(entry.Name()) {
 				logger.Error("SAMBA", fmt.Sprintf("Validation Error: Share directory name [%s] contains illegal characters and was dropped.", entry.Name()), nil)
 				continue
@@ -95,17 +99,70 @@ func (s *SambaShare) writeDynamicSharesConfig() error {
 func (s *SambaShare) Start() error {
 	logger.Info("SAMBA", "Spawning system Samba background engine...")
 
+	s.readyChan = make(chan struct{})
+
+	// Appended --debug-stdout to intercept execution output safely into the pipes
 	s.cmd = exec.Command("/usr/sbin/smbd", "--foreground", "--no-process-group", "--debug-stdout", "-s", "/etc/samba/smb.conf")
-	s.cmd.Stdout = os.Stdout
-	s.cmd.Stderr = os.Stderr
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	sambaPipe, err := s.cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to link Samba stdout processing pipeline: %w", err)
+	}
+	s.cmd.Stderr = s.cmd.Stdout // Combine stderr stream to handle both through our scanner loop
 
 	if err := s.cmd.Start(); err != nil {
 		return fmt.Errorf("failed to initialize background smbd execution tracking loop: %w", err)
 	}
 
-	logger.Info("SAMBA", fmt.Sprintf("Samba background engine active under operational Process ID: %d", s.cmd.Process.Pid))
-	return nil
+	go s.streamSubsystemLogs(sambaPipe)
+
+	logger.Info("SAMBA", fmt.Sprintf("Samba background engine active under operational Process ID: %d. Waiting for socket readiness...", s.cmd.Process.Pid))
+
+	// TIMING FIX: Blocks the main orchestration thread until Samba confirms it is listening
+	select {
+	case <-s.readyChan:
+		logger.Info("SAMBA", "Samba successfully bound network ports and is accepting incoming client requests.")
+		return nil
+	case <-time.After(5 * time.Second):
+		return fmt.Errorf("timeout waiting for Samba daemon process tree to declare socket readiness")
+	}
+}
+
+func (s *SambaShare) streamSubsystemLogs(pipe io.ReadCloser) {
+	defer pipe.Close()
+	scanner := bufio.NewScanner(pipe)
+
+	hasSignaledReady := false
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		trimmedLine := strings.TrimSpace(line)
+		if trimmedLine == "" {
+			continue
+		}
+
+		// Intercept standard Samba service milestone notifications to release execution latch
+		// smbd logs "smbd version ... started" or "smbd_open_once_socket" when ready
+		if !hasSignaledReady && (strings.Contains(line, "started") || strings.Contains(line, "Ready for connections") || strings.Contains(line, "smbd_open_once_socket")) {
+			close(s.readyChan)
+			hasSignaledReady = true
+		}
+
+		if logger.IsDebugActive("samba") {
+			logger.Debug("SAMBA", trimmedLine)
+		} else {
+			logger.Info("SAMBA", trimmedLine)
+		}
+	}
+
+	if !hasSignaledReady {
+		close(s.readyChan)
+	}
+
+	if err := scanner.Err(); err != nil {
+		logger.Error("SAMBA", "Log scanning utility loop encountered an underlying stream parsing error", err)
+	}
 }
 
 func (s *SambaShare) Healthcheck() error {
