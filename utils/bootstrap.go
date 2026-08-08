@@ -1,8 +1,8 @@
 package utils
 
 import (
+	"bufio"
 	"fmt"
-	"net"
 	"os"
 	"strings"
 
@@ -58,13 +58,31 @@ func InitializeRuntimeConfig() {
 
 	detectedDomain := "local"
 	if gIP != nil && !gIP.IsLoopback() {
-		names, err := net.LookupAddr(gIP.String())
-		if err == nil && len(names) > 0 {
-			fqdn := strings.TrimSuffix(names[0], ".")
-			parts := strings.Split(fqdn, ".")
-			if len(parts) > 1 {
-				detectedDomain = strings.Join(parts[1:], ".")
+		logger.Info("CONFIG", "Extracting custom infrastructure domain suffix from system resolver layout...")
+
+		if file, errFile := os.Open("/etc/resolv.conf"); errFile == nil {
+			defer file.Close()
+			rScanner := bufio.NewScanner(file)
+			for rScanner.Scan() {
+				rLine := rScanner.Text()
+				// Look for the engine search domain entry (e.g., "search internal.thebrown.uk")
+				if strings.HasPrefix(rLine, "search ") {
+					fields := strings.Fields(rLine)
+					if len(fields) > 1 {
+						// Grab the primary domain suffix target
+						detectedDomain = fields[1]
+						logger.Info("CONFIG", "Successfully synchronized domain suffix from resolv engine: "+detectedDomain)
+						break
+					}
+				}
 			}
+			if errScan := rScanner.Err(); errScan != nil {
+				logger.Error("CONFIG", "System resolver file parsing tool loop encountered an underlying stream error", errScan)
+			}
+		}
+
+		if detectedDomain == "local" {
+			logger.Error("CONFIG", "No search suffix found inside system resolv layers. Defaulting to fallback: local", nil)
 		}
 	}
 

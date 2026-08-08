@@ -1,7 +1,9 @@
 package health
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 
@@ -11,14 +13,27 @@ import (
 	"gorogs/shares"
 )
 
-// Updated maps to reference the full structural interfaces natively
+// Define the absolute local path for the Unix domain socket file
+const socketPath = "/run/gorogs-health.sock"
+
 var (
 	TrackedShares  = make(map[string]shares.StorageShare)
 	TrackedBeacons = make(map[string]beacons.DiscoveryBeacon)
 )
 
+// RunHealthProbeClient triggers natively inside the container namespace via the --check-health flag
 func RunHealthProbeClient() {
-	resp, err := http.Get("http://127.0.0")
+	// Connect straight to the local Unix socket file system pointer
+	client := http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", socketPath)
+			},
+		},
+	}
+
+	// The hostname part of the URL ("http://unix") is ignored by our local dialer
+	resp, err := client.Get("http://unix/healthz")
 	if err != nil || resp.StatusCode != http.StatusOK {
 		os.Exit(1)
 	}
@@ -26,6 +41,9 @@ func RunHealthProbeClient() {
 }
 
 func StartHealthServer() {
+	// Clean up any stale socket files left over from a dirty container crash/restart
+	_ = os.Remove(socketPath)
+
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		isHealthy := true
 		failureMessage := ""
@@ -42,28 +60,20 @@ func StartHealthServer() {
 		// 1. Process Core Storage Shares Matrix
 		for name, share := range TrackedShares {
 			if currentMode == config.LevelNfs && name != "nfs" {
-				logger.Debug("HEALTH", fmt.Sprintf("Skipping component evaluation: share [%s] does not match target [nfs] mode filter.", name))
 				continue
 			}
 			if currentMode == config.LevelSamba && name != "samba" {
-				logger.Debug("HEALTH", fmt.Sprintf("Skipping component evaluation: share [%s] does not match target [samba] mode filter.", name))
 				continue
 			}
 
 			err := share.Healthcheck()
 			if err != nil {
 				shouldFail := false
-
 				switch currentMode {
-				case config.LevelFull, config.LevelShares:
-					logger.Debug("HEALTH", fmt.Sprintf("Switch trace [Full/Shares]: component failure on [%s] forces an automatic container error.", name))
+				case config.LevelFull, config.LevelShares, config.LevelNfs, config.LevelSamba:
 					shouldFail = true
 				case config.LevelCritical, config.LevelDefault:
-					logger.Debug("HEALTH", fmt.Sprintf("Switch trace [Critical/Default]: evaluating importance flag for component [%s] (IsCritical: %v)", name, share.IsCritical()))
 					shouldFail = share.IsCritical()
-				case config.LevelNfs, config.LevelSamba:
-					logger.Debug("HEALTH", fmt.Sprintf("Switch trace [Nfs/Samba]: targeted protocol failure on [%s] forces an automatic container error.", name))
-					shouldFail = true
 				}
 
 				if shouldFail {
@@ -71,8 +81,6 @@ func StartHealthServer() {
 					failureMessage = fmt.Sprintf("Critical storage share error on component [%s]", name)
 					logger.Error("HEALTH", failureMessage, err)
 					break
-				} else {
-					logger.Error("HEALTH", fmt.Sprintf("Muted non-critical share process issue on component [%s]", name), err)
 				}
 			}
 		}
@@ -83,13 +91,10 @@ func StartHealthServer() {
 				err := beacon.Healthcheck()
 				if err != nil {
 					shouldFail := false
-
 					switch currentMode {
 					case config.LevelFull:
-						logger.Debug("HEALTH", fmt.Sprintf("Switch trace [Full]: beacon failure on [%s] forces an automatic container error.", name))
 						shouldFail = true
 					case config.LevelCritical:
-						logger.Debug("HEALTH", fmt.Sprintf("Switch trace [Critical]: evaluating importance flag for beacon [%s] (IsCritical: %v)", name, beacon.IsCritical()))
 						shouldFail = beacon.IsCritical()
 					}
 
@@ -98,27 +103,33 @@ func StartHealthServer() {
 						failureMessage = fmt.Sprintf("Critical advertisement beacon error on component [%s]", name)
 						logger.Error("HEALTH", failureMessage, err)
 						break
-					} else {
-						logger.Error("HEALTH", fmt.Sprintf("Muted non-critical beacon notification fault on component [%s]", name), err)
 					}
 				}
 			}
 		}
 
 		if !isHealthy {
-			logger.Debug("HEALTH", fmt.Sprintf("Writing HTTP payload response status: 503 Service Unavailable -> Content: FAIL: %s", failureMessage))
 			w.WriteHeader(http.StatusServiceUnavailable)
 			fmt.Fprintf(w, "FAIL: %s\n", failureMessage)
 			return
 		}
 
-		logger.Debug("HEALTH", "Writing HTTP payload response status: 200 OK -> Content: OK")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "OK")
 	})
 
 	go func() {
-		if err := http.ListenAndServe("127.0.0.1:8080", nil); err != nil {
+		// Listen natively on the Unix domain socket interface layer
+		listener, err := net.Listen("unix", socketPath)
+		if err != nil {
+			logger.Error("HEALTH", "Failed to bind to local Unix socket path", err)
+			return
+		}
+
+		// Restrict file permission so any user execution context inside the container can safely query it
+		_ = os.Chmod(socketPath, 0666)
+
+		if err := http.Serve(listener, nil); err != nil {
 			logger.Error("HEALTH", "Internal loop HTTP health server tracking daemon collapsed", err)
 		}
 	}()

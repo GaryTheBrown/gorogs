@@ -16,7 +16,8 @@ import (
 )
 
 type RpcbindBeacon struct {
-	cmd *exec.Cmd
+	cmd      *exec.Cmd
+	statdCmd *exec.Cmd
 }
 
 func (r *RpcbindBeacon) Setup() error {
@@ -112,7 +113,29 @@ func (r *RpcbindBeacon) Start() error {
 	if !rpcReady {
 		return fmt.Errorf("timeout waiting for rpcbind process to open port 111")
 	}
-	// --------------------------------------
+
+	logger.Info("RPCBIND", "Spawning background NFSv3 status monitor daemon (rpc.statd)...")
+
+	// Create required state directory paths for the statd daemon lock layers
+	_ = os.MkdirAll("/var/lib/nfs/sm", 0755)
+	_ = os.MkdirAll("/var/lib/nfs/sm.bak", 0755)
+
+	// Run statd in foreground mode (-F) so we can monitor its life cycle safely
+	r.statdCmd = exec.Command("/usr/sbin/rpc.statd", "-F")
+	r.statdCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	statdStdout, _ := r.statdCmd.StdoutPipe()
+	statdStderr, _ := r.statdCmd.StderrPipe()
+
+	if err := r.statdCmd.Start(); err != nil {
+		logger.Error("RPCBIND", "Failed to launch network status monitor process tree", err)
+		// Non-fatal error; don't crash, let it try to run down-stream
+	} else {
+		go r.streamRpcbindLogs(statdStdout)
+		go r.streamRpcbindLogs(statdStderr)
+		logger.Info("RPCBIND", fmt.Sprintf("NFSv3 statd tool active under process ID: %d", r.statdCmd.Process.Pid))
+	}
+	// =========================================================================
 
 	logger.Info("RPCBIND", fmt.Sprintf("RPC portmapper tracking loop active and listening under process ID: %d", r.cmd.Process.Pid))
 	return nil
@@ -153,6 +176,12 @@ func (r *RpcbindBeacon) IsCritical() bool {
 }
 
 func (r *RpcbindBeacon) Stop() error {
+	if r.statdCmd != nil && r.statdCmd.Process != nil {
+		logger.Info("RPCBIND", "Conveying termination signal to system statd threads...")
+		_ = r.statdCmd.Process.Signal(syscall.SIGTERM)
+		_ = r.statdCmd.Wait()
+	}
+
 	if r.cmd == nil || r.cmd.Process == nil {
 		return nil
 	}

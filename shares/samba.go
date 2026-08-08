@@ -64,7 +64,7 @@ func (s *SambaShare) writeDynamicSharesConfig() error {
 	}
 
 	// Regex pattern validating standard Samba folder character guidelines
-	validShareName := regexp.MustCompile(`^[a-zA-Z0-9_\-\.\s]+$`)
+	validShareName := regexp.MustCompile(`^[a-zA-Z0-9_.\s()\-]+$`)
 
 	for _, entry := range entries {
 		if entry.IsDir() && entry.Name() != "." && entry.Name() != ".." {
@@ -80,8 +80,6 @@ func (s *SambaShare) writeDynamicSharesConfig() error {
 			}
 
 			fullPath := filepath.Join(config.ShareRoot, entry.Name())
-
-			// 🚀 LOGGING LOCKDOWN: This only prints when 'samba' debugging is explicitly requested
 			logger.Debug("SAMBA", fmt.Sprintf("Compiling export allocation: [%s] mapping to physical path %s", entry.Name(), fullPath))
 
 			fmt.Fprintf(file, "\n[%s]\n", entry.Name())

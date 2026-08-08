@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends -t trixie \
     nfs-ganesha-vfs \
     samba \
     rpcbind \
+    nfs-common \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/* /usr/share/doc/* /usr/share/man/* /usr/share/locale/* \
     && usermod -d /tmp -g nogroup nobody
 

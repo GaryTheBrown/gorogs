@@ -36,6 +36,18 @@ func (m *MdnsBeacon) Start() error {
 	nodeName := config.Instance.Name
 	containerIPStr := config.Instance.ContainerIP.String()
 
+	// --- DYNAMIC FQDN DOMAIN SELECTION ---
+	// Default back to standard multicast specs if bootstrap domain parsing fails
+	domainTarget := "local."
+	if config.Instance.DomainSuffix != "" && config.Instance.DomainSuffix != "local" {
+		// Ensure it terminates with a trailing dot matching DNS protocol expectations
+		domainTarget = config.Instance.DomainSuffix + "."
+		logger.Info("MDNS", fmt.Sprintf("Using network router resolved FQDN suffix: %s", domainTarget))
+	} else {
+		logger.Info("MDNS", "Router provided no valid domain suffix. Falling back to default: local.")
+	}
+	// -------------------------------------
+
 	if config.Instance.NfsEnabled {
 		logger.Info("MDNS", fmt.Sprintf("Compiling unified advertisement record: [%s] -> NFS Protocol over %s:2049", nodeName, containerIPStr))
 
@@ -43,7 +55,7 @@ func (m *MdnsBeacon) Start() error {
 		nfsSrv, err := zeroconf.Register(
 			nodeName,
 			"_nfs._tcp",
-			"local.",
+			domainTarget, // <-- FIXED: Passes the router resolved custom domain dynamically
 			2049,
 			[]string{},
 			nil,
@@ -61,7 +73,7 @@ func (m *MdnsBeacon) Start() error {
 		smbSrv, err := zeroconf.Register(
 			nodeName,
 			"_smb._tcp",
-			"local.",
+			domainTarget, // <-- FIXED: Passes the router resolved custom domain dynamically
 			445,
 			[]string{},
 			nil,

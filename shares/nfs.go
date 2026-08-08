@@ -48,8 +48,11 @@ func (n *NfsShare) writeGaneshaConfig() error {
 		"    NLM_Port = 4045;\n" +
 		"    Rquota_Port = 875;\n" +
 		"}\n\n" +
+		"NFSV4 {\n" +
+		"    Graceless = true;\n" +
+		"}\n\n" +
 		"EXPORT {\n" +
-		"    Export_Id = 1;\n" + // Configured positive value to preserve v4 pseudo root assignments
+		"    Export_Id = 1;\n" +
 		"    Path = " + config.ShareRoot + ";\n" +
 		"    Pseudo = /;\n" +
 		"    Access_Type = RO;\n" +
@@ -109,15 +112,14 @@ func (n *NfsShare) streamSubsystemLogs(pipe io.ReadCloser) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// --- FINAL CORRECTED NFS READINESS STRINGS ---
-		if !hasSignaledReady && (strings.Contains(line, "Main loop started") ||
-			strings.Contains(line, "NFS Server Initialized") ||
-			strings.Contains(line, "General fridge was started successfully") || // Matches modern worker thread setups
-			strings.Contains(line, "NFS Server Now IN GRACE")) { // Matches immediate protocol v4 grace transitions
+		// --- GRACELESS READINESS STRINGS ---
+		if !hasSignaledReady && (strings.Contains(line, "NFS SERVER INITIALIZED") ||
+			strings.Contains(line, "General fridge was started successfully")) {
 
 			close(n.readyChan)
 			hasSignaledReady = true
 		}
+
 		// ---------------------------------------------
 
 		idx := strings.Index(line, "[")
