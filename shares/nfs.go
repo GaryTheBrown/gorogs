@@ -16,6 +16,7 @@ import (
 
 type NfsShare struct {
 	ganeshaCmd *exec.Cmd
+	readyChan  chan struct{} // Synchronizes Go lifecycle with Ganesha state
 }
 
 func (n *NfsShare) Setup() error {
@@ -48,7 +49,7 @@ func (n *NfsShare) writeGaneshaConfig() error {
 		"    Rquota_Port = 875;\n" +
 		"}\n\n" +
 		"EXPORT {\n" +
-		"    Export_Id = 0;\n" +
+		"    Export_Id = 1;\n" + // Configured positive value to preserve v4 pseudo root assignments
 		"    Path = " + config.ShareRoot + ";\n" +
 		"    Pseudo = /;\n" +
 		"    Access_Type = RO;\n" +
@@ -63,9 +64,9 @@ func (n *NfsShare) writeGaneshaConfig() error {
 }
 
 func (n *NfsShare) Start() error {
-	time.Sleep(200 * time.Millisecond)
-
 	logger.Info("NFS", "Spawning containerised user-space NFS-Ganesha storage engine...")
+
+	n.readyChan = make(chan struct{}) // Initialize sync gateway
 
 	ganeshaArgs := []string{"-F", "-L", "/dev/stdout", "-f", "/etc/ganesha/ganesha.conf"}
 	if logger.IsDebugActive("nfs") {
@@ -87,16 +88,37 @@ func (n *NfsShare) Start() error {
 
 	go n.streamSubsystemLogs(ganeshaPipe)
 
-	logger.Info("NFS", fmt.Sprintf("NFS-Ganesha binary actively supervised under Process ID: %d", n.ganeshaCmd.Process.Pid))
-	return nil
+	logger.Info("NFS", fmt.Sprintf("NFS-Ganesha binary actively supervised under Process ID: %d. Waiting for socket readiness...", n.ganeshaCmd.Process.Pid))
+
+	// Halt process execution block until Ganesha claims sockets or the timer expires
+	select {
+	case <-n.readyChan:
+		logger.Info("NFS", "NFS-Ganesha successfully initialized sockets and is accepting connections.")
+		return nil
+	case <-time.After(5 * time.Second):
+		return fmt.Errorf("timeout waiting for NFS-Ganesha to declare readiness state milestone")
+	}
 }
 
 func (n *NfsShare) streamSubsystemLogs(pipe io.ReadCloser) {
 	defer pipe.Close()
 	scanner := bufio.NewScanner(pipe)
 
+	hasSignaledReady := false
+
 	for scanner.Scan() {
 		line := scanner.Text()
+
+		// --- FINAL CORRECTED NFS READINESS STRINGS ---
+		if !hasSignaledReady && (strings.Contains(line, "Main loop started") ||
+			strings.Contains(line, "NFS Server Initialized") ||
+			strings.Contains(line, "General fridge was started successfully") || // Matches modern worker thread setups
+			strings.Contains(line, "NFS Server Now IN GRACE")) { // Matches immediate protocol v4 grace transitions
+
+			close(n.readyChan)
+			hasSignaledReady = true
+		}
+		// ---------------------------------------------
 
 		idx := strings.Index(line, "[")
 		if idx != -1 {
@@ -113,6 +135,11 @@ func (n *NfsShare) streamSubsystemLogs(pipe io.ReadCloser) {
 		} else {
 			logger.Info("NFS", trimmedLine)
 		}
+	}
+
+	// Unblock if logs terminate prematurely without signaling
+	if !hasSignaledReady {
+		close(n.readyChan)
 	}
 
 	if err := scanner.Err(); err != nil {

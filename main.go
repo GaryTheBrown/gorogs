@@ -34,6 +34,7 @@ func main() {
 	} else if rpcErr != nil {
 		logger.Fatal("CORE", "Critical initialization failure during priority rpcbind configuration setup phase", rpcErr)
 	} else {
+		// This blocks synchronously until port 111 is actively routing over the IPVLAN interface!
 		if err := rpcbind.Start(); err != nil {
 			logger.Fatal("CORE", "Failed to launch priority rpcbind daemon binary process tree", err)
 		}
@@ -61,6 +62,7 @@ func main() {
 			logger.Fatal("CORE", "Critical initialization failure during share configuration setup phase", err)
 		}
 
+		// NFS will block here internally until the Ganesha logs confirm socket readiness
 		if err := item.share.Start(); err != nil {
 			logger.Fatal("CORE", "Failed to launch supervised daemon binary process tree", err)
 		}

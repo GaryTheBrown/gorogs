@@ -11,6 +11,8 @@ import (
 	"gorogs/logger"
 )
 
+// QueryNetworkLayout evaluates the active system network structures to identify
+// the container's designated unicast IP address and default host gateway.
 func QueryNetworkLayout() (net.IP, net.IP, error) {
 	containerIP := net.ParseIP("127.0.0.1")
 	gatewayIP := net.ParseIP("127.0.0.1")
@@ -64,4 +66,46 @@ func QueryNetworkLayout() (net.IP, net.IP, error) {
 	}
 
 	return containerIP, gatewayIP, nil
+}
+
+// InitializeNetworkEnvironment cleanly populates core network identity files
+// on disk so low-level system binaries can resolve names and map sockets at boot.
+func InitializeNetworkEnvironment(containerIP net.IP) error {
+	logger.Info("NETUTIL", "Synchronizing local system file structures with network layout...")
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "localhost"
+	}
+
+	// Cleanly bind loopback and our real external IPVLAN address to our hostname
+	hostsContent := fmt.Sprintf(
+		"127.0.0.1\tlocalhost\n"+
+			"::1\tlocalhost ip6-localhost ip6-loopback\n"+
+			"%s\t%s\n",
+		containerIP.String(), hostname,
+	)
+
+	if err := os.WriteFile("/etc/hosts", []byte(hostsContent), 0644); err != nil {
+		return fmt.Errorf("failed to rewrite system hosts table: %w", err)
+	}
+
+	// Standard name resolution fallback table required by glibc system routines
+	nsswitchContent := "passwd:         files\n" +
+		"group:          files\n" +
+		"shadow:         files\n" +
+		"gshadow:        files\n\n" +
+		"hosts:          files dns\n" +
+		"networks:       files\n\n" +
+		"protocols:      db files\n" +
+		"services:       db files\n" +
+		"ethers:         db files\n" +
+		"rpc:            db files\n"
+
+	if err := os.WriteFile("/etc/nsswitch.conf", []byte(nsswitchContent), 0644); err != nil {
+		return fmt.Errorf("failed to rewrite system name service switch table: %w", err)
+	}
+
+	logger.Info("NETUTIL", "System network files successfully initialized and synchronized on disk.")
+	return nil
 }
