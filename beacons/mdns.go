@@ -19,17 +19,17 @@ type MdnsBeacon struct {
 func (m *MdnsBeacon) Setup() error {
 	logger.Info("MDNS", "Evaluating network discovery broadcast requirements...")
 
-	if !config.Instance.MdnsEnabled {
+	if !config.MdnsEnabled {
 		logger.Info("MDNS", "Global Zeroconf kill switch active. Bypassing mDNS beacon manager.")
 		return ErrServiceDisabled
 	}
 
-	if !config.Instance.MdnsNfsEnabled && !config.Instance.MdnsSambaEnabled {
+	if !config.MdnsNfsEnabled && !config.MdnsSambaEnabled {
 		logger.Info("MDNS", "All specific mDNS sub-protocol advertisements are disabled. Bypassing beacon setup.")
 		return ErrServiceDisabled
 	}
 
-	if !config.Instance.NfsEnabled && !config.Instance.SambaEnabled {
+	if !config.NfsEnabled && !config.SambaEnabled {
 		logger.Info("MDNS", "No file storage shares are currently enabled. Bypassing unneeded mDNS server.")
 		return ErrServiceDisabled
 	}
@@ -62,11 +62,11 @@ func (m *MdnsBeacon) Start() error {
 }
 
 func (m *MdnsBeacon) listenForQueries() {
-	nodeName := config.Instance.Name
-	containerIP := config.Instance.ContainerIP
+	nodeName := config.Name
+	containerIP := config.ContainerIP
 
 	localHostTarget := fmt.Sprintf("%s.local.", nodeName)
-	fqdnHostTarget := fmt.Sprintf("%s.%s.", nodeName, config.Instance.DomainSuffix)
+	fqdnHostTarget := fmt.Sprintf("%s.%s.", nodeName, config.DomainSuffix)
 
 	servicesMetaRecord := "_services._dns-sd._udp.local."
 	txtRecords := []string{"path=/", fmt.Sprintf("host=%s", fqdnHostTarget)}
@@ -107,7 +107,7 @@ func (m *MdnsBeacon) listenForQueries() {
 					})
 
 					// 2. Dynamic NFS response packing
-					if config.Instance.NfsEnabled && config.Instance.MdnsNfsEnabled && (q.Name == servicesMetaRecord || q.Name == "_nfs._tcp.local.") {
+					if config.NfsEnabled && config.MdnsNfsEnabled && (q.Name == servicesMetaRecord || q.Name == "_nfs._tcp.local.") {
 						ptrName := "_nfs._tcp.local."
 						instanceName := fmt.Sprintf("%s.%s", nodeName, ptrName)
 
@@ -132,7 +132,7 @@ func (m *MdnsBeacon) listenForQueries() {
 					}
 
 					// 3. Dynamic Samba response packing
-					if config.Instance.SambaEnabled && config.Instance.MdnsSambaEnabled && (q.Name == servicesMetaRecord || q.Name == "_smb._tcp.local.") {
+					if config.SambaEnabled && config.MdnsSambaEnabled && (q.Name == servicesMetaRecord || q.Name == "_smb._tcp.local.") {
 						ptrName := "_smb._tcp.local."
 						instanceName := fmt.Sprintf("%s.%s", nodeName, ptrName)
 
@@ -168,11 +168,11 @@ func (m *MdnsBeacon) listenForQueries() {
 }
 
 func (m *MdnsBeacon) broadcastAnnouncement(ttl uint32) {
-	nodeName := config.Instance.Name
-	containerIP := config.Instance.ContainerIP
+	nodeName := config.Name
+	containerIP := config.ContainerIP
 
 	localHostTarget := fmt.Sprintf("%s.local.", nodeName)
-	fqdnHostTarget := fmt.Sprintf("%s.%s.", nodeName, config.Instance.DomainSuffix)
+	fqdnHostTarget := fmt.Sprintf("%s.%s.", nodeName, config.DomainSuffix)
 
 	multicastAddr, _ := net.ResolveUDPAddr("udp4", "224.0.0.251:5353")
 
@@ -197,7 +197,7 @@ func (m *MdnsBeacon) broadcastAnnouncement(ttl uint32) {
 
 	servicesMetaRecord := "_services._dns-sd._udp.local."
 
-	if config.Instance.NfsEnabled && config.Instance.MdnsNfsEnabled {
+	if config.NfsEnabled && config.MdnsNfsEnabled {
 		ptrName := "_nfs._tcp.local."
 		instanceName := fmt.Sprintf("%s.%s", nodeName, ptrName)
 
@@ -222,7 +222,7 @@ func (m *MdnsBeacon) broadcastAnnouncement(ttl uint32) {
 		}
 	}
 
-	if config.Instance.SambaEnabled && config.Instance.MdnsSambaEnabled {
+	if config.SambaEnabled && config.MdnsSambaEnabled {
 		ptrName := "_smb._tcp.local."
 		instanceName := fmt.Sprintf("%s.%s", nodeName, ptrName)
 

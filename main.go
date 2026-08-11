@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"gorogs/beacons"
+	"gorogs/beacons/wsdd"
 	"gorogs/config"
 	"gorogs/health"
 	"gorogs/logger"
@@ -15,9 +19,36 @@ import (
 )
 
 func main() {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Launch listener and receive its structural lifecycle tracking channel
+	listenerDone, err := incoming.StartUDPListener(ctx, "0.0.0.0:3702")
+	if err != nil {
+		log.Fatalf("Failed to initialize UDP engine: %v", err)
+	}
+
+	fmt.Println("File Server operating inside container environment...")
+
+	// Listen for Docker stop (SIGTERM) or Terminal interrupts (SIGINT)
+	stopChan := make(chan os.Signal, 1)
+	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
+
+	// // Block here until Docker says stop
+	// <-stopChan
+	// fmt.Println("Docker stop signal detected! Safely draining connections...")
+
+	// // Trigger the cleanup sequence
+	// cancel()
+
+	// // Block until the background threads confirm they have finished processing
+	// <-listenerDone
+	// fmt.Println("Container engine shut down gracefully. Exiting.")
+
 	utils.InitializeRuntimeConfig()
 
-	if config.Instance.IsCheckMode {
+	if config.IsCheckMode {
 		health.RunHealthProbeClient()
 		return
 	}
@@ -50,10 +81,10 @@ func main() {
 	}
 
 	for _, item := range activeShares {
-		if item.name == "nfs" && !config.Instance.NfsEnabled {
+		if item.name == "nfs" && !config.NfsEnabled {
 			continue
 		}
-		if item.name == "samba" && !config.Instance.SambaEnabled {
+		if item.name == "samba" && !config.SambaEnabled {
 			continue
 		}
 
@@ -75,11 +106,11 @@ func main() {
 		beacon beacons.DiscoveryBeacon
 	}{
 		{"mdns", &beacons.MdnsBeacon{}},
-		{"wsdd", &beacons.WsddBeacon{}},
+		{"wsdd", &wsdd.WsddBeacon{}},
 	}
 
 	for _, item := range activeBeacons {
-		if item.name == "wsdd" && !config.Instance.SambaEnabled {
+		if item.name == "wsdd" && !config.SambaEnabled {
 			continue
 		}
 

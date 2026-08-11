@@ -47,7 +47,7 @@ func StartHealthServer() {
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		isHealthy := true
 		failureMessage := ""
-		currentMode := config.Instance.HealthMode
+		currentMode := config.HealthMode
 
 		logger.Debug("HEALTH", fmt.Sprintf("Executing active evaluation loop under strategy level code: %d", currentMode))
 

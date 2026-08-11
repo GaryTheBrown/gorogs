@@ -17,7 +17,7 @@ const (
 // ShareRoot holds the absolute master storage path for the entire appliance
 const ShareRoot = "/srv"
 
-type HubConfig struct {
+var (
 	Name         string
 	DomainSuffix string
 	ContainerIP  net.IP
@@ -33,6 +33,4 @@ type HubConfig struct {
 	MdnsNfsEnabled     bool
 	MdnsSambaEnabled   bool
 	LiveChangesEnabled bool
-}
-
-var Instance *HubConfig
+)

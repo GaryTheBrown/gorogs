@@ -23,7 +23,7 @@ type RpcbindBeacon struct {
 func (r *RpcbindBeacon) Setup() error {
 	logger.Info("RPCBIND", "Evaluating protocol dependencies and pre-flight requirements...")
 
-	if !config.Instance.NfsEnabled {
+	if !config.NfsEnabled {
 		logger.Info("RPCBIND", "NFS storage daemon is disabled. Bypassing dependent RPC portmapper subsystem.")
 		return ErrServiceDisabled
 	}
@@ -62,9 +62,9 @@ func (r *RpcbindBeacon) Start() error {
 		rpcArgs = append(rpcArgs, "-d")
 	}
 
-	containerIPStr := config.Instance.ContainerIP.String()
+	containerIPStr := config.ContainerIP.String()
 
-	if !config.Instance.RpcbindEnabled {
+	if !config.RpcbindEnabled {
 		logger.Info("RPCBIND", "RPCBind flag set to disabled. Binding portmapper explicitly to container IP layout.")
 		rpcArgs = append(rpcArgs, "-h", containerIPStr)
 	}

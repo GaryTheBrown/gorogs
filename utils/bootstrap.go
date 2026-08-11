@@ -135,6 +135,6 @@ rpc:            db files
 	logger.Info("CONFIG", "Boot evaluation: Commencing structural system configuration analysis...")
 	logger.Info("CONFIG", fmt.Sprintf("Health Check Strategy Configured: Mode Level [%d]", resolvedLevel))
 	logger.Info("CONFIG", fmt.Sprintf("Evaluated service matrices: NFS=%v, SMB=%v, RPCBIND=%v, WSDD=%v, MDNS=%v",
-		config.Instance.NfsEnabled, config.Instance.SambaEnabled, config.Instance.RpcbindEnabled, config.Instance.WsddEnabled, config.Instance.MdnsEnabled))
+		config.NfsEnabled, config.SambaEnabled, config.RpcbindEnabled, config.WsddEnabled, config.MdnsEnabled))
 	logger.Info("CONFIG", fmt.Sprintf("Network bounds validated: Node Unicast IP=%s, Domain FQDN=%s.%s", cIP.String(), nodeName, detectedDomain))
 }
