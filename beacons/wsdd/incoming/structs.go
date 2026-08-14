@@ -7,9 +7,6 @@ import (
 	"gorogs/beacons/wsdd/versions"
 )
 
-// --------------
-// Tracking of schema struct
-// --------------
 type listsStruct struct {
 	Found         [versions.MaxSchemaType]bool
 	Shortcut      map[string]versions.SchemaTypeEnum
@@ -35,9 +32,6 @@ func NewListsStruct() *listsStruct {
 	}
 }
 
-// ---------------
-// xml output struct
-// ---------------
 type WSMessage struct {
 	Sender        net.Addr
 	SchemaVersion string
@@ -72,10 +66,6 @@ type WSMessage struct {
 		}
 	}
 }
-
-// ---------
-// XML STUFF
-// ---------
 type SoapEnvelope struct {
 	XMLName xml.Name   `xml:"Envelope"`
 	Attrs   []xml.Attr `xml:",attr"`

@@ -12,21 +12,11 @@ type ErrorDrop struct{}
 
 func (e ErrorDrop) Error() string { return "Drop Error" }
 
-// -----------------
-//
-//	Errors that are an actual Failures
-//
-// -----------------
 type ErrVersionNotFound ErrorFail
 
 func (e ErrVersionNotFound) Error() string { return "Version not found at this point" }
 func (e ErrVersionNotFound) Unwrap() error { return ErrorFail(e) }
 
-// -----------------
-//
-//	Errors that cause the package to be dropped
-//
-// -----------------
 type ErrBadSchemaUnmarshalFailed struct{ ErrorDrop, ExternalError error }
 
 func (e ErrBadSchemaUnmarshalFailed) Error() string {

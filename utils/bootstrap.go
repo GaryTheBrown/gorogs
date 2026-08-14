@@ -13,7 +13,7 @@ import (
 func InitializeRuntimeConfig() {
 	logger.RegisterDebugTargets(os.Getenv("DEBUG_LOG"))
 
-	// Explicitly target index 1 to resolve the string slice validation mismatch
+	
 	isCheck := len(os.Args) > 1 && os.Args[1] == "--check-health"
 
 	_, hasNfsKill := os.LookupEnv("DISABLE_NFS")
@@ -68,11 +68,9 @@ func InitializeRuntimeConfig() {
 			rScanner := bufio.NewScanner(file)
 			for rScanner.Scan() {
 				rLine := rScanner.Text()
-				// Look for the engine search domain entry (e.g., "search internal.thebrown.uk")
 				if strings.HasPrefix(rLine, "search ") {
 					fields := strings.Fields(rLine)
 					if len(fields) > 1 {
-						// Grab the primary domain suffix target
 						detectedDomain = fields[1]
 						logger.Info("CONFIG", "Successfully synchronized domain suffix from resolv engine: "+detectedDomain)
 						break
@@ -94,7 +92,6 @@ func InitializeRuntimeConfig() {
 		logger.Error("CONFIG", "Warning: Failed to construct runtime network boundary resolution mapping inside /etc/hosts", err)
 	}
 
-	// Generating a clean, un-truncated nsswitch configuration to force local file resolution matches first
 	nsswitchContent := `passwd:         files
 group:          files
 shadow:         files

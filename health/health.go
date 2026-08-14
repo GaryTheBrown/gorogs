@@ -13,7 +13,6 @@ import (
 	"gorogs/shares"
 )
 
-// Define the absolute local path for the Unix domain socket file
 const socketPath = "/run/gorogs-health.sock"
 
 var (
@@ -21,9 +20,8 @@ var (
 	TrackedBeacons = make(map[string]beacons.DiscoveryBeacon)
 )
 
-// RunHealthProbeClient triggers natively inside the container namespace via the --check-health flag
 func RunHealthProbeClient() {
-	// Connect straight to the local Unix socket file system pointer
+
 	client := http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
@@ -32,7 +30,6 @@ func RunHealthProbeClient() {
 		},
 	}
 
-	// The hostname part of the URL ("http://unix") is ignored by our local dialer
 	resp, err := client.Get("http://unix/healthz")
 	if err != nil || resp.StatusCode != http.StatusOK {
 		os.Exit(1)
@@ -41,7 +38,6 @@ func RunHealthProbeClient() {
 }
 
 func StartHealthServer() {
-	// Clean up any stale socket files left over from a dirty container crash/restart
 	_ = os.Remove(socketPath)
 
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +53,6 @@ func StartHealthServer() {
 			return
 		}
 
-		// 1. Process Core Storage Shares Matrix
 		for name, share := range TrackedShares {
 			if currentMode == config.LevelNfs && name != "nfs" {
 				continue
@@ -85,7 +80,6 @@ func StartHealthServer() {
 			}
 		}
 
-		// 2. Process Auxiliary Network Beacons Matrix
 		if isHealthy && currentMode != config.LevelShares && currentMode != config.LevelNfs && currentMode != config.LevelSamba {
 			for name, beacon := range TrackedBeacons {
 				err := beacon.Healthcheck()
@@ -119,14 +113,12 @@ func StartHealthServer() {
 	})
 
 	go func() {
-		// Listen natively on the Unix domain socket interface layer
 		listener, err := net.Listen("unix", socketPath)
 		if err != nil {
 			logger.Error("HEALTH", "Failed to bind to local Unix socket path", err)
 			return
 		}
 
-		// Restrict file permission so any user execution context inside the container can safely query it
 		_ = os.Chmod(socketPath, 0666)
 
 		if err := http.Serve(listener, nil); err != nil {

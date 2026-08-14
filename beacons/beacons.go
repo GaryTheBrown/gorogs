@@ -5,7 +5,6 @@ import (
 	"net"
 )
 
-// ErrServiceDisabled is returned during Setup to indicate a service is intentionally muted via env toggles
 var ErrServiceDisabled = errors.New("service is disabled via environment configuration parameters")
 
 type DiscoveryBeacon interface {

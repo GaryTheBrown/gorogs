@@ -79,7 +79,6 @@ func (m *MdnsBeacon) listenForQueries() {
 					resp.Compress = true
 					resp.Authoritative = true
 
-					// 1. Always append core A-Record translations to the payload
 					resp.Answer = append(resp.Answer, &dns.A{
 						Hdr: dns.RR_Header{Name: localHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 120},
 						A:   m.config.ContainerIP,
@@ -89,7 +88,6 @@ func (m *MdnsBeacon) listenForQueries() {
 						A:   m.config.ContainerIP,
 					})
 
-					// 2. Dynamic NFS response packing
 					if config.NfsEnabled && config.MdnsNfsEnabled && (q.Name == servicesMetaRecord || q.Name == "_nfs._tcp.local.") {
 						ptrName := "_nfs._tcp.local."
 						instanceName := fmt.Sprintf("%s.%s", m.config.ServerName, ptrName)
@@ -114,7 +112,6 @@ func (m *MdnsBeacon) listenForQueries() {
 						}
 					}
 
-					// 3. Dynamic Samba response packing
 					if config.SambaEnabled && config.MdnsSambaEnabled && (q.Name == servicesMetaRecord || q.Name == "_smb._tcp.local.") {
 						ptrName := "_smb._tcp.local."
 						instanceName := fmt.Sprintf("%s.%s", m.config.ServerName, ptrName)

@@ -49,9 +49,6 @@ func (s *SambaShare) writeMasterSambaConfig(serverName string) error {
 		"    map to guest = bad user\n" +
 		"    usershare allow guests = yes\n" +
 		"    usershare max shares = 0\n" +
-		// "    local master = no\n" +
-		// "    preferred master = no\n" +
-		// "    domain master = no\n" +
 		"\n" +
 		"    include = /dev/shm/smb-shares.conf\n"
 

@@ -83,7 +83,6 @@ func Fatal(subsystem, message string, err error) {
 	os.Exit(1)
 }
 
-// IsDebugActive allows submodules to verify if their specific flag is toggled on inside the registry
 func IsDebugActive(subsystem string) bool {
 	if allDebugActive {
 		return true

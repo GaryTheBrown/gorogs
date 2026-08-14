@@ -16,7 +16,7 @@ import (
 
 type NfsShare struct {
 	ganeshaCmd *exec.Cmd
-	readyChan  chan struct{} // Synchronizes Go lifecycle with Ganesha state
+	readyChan  chan struct{}
 }
 
 func (n *NfsShare) Setup() error {
@@ -69,7 +69,7 @@ func (n *NfsShare) writeGaneshaConfig() error {
 func (n *NfsShare) Start() error {
 	logger.Info("NFS", "Spawning containerised user-space NFS-Ganesha storage engine...")
 
-	n.readyChan = make(chan struct{}) // Initialize sync gateway
+	n.readyChan = make(chan struct{})
 
 	ganeshaArgs := []string{"-F", "-L", "/dev/stdout", "-f", "/etc/ganesha/ganesha.conf"}
 	if logger.IsDebugActive("nfs") {
@@ -93,7 +93,6 @@ func (n *NfsShare) Start() error {
 
 	logger.Info("NFS", fmt.Sprintf("NFS-Ganesha binary actively supervised under Process ID: %d. Waiting for socket readiness...", n.ganeshaCmd.Process.Pid))
 
-	// Halt process execution block until Ganesha claims sockets or the timer expires
 	select {
 	case <-n.readyChan:
 		logger.Info("NFS", "NFS-Ganesha successfully initialized sockets and is accepting connections.")
@@ -112,15 +111,12 @@ func (n *NfsShare) streamSubsystemLogs(pipe io.ReadCloser) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// --- GRACELESS READINESS STRINGS ---
 		if !hasSignaledReady && (strings.Contains(line, "NFS SERVER INITIALIZED") ||
 			strings.Contains(line, "General fridge was started successfully")) {
 
 			close(n.readyChan)
 			hasSignaledReady = true
 		}
-
-		// ---------------------------------------------
 
 		idx := strings.Index(line, "[")
 		if idx != -1 {
@@ -139,7 +135,6 @@ func (n *NfsShare) streamSubsystemLogs(pipe io.ReadCloser) {
 		}
 	}
 
-	// Unblock if logs terminate prematurely without signaling
 	if !hasSignaledReady {
 		close(n.readyChan)
 	}

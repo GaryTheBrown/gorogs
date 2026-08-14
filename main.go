@@ -33,9 +33,6 @@ func main() {
 	logger.Info("CORE", "Initializing master storage orchestration supervisor engine...")
 	health.StartHealthServer()
 
-	// -----------------------------------------------------------------
-	// PRIORITY INFRASTRUCTURE LAYER 1: rpcbind
-	// -----------------------------------------------------------------
 	rpcbind := &beacons.RpcbindBeacon{}
 	logger.Info("CORE", "Executing mandatory priority pre-flight checks for component: rpcbind")
 	rpcErr := rpcbind.Setup(beaconConfig)
@@ -51,9 +48,6 @@ func main() {
 		health.TrackedBeacons["rpcbind"] = rpcbind
 	}
 
-	// -----------------------------------------------------------------
-	// PRIORITY INFRASTRUCTURE LAYER 2: nmbd NetBIOS Discovery Beacon
-	// -----------------------------------------------------------------
 	if config.NmbdEnabled {
 		nmbdBeacon := &beacons.NetBIOSBeacon{}
 		logger.Info("CORE", "Executing mandatory priority pre-flight checks for component: nmbd")
@@ -70,9 +64,6 @@ func main() {
 		logger.Info("CORE", "NMBD setup notice: NetBIOS discovery beacon is deactivated via environment toggles.")
 	}
 
-	// -----------------------------------------------------------------
-	// STORAGE SHARE ARCHITECTURE CORES: nfs, samba
-	// -----------------------------------------------------------------
 	activeShares := []struct {
 		name  string
 		share shares.StorageShare
@@ -101,9 +92,6 @@ func main() {
 		health.TrackedShares[item.name] = item.share
 	}
 
-	// -----------------------------------------------------------------
-	// DISCOVERY BEACON NETWORK LAYERS: mdns, wsdd
-	// -----------------------------------------------------------------
 	activeBeacons := []struct {
 		name   string
 		beacon beacons.DiscoveryBeacon
@@ -141,7 +129,6 @@ func main() {
 	caughtSignal := <-shutdownSignalChan
 	logger.Info("CORE", "Interception caught system event signal: "+caughtSignal.String()+". Commencing orderly cleanup procedures...")
 
-	// Stops all tracked discovery handlers (including nmbd since it is registered in the map)
 	for name, beacon := range health.TrackedBeacons {
 		logger.Info("CORE", "Dismantling network beacon handler channels: "+name)
 		if err := beacon.Stop(); err != nil {

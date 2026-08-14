@@ -14,7 +14,6 @@ const (
 	LevelDisabled
 )
 
-// ShareRoot holds the absolute master storage path for the entire appliance
 const ShareRoot = "/srv"
 
 var (

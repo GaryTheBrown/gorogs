@@ -30,7 +30,6 @@ var SchemaList = SchemaListMap{
 	},
 }
 
-// TO Rules [version][request/reply]
 var ToValueList = map[string]map[string]string{
 	"2004/08": {
 		"request": "urn:schemas-xmlsoap-org:ws:2004:10:discovery",

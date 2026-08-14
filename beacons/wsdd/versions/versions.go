@@ -20,7 +20,7 @@ const (
 	DevProf
 	PnPX
 	Pub
-	// MaxSchemaType must stay at the bottom.
+
 	MaxSchemaType
 	UNKNOWNSCHEMA = MaxSchemaType
 )
@@ -57,7 +57,7 @@ const (
 	GetMetadataResponse
 	Get
 	GetResponse
-	// MaxActionType must stay at the bottom.
+
 	MaxActionType
 	UNKNOWNACTION = MaxActionType
 )

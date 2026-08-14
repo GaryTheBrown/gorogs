@@ -60,7 +60,6 @@ func HandleIncomingHTTPTransfer(w http.ResponseWriter, r *http.Request, outputCh
 
 	select {
 	case untypedResult := <-responsePipe:
-		// Recover our strong tracking types from the empty interface channel container safely
 		result, ok := untypedResult.(HTTPResponsePayload)
 		if !ok || result.Err != nil {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
