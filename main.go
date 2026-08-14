@@ -17,32 +17,6 @@ import (
 
 func main() {
 
-	// ctx, cancel := context.WithCancel(context.Background())
-	// defer cancel()
-
-	// // Launch listener and receive its structural lifecycle tracking channel
-	// listenerDone, err := incoming.StartUDPListener(ctx, "0.0.0.0:3702")
-	// if err != nil {
-	// 	log.Fatalf("Failed to initialize UDP engine: %v", err)
-	// }
-
-	// fmt.Println("File Server operating inside container environment...")
-
-	// // Listen for Docker stop (SIGTERM) or Terminal interrupts (SIGINT)
-	// stopChan := make(chan os.Signal, 1)
-	// signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
-
-	// // Block here until Docker says stop
-	// <-stopChan
-	// fmt.Println("Docker stop signal detected! Safely draining connections...")
-
-	// // Trigger the cleanup sequence
-	// cancel()
-
-	// // Block until the background threads confirm they have finished processing
-	// <-listenerDone
-	// fmt.Println("Container engine shut down gracefully. Exiting.")
-
 	utils.InitializeRuntimeConfig()
 
 	if config.IsCheckMode {
@@ -59,6 +33,9 @@ func main() {
 	logger.Info("CORE", "Initializing master storage orchestration supervisor engine...")
 	health.StartHealthServer()
 
+	// -----------------------------------------------------------------
+	// PRIORITY INFRASTRUCTURE LAYER 1: rpcbind
+	// -----------------------------------------------------------------
 	rpcbind := &beacons.RpcbindBeacon{}
 	logger.Info("CORE", "Executing mandatory priority pre-flight checks for component: rpcbind")
 	rpcErr := rpcbind.Setup(beaconConfig)
@@ -68,13 +45,34 @@ func main() {
 	} else if rpcErr != nil {
 		logger.Fatal("CORE", "Critical initialization failure during priority rpcbind configuration setup phase", rpcErr)
 	} else {
-		// This blocks synchronously until port 111 is actively routing over the IPVLAN interface!
 		if err := rpcbind.Start(); err != nil {
 			logger.Fatal("CORE", "Failed to launch priority rpcbind daemon binary process tree", err)
 		}
 		health.TrackedBeacons["rpcbind"] = rpcbind
 	}
 
+	// -----------------------------------------------------------------
+	// PRIORITY INFRASTRUCTURE LAYER 2: nmbd NetBIOS Discovery Beacon
+	// -----------------------------------------------------------------
+	if config.NmbdEnabled {
+		nmbdBeacon := &beacons.NetBIOSBeacon{}
+		logger.Info("CORE", "Executing mandatory priority pre-flight checks for component: nmbd")
+
+		if err := nmbdBeacon.Setup(beaconConfig); err != nil {
+			logger.Fatal("CORE", "Critical initialization failure during priority nmbd configuration setup phase", err)
+		}
+
+		if err := nmbdBeacon.Start(); err != nil {
+			logger.Fatal("CORE", "Failed to launch priority nmbd beacon binary process tree", err)
+		}
+		health.TrackedBeacons["nmbd"] = nmbdBeacon
+	} else {
+		logger.Info("CORE", "NMBD setup notice: NetBIOS discovery beacon is deactivated via environment toggles.")
+	}
+
+	// -----------------------------------------------------------------
+	// STORAGE SHARE ARCHITECTURE CORES: nfs, samba
+	// -----------------------------------------------------------------
 	activeShares := []struct {
 		name  string
 		share shares.StorageShare
@@ -96,7 +94,6 @@ func main() {
 			logger.Fatal("CORE", "Critical initialization failure during share configuration setup phase", err)
 		}
 
-		// NFS will block here internally until the Ganesha logs confirm socket readiness
 		if err := item.share.Start(); err != nil {
 			logger.Fatal("CORE", "Failed to launch supervised daemon binary process tree", err)
 		}
@@ -104,6 +101,9 @@ func main() {
 		health.TrackedShares[item.name] = item.share
 	}
 
+	// -----------------------------------------------------------------
+	// DISCOVERY BEACON NETWORK LAYERS: mdns, wsdd
+	// -----------------------------------------------------------------
 	activeBeacons := []struct {
 		name   string
 		beacon beacons.DiscoveryBeacon
@@ -141,6 +141,7 @@ func main() {
 	caughtSignal := <-shutdownSignalChan
 	logger.Info("CORE", "Interception caught system event signal: "+caughtSignal.String()+". Commencing orderly cleanup procedures...")
 
+	// Stops all tracked discovery handlers (including nmbd since it is registered in the map)
 	for name, beacon := range health.TrackedBeacons {
 		logger.Info("CORE", "Dismantling network beacon handler channels: "+name)
 		if err := beacon.Stop(); err != nil {

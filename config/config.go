@@ -28,6 +28,7 @@ var (
 	NfsEnabled         bool
 	SambaEnabled       bool
 	RpcbindEnabled     bool
+	NmbdEnabled        bool
 	WsddEnabled        bool
 	MdnsEnabled        bool
 	MdnsNfsEnabled     bool

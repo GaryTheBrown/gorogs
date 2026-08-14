@@ -18,7 +18,7 @@ import (
 
 type SambaShare struct {
 	cmd       *exec.Cmd
-	readyChan chan struct{} // Synchronises Go lifecycle with Samba state
+	readyChan chan struct{}
 }
 
 func (s *SambaShare) Setup() error {
@@ -37,7 +37,7 @@ func (s *SambaShare) Setup() error {
 }
 
 func (s *SambaShare) writeMasterSambaConfig(serverName string) error {
-	masterConfigPath := "/etc/samba/smb.conf"
+	masterConfigPath := "/etc/samba/smbd.conf"
 
 	masterContent := "[global]\n" +
 		"    netbios name = " + serverName + "\n" +
@@ -49,9 +49,10 @@ func (s *SambaShare) writeMasterSambaConfig(serverName string) error {
 		"    map to guest = bad user\n" +
 		"    usershare allow guests = yes\n" +
 		"    usershare max shares = 0\n" +
-		"    local master = no\n" +
-		"    preferred master = no\n" +
-		"    domain master = no\n\n" +
+		// "    local master = no\n" +
+		// "    preferred master = no\n" +
+		// "    domain master = no\n" +
+		"\n" +
 		"    include = /dev/shm/smb-shares.conf\n"
 
 	return os.WriteFile(masterConfigPath, []byte(masterContent), 0644)
@@ -98,19 +99,18 @@ func (s *SambaShare) writeDynamicSharesConfig() error {
 }
 
 func (s *SambaShare) Start() error {
-	logger.Info("SAMBA", "Spawning system Samba background engine...")
+	logger.Info("SAMBA", "Spawning primary Samba smbd background engine...")
 
 	s.readyChan = make(chan struct{})
 
-	// Appended --debug-stdout to intercept execution output safely into the pipes
-	s.cmd = exec.Command("/usr/sbin/smbd", "--foreground", "--no-process-group", "--debug-stdout", "-s", "/etc/samba/smb.conf")
+	s.cmd = exec.Command("/usr/sbin/smbd", "--foreground", "--no-process-group", "--debug-stdout", "-s", "/etc/samba/smbd.conf")
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	sambaPipe, err := s.cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to link Samba stdout processing pipeline: %w", err)
 	}
-	s.cmd.Stderr = s.cmd.Stdout // Combine stderr stream to handle both through our scanner loop
+	s.cmd.Stderr = s.cmd.Stdout
 
 	if err := s.cmd.Start(); err != nil {
 		return fmt.Errorf("failed to initialize background smbd execution tracking loop: %w", err)
@@ -120,7 +120,6 @@ func (s *SambaShare) Start() error {
 
 	logger.Info("SAMBA", fmt.Sprintf("Samba background engine active under operational Process ID: %d. Waiting for socket readiness...", s.cmd.Process.Pid))
 
-	// TIMING FIX: Blocks the main orchestration thread until Samba confirms it is listening
 	select {
 	case <-s.readyChan:
 		logger.Info("SAMBA", "Samba successfully bound network ports and is accepting incoming client requests.")
@@ -143,8 +142,6 @@ func (s *SambaShare) streamSubsystemLogs(pipe io.ReadCloser) {
 			continue
 		}
 
-		// Intercept standard Samba service milestone notifications to release execution latch
-		// smbd logs "smbd version ... started" or "smbd_open_once_socket" when ready
 		if !hasSignaledReady && (strings.Contains(line, "started") || strings.Contains(line, "Ready for connections") || strings.Contains(line, "smbd_open_once_socket")) {
 			close(s.readyChan)
 			hasSignaledReady = true
