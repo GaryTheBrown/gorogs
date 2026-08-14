@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"gorogs/beacons"
 	"gorogs/beacons/wsdd/connection"
 	"gorogs/beacons/wsdd/incoming"
 	"gorogs/beacons/wsdd/templates"
@@ -14,8 +15,7 @@ type EngineState struct {
 	DiscoveryQueue chan incoming.WSMessage
 	ListenerDone   <-chan struct{}
 	ServiceDone    chan struct{}
-	ServerName     string
-	HostIP         string
+	Config         beacons.AppConfig
 	InstanceUUID   string
 }
 
@@ -26,10 +26,10 @@ func NewEngineState() *EngineState {
 	}
 }
 
-func StartEngine(ctx context.Context, s *EngineState, serverName, hostIP, configDir string) error {
-	s.ServerName = serverName
-	s.HostIP = hostIP
-	s.InstanceUUID = templates.LoadOrCreatePersistentUUID(configDir, serverName)
+func StartEngine(ctx context.Context, s *EngineState, config beacons.AppConfig, configDir string) error {
+	s.Config = config
+
+	s.InstanceUUID = templates.LoadOrCreatePersistentUUID(configDir, s.Config.ServerName)
 	incoming.InstanceUUID = s.InstanceUUID
 
 	logger.Info("wsdd", "Configuring centralized "+connection.DiscoveryMulticastPort+" UDP socket infrastructure parameters")
@@ -49,7 +49,7 @@ func StartEngine(ctx context.Context, s *EngineState, serverName, hostIP, config
 		return err
 	}
 
-	logger.Info("wsdd", fmt.Sprintf("Initializing engine multicast routing on interface address: %s", s.HostIP))
+	logger.Info("wsdd", fmt.Sprintf("Initializing engine multicast routing on interface address: %s", s.Config.ContainerIP))
 	doneChan, err := connection.UDPListener(ctx, s.DiscoveryQueue)
 	if err != nil {
 		logger.Error("wsdd", "Failed to construct low-level network reader socket", err)
@@ -112,8 +112,7 @@ func ExecuteProbeAction(s *EngineState, msg incoming.WSMessage) {
 		versions.SchemaList[msg.SchemaVersion][versions.Discovery],
 		versions.ProbeMatches.String(),
 		msg.Header.MessageID,
-		s.ServerName,
-		s.HostIP,
+		s.Config,
 		s.InstanceUUID,
 	)
 	if err != nil {
@@ -142,8 +141,7 @@ func ExecuteResolveAction(s *EngineState, msg incoming.WSMessage) {
 		versions.SchemaList[msg.SchemaVersion][versions.Discovery],
 		versions.ResolveMatches.String(),
 		msg.Header.MessageID,
-		s.ServerName,
-		s.HostIP,
+		s.Config,
 		s.InstanceUUID,
 	)
 	if err != nil {
@@ -178,8 +176,7 @@ func ExecuteGetAction(s *EngineState, msg incoming.WSMessage) {
 		versions.TransferSchema,
 		"GetResponse",
 		msg.Header.MessageID,
-		s.ServerName,
-		s.HostIP,
+		s.Config,
 		s.InstanceUUID,
 	)
 	if err != nil {
@@ -204,8 +201,7 @@ func BroadcastHello(s *EngineState) {
 			versions.SchemaList[schemaVersion][versions.Discovery],
 			versions.Hello.String(),
 			"",
-			s.ServerName,
-			s.HostIP,
+			s.Config,
 			s.InstanceUUID,
 		)
 		if err != nil {
@@ -231,8 +227,7 @@ func BroadcastBye(s *EngineState) {
 			versions.SchemaList[schemaVersion][versions.Discovery],
 			versions.Bye.String(),
 			"",
-			s.ServerName,
-			s.HostIP,
+			s.Config,
 			s.InstanceUUID,
 		)
 		if err != nil {

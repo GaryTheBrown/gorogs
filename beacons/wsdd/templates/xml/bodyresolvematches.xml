@@ -4,7 +4,7 @@
 <wsa:Address>urn:uuid:{{.InstanceUUID}}</wsa:Address>
 </wsa:EndpointReference>
 <wsd:Types>pub:Computer</wsd:Types>
-<wsd:Scopes>{{schema . "pub"}}/Computer/{{.ServerName}}</wsd:Scopes>
+<wsd:Scopes>{{schema . "pub"}}/Computer/{{.ServerName}}{{.DomainSuffix}}</wsd:Scopes>
 <wsd:XAddrs>http://{{.HostIP}}:5357/</wsd:XAddrs>
 <wsd:MetadataVersion>1</wsd:MetadataVersion>
 </wsd:ResolveMatch>

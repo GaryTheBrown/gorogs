@@ -34,8 +34,7 @@ func (w *WsddBeacon) Start() error {
 	err := engine.StartEngine(
 		w.ctx,
 		w.state,
-		w.config.ServerName,
-		w.config.ContainerIP.String(),
+		w.config,
 		"/config",
 	)
 	if err != nil {

@@ -3,6 +3,7 @@ package templates
 import (
 	"bytes"
 	"fmt"
+	"gorogs/beacons"
 	"gorogs/beacons/wsdd/versions"
 	"gorogs/logger"
 	"strings"
@@ -29,6 +30,7 @@ type TemplateContext struct {
 	ServerName         string
 	Workgroup          string
 	HostIP             string
+	DomainSuffix       string
 }
 
 var schemaIndexMap map[string]int
@@ -87,7 +89,7 @@ func BuildEnvelopeAttributes(schemaArray versions.SchemaListArray) string {
 	return sb.String()
 }
 
-func GenerateXMLResponse(currentVersion string, to string, actionurl string, action string, trackingMsgID string, serverName string, hostIP string, instanceUUID string) ([]byte, error) {
+func GenerateXMLResponse(currentVersion string, to string, actionurl string, action string, trackingMsgID string, config beacons.AppConfig, instanceUUID string) ([]byte, error) {
 	logger.Debug("wsdd", fmt.Sprintf("Generating XML payload configuration contexts for current action type match target: %s", action))
 	activeSchemaArray := versions.SchemaList[currentVersion]
 	bodyFilename := "body" + strings.ToLower(action)
@@ -114,9 +116,10 @@ func GenerateXMLResponse(currentVersion string, to string, actionurl string, act
 		MessageNumber:      getNextMessageNumber(),
 		InstanceUUID:       instanceUUID,
 		MetadataVersion:    1,
-		ServerName:         serverName,
+		ServerName:         config.ServerName,
 		Workgroup:          "WORKGROUP",
-		HostIP:             hostIP,
+		HostIP:             config.ContainerIP.String(),
+		DomainSuffix:       config.DomainSuffix,
 	}
 
 	if strings.ToLower(action) == "bye" {

@@ -4,7 +4,7 @@
 <wsa:Address>urn:uuid:{{.InstanceUUID}}</wsa:Address>
 </wsa:EndpointReference>
 <wsd:Types>pub:Computer</wsd:Types>
-<wsd:Scopes>{{schema . "pub"}}/Computer/{{.ServerName}}</wsd:Scopes>
+<wsd:Scopes>{{schema . "pub"}}/Computer/{{.ServerName}}{{.DomainSuffix}}</wsd:Scopes>
 <wsd:XAddrs></wsd:XAddrs>
 <wsd:MetadataVersion>{{.MetadataVersion}}</wsd:MetadataVersion>
 </wsd:ProbeMatch>

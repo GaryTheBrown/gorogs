@@ -48,21 +48,21 @@ func main() {
 		health.TrackedBeacons["rpcbind"] = rpcbind
 	}
 
-	if config.NmbdEnabled {
-		nmbdBeacon := &beacons.NetBIOSBeacon{}
-		logger.Info("CORE", "Executing mandatory priority pre-flight checks for component: nmbd")
+	// if config.NmbdEnabled {
+	// 	nmbdBeacon := &beacons.NetBIOSBeacon{}
+	// 	logger.Info("CORE", "Executing mandatory priority pre-flight checks for component: nmbd")
 
-		if err := nmbdBeacon.Setup(beaconConfig); err != nil {
-			logger.Fatal("CORE", "Critical initialization failure during priority nmbd configuration setup phase", err)
-		}
+	// 	if err := nmbdBeacon.Setup(beaconConfig); err != nil {
+	// 		logger.Fatal("CORE", "Critical initialization failure during priority nmbd configuration setup phase", err)
+	// 	}
 
-		if err := nmbdBeacon.Start(); err != nil {
-			logger.Fatal("CORE", "Failed to launch priority nmbd beacon binary process tree", err)
-		}
-		health.TrackedBeacons["nmbd"] = nmbdBeacon
-	} else {
-		logger.Info("CORE", "NMBD setup notice: NetBIOS discovery beacon is deactivated via environment toggles.")
-	}
+	// 	if err := nmbdBeacon.Start(); err != nil {
+	// 		logger.Fatal("CORE", "Failed to launch priority nmbd beacon binary process tree", err)
+	// 	}
+	// 	health.TrackedBeacons["nmbd"] = nmbdBeacon
+	// } else {
+	// 	logger.Info("CORE", "NMBD setup notice: NetBIOS discovery beacon is deactivated via environment toggles.")
+	// }
 
 	activeShares := []struct {
 		name  string
