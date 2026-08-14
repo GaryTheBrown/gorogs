@@ -2,6 +2,7 @@ package shares
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -14,11 +15,14 @@ import (
 
 	"gorogs/config"
 	"gorogs/logger"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 type SambaShare struct {
-	cmd       *exec.Cmd
-	readyChan chan struct{}
+	cmd         *exec.Cmd
+	readyChan   chan struct{}      // Synchronises Go lifecycle with Samba state
+	cancelWatch context.CancelFunc // Cleans up dynamic directory tracking threads on Stop
 }
 
 func (s *SambaShare) Setup() error {
@@ -120,9 +124,86 @@ func (s *SambaShare) Start() error {
 	select {
 	case <-s.readyChan:
 		logger.Info("SAMBA", "Samba successfully bound network ports and is accepting incoming client requests.")
+
+		// LIVE CHANGES PIPELINE CONFIGURATION CHECK
+		if config.LiveChangesEnabled {
+			watchCtx, cancel := context.WithCancel(context.Background())
+			s.cancelWatch = cancel
+			go s.startFSEventDirectoryWatcher(watchCtx)
+		} else {
+			logger.Info("SAMBA", "Live share adjustments are deactivated via system configuration flags.")
+		}
+
 		return nil
 	case <-time.After(5 * time.Second):
 		return fmt.Errorf("timeout waiting for Samba daemon process tree to declare socket readiness")
+	}
+}
+
+func (s *SambaShare) startFSEventDirectoryWatcher(ctx context.Context) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		logger.Error("SAMBA", "Failed to initialize fsnotify monitor subsystem hook", err)
+		return
+	}
+	defer watcher.Close()
+
+	if err := watcher.Add(config.ShareRoot); err != nil {
+		logger.Error("SAMBA", "Failed to register directory target inside fsnotify monitor tracking path: "+config.ShareRoot, err)
+		return
+	}
+
+	logger.Info("SAMBA", "Live FS event-driven tracking loop successfully online monitoring path: "+config.ShareRoot)
+
+	var debounceTimer *time.Timer
+	const debounceDuration = 250 * time.Millisecond
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Debug("SAMBA", "Live share tracking event loop terminated cleanly.")
+			return
+
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return
+			}
+
+			// Capture directory changes: creations, removals, and renames
+			if event.Has(fsnotify.Create) || event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
+				logger.Debug("SAMBA", fmt.Sprintf("FS Event intercepted -> Action: %s on Path: %s", event.Op.String(), event.Name))
+
+				if debounceTimer != nil {
+					debounceTimer.Stop()
+				}
+
+				// Reset the rolling debouncer execution latch timer
+				debounceTimer = time.AfterFunc(debounceDuration, func() {
+					logger.Info("SAMBA", "FSEvent stabilization window cleared. Recompiling dynamic shares...")
+
+					// 1. Rebuild the dynamic shares configuration tracking file
+					if err := s.writeDynamicSharesConfig(); err != nil {
+						logger.Error("SAMBA", "Failed to compile updated share text block modifications to memory configuration space", err)
+						return
+					}
+
+					// 2. Dispatch a SIGHUP signal directly to smbd to trigger a seamless hot-reload
+					if s.cmd != nil && s.cmd.Process != nil {
+						if err := s.cmd.Process.Signal(syscall.SIGHUP); err != nil {
+							logger.Error("SAMBA", "Failed to transmit SIGHUP configuration hot-reload trigger command to smbd process", err)
+						} else {
+							logger.Info("SAMBA", "Samba hot-reload signal executed successfully. Share changes are live with zero client downtime.")
+						}
+					}
+				})
+			}
+
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
+			logger.Error("SAMBA", "Inbound filesystem monitor tracking pipeline encountered an asynchronous operation fault", err)
+		}
 	}
 }
 
@@ -170,6 +251,11 @@ func (s *SambaShare) Healthcheck() error {
 func (s *SambaShare) IsCritical() bool { return true }
 
 func (s *SambaShare) Stop() error {
+	// Cancel the active background fsnotify watcher context cleanly
+	if s.cancelWatch != nil {
+		s.cancelWatch()
+	}
+
 	if s.cmd == nil || s.cmd.Process == nil {
 		return nil
 	}
