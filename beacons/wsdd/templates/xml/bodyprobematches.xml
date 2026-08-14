@@ -1,0 +1,11 @@
+<wsd:ProbeMatches>
+<wsd:ProbeMatch>
+<wsa:EndpointReference>
+<wsa:Address>urn:uuid:{{.InstanceUUID}}</wsa:Address>
+</wsa:EndpointReference>
+<wsd:Types>pub:Computer</wsd:Types>
+<wsd:Scopes>{{schema . "pub"}}/Computer/{{.ServerName}}</wsd:Scopes>
+<wsd:XAddrs></wsd:XAddrs>
+<wsd:MetadataVersion>{{.MetadataVersion}}</wsd:MetadataVersion>
+</wsd:ProbeMatch>
+</wsd:ProbeMatches>

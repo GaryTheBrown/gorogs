@@ -24,7 +24,7 @@ type SambaShare struct {
 func (s *SambaShare) Setup() error {
 	logger.Info("SAMBA", "Commencing pre-flight checks and configuration layout parsing...")
 
-	if err := s.writeMasterSambaConfig(); err != nil {
+	if err := s.writeMasterSambaConfig(config.Name); err != nil {
 		return fmt.Errorf("failed to execute master config write utility: %w", err)
 	}
 
@@ -36,11 +36,12 @@ func (s *SambaShare) Setup() error {
 	return nil
 }
 
-func (s *SambaShare) writeMasterSambaConfig() error {
+func (s *SambaShare) writeMasterSambaConfig(serverName string) error {
 	masterConfigPath := "/etc/samba/smb.conf"
 
 	masterContent := "[global]\n" +
-		"    server string = Unified Media Hub\n" +
+		"    netbios name = " + serverName + "\n" +
+		"    server string = Read only Share\n" +
 		"    log file = /var/log/samba/log.%%m\n" +
 		"    max log size = 1000\n" +
 		"    logging = file\n" +

@@ -12,28 +12,14 @@ import (
 )
 
 type MdnsBeacon struct {
-	conn *net.UDPConn
-	done chan struct{}
+	config AppConfig
+	conn   *net.UDPConn
+	done   chan struct{}
 }
 
-func (m *MdnsBeacon) Setup() error {
+func (m *MdnsBeacon) Setup(config AppConfig) error {
 	logger.Info("MDNS", "Evaluating network discovery broadcast requirements...")
-
-	if !config.MdnsEnabled {
-		logger.Info("MDNS", "Global Zeroconf kill switch active. Bypassing mDNS beacon manager.")
-		return ErrServiceDisabled
-	}
-
-	if !config.MdnsNfsEnabled && !config.MdnsSambaEnabled {
-		logger.Info("MDNS", "All specific mDNS sub-protocol advertisements are disabled. Bypassing beacon setup.")
-		return ErrServiceDisabled
-	}
-
-	if !config.NfsEnabled && !config.SambaEnabled {
-		logger.Info("MDNS", "No file storage shares are currently enabled. Bypassing unneeded mDNS server.")
-		return ErrServiceDisabled
-	}
-
+	m.config = config
 	logger.Info("MDNS", "Pre-flight checks passed. Service registration profile is valid.")
 	return nil
 }
@@ -62,11 +48,8 @@ func (m *MdnsBeacon) Start() error {
 }
 
 func (m *MdnsBeacon) listenForQueries() {
-	nodeName := config.Name
-	containerIP := config.ContainerIP
-
-	localHostTarget := fmt.Sprintf("%s.local.", nodeName)
-	fqdnHostTarget := fmt.Sprintf("%s.%s.", nodeName, config.DomainSuffix)
+	localHostTarget := fmt.Sprintf("%s.local.", m.config.ServerName)
+	fqdnHostTarget := fmt.Sprintf("%s.%s.", m.config.ServerName, m.config.DomainSuffix)
 
 	servicesMetaRecord := "_services._dns-sd._udp.local."
 	txtRecords := []string{"path=/", fmt.Sprintf("host=%s", fqdnHostTarget)}
@@ -99,17 +82,17 @@ func (m *MdnsBeacon) listenForQueries() {
 					// 1. Always append core A-Record translations to the payload
 					resp.Answer = append(resp.Answer, &dns.A{
 						Hdr: dns.RR_Header{Name: localHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 120},
-						A:   containerIP,
+						A:   m.config.ContainerIP,
 					})
 					resp.Answer = append(resp.Answer, &dns.A{
 						Hdr: dns.RR_Header{Name: fqdnHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 120},
-						A:   containerIP,
+						A:   m.config.ContainerIP,
 					})
 
 					// 2. Dynamic NFS response packing
 					if config.NfsEnabled && config.MdnsNfsEnabled && (q.Name == servicesMetaRecord || q.Name == "_nfs._tcp.local.") {
 						ptrName := "_nfs._tcp.local."
-						instanceName := fmt.Sprintf("%s.%s", nodeName, ptrName)
+						instanceName := fmt.Sprintf("%s.%s", m.config.ServerName, ptrName)
 
 						resp.Answer = append(resp.Answer, &dns.PTR{
 							Hdr: dns.RR_Header{Name: servicesMetaRecord, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 120},
@@ -134,7 +117,7 @@ func (m *MdnsBeacon) listenForQueries() {
 					// 3. Dynamic Samba response packing
 					if config.SambaEnabled && config.MdnsSambaEnabled && (q.Name == servicesMetaRecord || q.Name == "_smb._tcp.local.") {
 						ptrName := "_smb._tcp.local."
-						instanceName := fmt.Sprintf("%s.%s", nodeName, ptrName)
+						instanceName := fmt.Sprintf("%s.%s", m.config.ServerName, ptrName)
 
 						resp.Answer = append(resp.Answer, &dns.PTR{
 							Hdr: dns.RR_Header{Name: servicesMetaRecord, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 120},
@@ -168,11 +151,8 @@ func (m *MdnsBeacon) listenForQueries() {
 }
 
 func (m *MdnsBeacon) broadcastAnnouncement(ttl uint32) {
-	nodeName := config.Name
-	containerIP := config.ContainerIP
-
-	localHostTarget := fmt.Sprintf("%s.local.", nodeName)
-	fqdnHostTarget := fmt.Sprintf("%s.%s.", nodeName, config.DomainSuffix)
+	localHostTarget := fmt.Sprintf("%s.local.", m.config.ServerName)
+	fqdnHostTarget := fmt.Sprintf("%s.%s.", m.config.ServerName, config.DomainSuffix)
 
 	multicastAddr, _ := net.ResolveUDPAddr("udp4", "224.0.0.251:5353")
 
@@ -183,11 +163,11 @@ func (m *MdnsBeacon) broadcastAnnouncement(ttl uint32) {
 
 	msg.Answer = append(msg.Answer, &dns.A{
 		Hdr: dns.RR_Header{Name: localHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttl},
-		A:   containerIP,
+		A:   m.config.ContainerIP,
 	})
 	msg.Answer = append(msg.Answer, &dns.A{
 		Hdr: dns.RR_Header{Name: fqdnHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttl},
-		A:   containerIP,
+		A:   m.config.ContainerIP,
 	})
 
 	txtRecords := []string{
@@ -199,7 +179,7 @@ func (m *MdnsBeacon) broadcastAnnouncement(ttl uint32) {
 
 	if config.NfsEnabled && config.MdnsNfsEnabled {
 		ptrName := "_nfs._tcp.local."
-		instanceName := fmt.Sprintf("%s.%s", nodeName, ptrName)
+		instanceName := fmt.Sprintf("%s.%s", m.config.ServerName, ptrName)
 
 		msg.Answer = append(msg.Answer, &dns.PTR{
 			Hdr: dns.RR_Header{Name: servicesMetaRecord, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
@@ -224,7 +204,7 @@ func (m *MdnsBeacon) broadcastAnnouncement(ttl uint32) {
 
 	if config.SambaEnabled && config.MdnsSambaEnabled {
 		ptrName := "_smb._tcp.local."
-		instanceName := fmt.Sprintf("%s.%s", nodeName, ptrName)
+		instanceName := fmt.Sprintf("%s.%s", m.config.ServerName, ptrName)
 
 		msg.Answer = append(msg.Answer, &dns.PTR{
 			Hdr: dns.RR_Header{Name: servicesMetaRecord, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},

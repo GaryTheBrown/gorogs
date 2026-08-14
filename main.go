@@ -1,9 +1,6 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,20 +17,20 @@ import (
 
 func main() {
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
 
-	// Launch listener and receive its structural lifecycle tracking channel
-	listenerDone, err := incoming.StartUDPListener(ctx, "0.0.0.0:3702")
-	if err != nil {
-		log.Fatalf("Failed to initialize UDP engine: %v", err)
-	}
+	// // Launch listener and receive its structural lifecycle tracking channel
+	// listenerDone, err := incoming.StartUDPListener(ctx, "0.0.0.0:3702")
+	// if err != nil {
+	// 	log.Fatalf("Failed to initialize UDP engine: %v", err)
+	// }
 
-	fmt.Println("File Server operating inside container environment...")
+	// fmt.Println("File Server operating inside container environment...")
 
-	// Listen for Docker stop (SIGTERM) or Terminal interrupts (SIGINT)
-	stopChan := make(chan os.Signal, 1)
-	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
+	// // Listen for Docker stop (SIGTERM) or Terminal interrupts (SIGINT)
+	// stopChan := make(chan os.Signal, 1)
+	// signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
 
 	// // Block here until Docker says stop
 	// <-stopChan
@@ -53,12 +50,18 @@ func main() {
 		return
 	}
 
+	beaconConfig := beacons.AppConfig{
+		ServerName:   config.Name,
+		DomainSuffix: config.DomainSuffix,
+		ContainerIP:  config.ContainerIP,
+		HostGateway:  config.HostGateway,
+	}
 	logger.Info("CORE", "Initializing master storage orchestration supervisor engine...")
 	health.StartHealthServer()
 
 	rpcbind := &beacons.RpcbindBeacon{}
 	logger.Info("CORE", "Executing mandatory priority pre-flight checks for component: rpcbind")
-	rpcErr := rpcbind.Setup()
+	rpcErr := rpcbind.Setup(beaconConfig)
 
 	if rpcErr == beacons.ErrServiceDisabled {
 		logger.Info("CORE", "RPCBIND setup notice: Service is deactivated via environment toggles.")
@@ -115,7 +118,7 @@ func main() {
 		}
 
 		logger.Info("CORE", "Executing setup checks for component: "+item.name)
-		err := item.beacon.Setup()
+		err := item.beacon.Setup(beaconConfig)
 
 		if err == beacons.ErrServiceDisabled {
 			continue

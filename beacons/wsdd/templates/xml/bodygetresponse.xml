@@ -1,0 +1,6 @@
+<wsdp:Relationship Type="{{schema . "wsdp"}}/Relationship">
+<wsdp:Host>
+<wsdp:Types>pub:Computer</wsdp:Types>
+<pub:Computer>{{.ServerName}}\Workgroup:{{.Workgroup}}</pub:Computer>
+</wsdp:Host>
+</wsdp:Relationship>

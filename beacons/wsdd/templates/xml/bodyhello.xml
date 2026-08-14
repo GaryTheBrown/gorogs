@@ -1,0 +1,9 @@
+<wsd:Hello>
+<wsa:EndpointReference>
+<wsa:Address>urn:uuid:{{.InstanceUUID}}</wsa:Address>
+</wsa:EndpointReference>
+<wsd:Types>wsdp:Device pub:Computer</wsd:Types>
+<wsd:Scopes>{{schema . "un0"}}/flow/content/{{.ServerName}} ldap:///ou={{.Workgroup}},o=Microsoft</wsd:Scopes>
+<wsd:XAddrs>http://{{.HostIP}}:5357/{{.InstanceUUID}}</wsd:XAddrs>
+<wsd:MetadataVersion>{{.MetadataVersion}}</wsd:MetadataVersion>
+</wsd:Hello>

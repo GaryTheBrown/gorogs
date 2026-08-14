@@ -20,14 +20,8 @@ type RpcbindBeacon struct {
 	statdCmd *exec.Cmd
 }
 
-func (r *RpcbindBeacon) Setup() error {
+func (r *RpcbindBeacon) Setup(config AppConfig) error {
 	logger.Info("RPCBIND", "Evaluating protocol dependencies and pre-flight requirements...")
-
-	if !config.NfsEnabled {
-		logger.Info("RPCBIND", "NFS storage daemon is disabled. Bypassing dependent RPC portmapper subsystem.")
-		return ErrServiceDisabled
-	}
-
 	// 1. Create the system termination tracking directory
 	rpcPath := "/run/sendsigs.omit.d"
 	if err := os.MkdirAll(rpcPath, 0755); err != nil {

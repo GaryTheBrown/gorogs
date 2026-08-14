@@ -1,0 +1,7 @@
+<wsd:Bye>
+<wsa:EndpointReference>
+<wsa:Address>urn:uuid:{{.InstanceUUID}}</wsa:Address>
+</wsa:EndpointReference>
+<wsd:Types>wsdp:Device pub:Computer</wsd:Types>
+<wsd:MetadataVersion>{{.MetadataVersion}}</wsd:MetadataVersion>
+</wsd:Bye>

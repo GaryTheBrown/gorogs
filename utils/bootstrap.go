@@ -111,22 +111,20 @@ rpc:            db files
 		logger.Error("CONFIG", "Warning: Failed to construct mandatory operating system resolution priority layer inside /etc/nsswitch.conf", err)
 	}
 
-	config.Instance = &config.HubConfig{
-		Name:               nodeName,
-		DomainSuffix:       detectedDomain,
-		ContainerIP:        cIP,
-		HostGateway:        gIP,
-		IsCheckMode:        isCheck,
-		HealthMode:         resolvedLevel,
-		NfsEnabled:         !hasNfsKill,
-		SambaEnabled:       !hasSambaKill,
-		RpcbindEnabled:     !hasRpcbindKill && !hasNfsKill,
-		WsddEnabled:        !hasWsddKill && !hasSambaKill,
-		MdnsEnabled:        !hasMdnsKill,
-		MdnsNfsEnabled:     !hasNfsKill && !hasMdnsNfsKill,
-		MdnsSambaEnabled:   !hasSambaKill && !hasMdnsSambaKill,
-		LiveChangesEnabled: !hasLiveKill,
-	}
+	config.Name = nodeName
+	config.DomainSuffix = detectedDomain
+	config.ContainerIP = cIP
+	config.HostGateway = gIP
+	config.IsCheckMode = isCheck
+	config.HealthMode = resolvedLevel
+	config.NfsEnabled = !hasNfsKill
+	config.SambaEnabled = !hasSambaKill
+	config.RpcbindEnabled = !hasRpcbindKill && !hasNfsKill
+	config.WsddEnabled = !hasWsddKill && !hasSambaKill
+	config.MdnsEnabled = !hasMdnsKill
+	config.MdnsNfsEnabled = !hasNfsKill && !hasMdnsNfsKill
+	config.MdnsSambaEnabled = !hasSambaKill && !hasMdnsSambaKill
+	config.LiveChangesEnabled = !hasLiveKill
 
 	if isCheck {
 		return
