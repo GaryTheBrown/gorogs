@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gorogs/beacons"
 	"gorogs/beacons/wsdd/engine"
+	"gorogs/beacons/wsdd/templates"
 	"gorogs/logger"
 )
 
@@ -12,28 +13,30 @@ type WsddBeacon struct {
 	config beacons.AppConfig
 	ctx    context.Context
 	cancel context.CancelFunc
-	state  *engine.EngineState
+	engine *engine.Engine
 }
 
 func (w *WsddBeacon) Setup(cfg beacons.AppConfig) error {
+	logger.Info("wsdd", "Executing service configuration pre-flight routines...")
+
 	w.config = cfg
+	templates.PreCompileTemplates(cfg)
 	w.ctx, w.cancel = context.WithCancel(context.Background())
-	w.state = engine.NewEngineState()
+	w.engine = engine.NewEngineState()
 	logger.Info("wsdd", fmt.Sprintf("Subsystem setup completed for server name: %s", w.config.ServerName))
 	return nil
 }
 
 func (w *WsddBeacon) Start() error {
-	if w.state == nil {
+	if w.engine == nil {
 		err := fmt.Errorf("setup state was not executed")
 		logger.Error("wsdd", "Start process failed fundamentally", err)
 		return fmt.Errorf("wsdd service failed to start: %w", err)
 	}
 
 	logger.Info("wsdd", "Launching background network engines and dispatcher routines...")
-	err := engine.StartEngine(
+	err := w.engine.Start(
 		w.ctx,
-		w.state,
 		w.config,
 		"/config",
 	)
@@ -65,7 +68,7 @@ func (w *WsddBeacon) Stop() error {
 
 	logger.Info("wsdd", "Shutdown execution requested. Safely draining network workers...")
 	w.cancel()
-	engine.StopEngine(w.state)
+	w.engine.Stop()
 	logger.Info("wsdd", "Subsystem completely closed down. Multicast groups detached cleanly.")
 	return nil
 }

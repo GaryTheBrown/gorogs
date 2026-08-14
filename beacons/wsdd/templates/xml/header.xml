@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope {{.EnvelopeAttributes}}>
 <soap:Header>
-<wsa:To>{{.To}}</wsa:To>
+<wsa:To>{{ "{{" }}.To{{ "}}" }}</wsa:To>
 <wsa:Action>{{.ActionType}}</wsa:Action>
-<wsa:MessageID>urn:uuid:{{.MessageID}}</wsa:MessageID>
-{{if .RelatesTo}}<wsa:RelatesTo>{{.RelatesTo}}</wsa:RelatesTo>{{end}}
-<wsd:AppSequence InstanceId="{{.InstanceID}}" MessageNumber="{{.MessageNumber}}"/>
+<wsa:MessageID>urn:uuid:{{ "{{" }}.MessageID{{ "}}" }}</wsa:MessageID>
+{{ "{{" }}if .RelatesTo{{ "}}" }}<wsa:RelatesTo>{{ "{{" }}.RelatesTo{{ "}}" }}</wsa:RelatesTo>{{ "{{" }}end{{ "}}" }}
+<wsd:AppSequence InstanceId="{{.InstanceID}}" MessageNumber="{{ "{{" }}.MessageNumber{{ "}}" }}"/>
 </soap:Header>
 <soap:Body>{{.BodyPayload}}</soap:Body>
 </soap:Envelope>

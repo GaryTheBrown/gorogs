@@ -11,26 +11,23 @@ import (
 	"gorogs/logger"
 )
 
-type EngineState struct {
+type Engine struct {
 	DiscoveryQueue chan incoming.WSMessage
 	ListenerDone   <-chan struct{}
 	ServiceDone    chan struct{}
 	Config         beacons.AppConfig
-	InstanceUUID   string
 }
 
-func NewEngineState() *EngineState {
-	return &EngineState{
+func NewEngineState() *Engine {
+	return &Engine{
 		DiscoveryQueue: make(chan incoming.WSMessage, 100),
 		ServiceDone:    make(chan struct{}),
 	}
 }
 
-func StartEngine(ctx context.Context, s *EngineState, config beacons.AppConfig, configDir string) error {
-	s.Config = config
+func (s *Engine) Start(ctx context.Context, config beacons.AppConfig, configDir string) error {
 
-	s.InstanceUUID = templates.LoadOrCreatePersistentUUID(configDir, s.Config.ServerName)
-	incoming.InstanceUUID = s.InstanceUUID
+	templates.LoadOrCreatePersistentUUID(configDir, s.Config.ServerName)
 
 	logger.Info("wsdd", "Configuring centralized "+connection.DiscoveryMulticastPort+" UDP socket infrastructure parameters")
 	if err := connection.InitUDPSocket(); err != nil {
@@ -62,14 +59,14 @@ func StartEngine(ctx context.Context, s *EngineState, config beacons.AppConfig, 
 	s.ListenerDone = doneChan
 
 	logger.Info("wsdd", "Launching background action dispatcher worker queue thread loop")
-	go ActionDispatcher(ctx, s)
+	go s.ActionDispatcher(ctx)
 
-	BroadcastHello(s)
+	s.BroadcastHello()
 
 	return nil
 }
 
-func ActionDispatcher(ctx context.Context, s *EngineState) {
+func (s *Engine) ActionDispatcher(ctx context.Context) {
 	defer close(s.ServiceDone)
 	logger.Info("wsdd", "Action dispatcher processing loop successfully listening for network events")
 
@@ -81,9 +78,9 @@ func ActionDispatcher(ctx context.Context, s *EngineState) {
 		logger.Info("wsdd", fmt.Sprintf("ACTION DISPATCHER ABOUT TO DEAL WITH %s", msg.Header.ActionType.String()))
 		switch msg.Header.ActionType {
 		case versions.Probe:
-			ExecuteProbeAction(s, msg)
+			s.ExecuteProbeAction(msg)
 		case versions.Resolve:
-			ExecuteResolveAction(s, msg)
+			s.ExecuteResolveAction(msg)
 		case versions.Hello:
 			logger.Info("wsdd", fmt.Sprintf("Observed Hello message announcement from external subnet node device: %s", senderString))
 		case versions.Bye:
@@ -91,7 +88,7 @@ func ActionDispatcher(ctx context.Context, s *EngineState) {
 		case versions.GetMetadata:
 			logger.Info("wsdd", fmt.Sprintf("Received direct metadata schema configuration probe query request from: %s", senderString))
 		case versions.Get:
-			ExecuteGetAction(s, msg)
+			s.ExecuteGetAction(msg)
 		default:
 			logger.Debug("wsdd", fmt.Sprintf("Skipping operational command handler logic for action category type: %s", actionName))
 		}
@@ -102,7 +99,7 @@ func ActionDispatcher(ctx context.Context, s *EngineState) {
 	logger.Info("wsdd", "Background action loop thread completely drained and shut down.")
 }
 
-func ExecuteProbeAction(s *EngineState, msg incoming.WSMessage) {
+func (s *Engine) ExecuteProbeAction(msg incoming.WSMessage) {
 	senderString := msg.Sender.String()
 	logger.Info("wsdd", fmt.Sprintf("Matching capabilities matrix for client search probe from: %s", senderString))
 
@@ -112,8 +109,6 @@ func ExecuteProbeAction(s *EngineState, msg incoming.WSMessage) {
 		versions.SchemaList[msg.SchemaVersion][versions.Discovery],
 		versions.ProbeMatches.String(),
 		msg.Header.MessageID,
-		s.Config,
-		s.InstanceUUID,
 	)
 	if err != nil {
 		logger.Error("wsdd", "XML text transformation engine crashed processing assets folder templates", err)
@@ -130,7 +125,7 @@ func ExecuteProbeAction(s *EngineState, msg incoming.WSMessage) {
 	logger.Info("wsdd", fmt.Sprintf("Successfully dispatched complete ProbeMatches response framework to: %s", senderString))
 }
 
-func ExecuteResolveAction(s *EngineState, msg incoming.WSMessage) {
+func (s *Engine) ExecuteResolveAction(msg incoming.WSMessage) {
 	logger.Info("wsdd", "EXECUTE RESOLVE ACTION")
 	senderString := msg.Sender.String()
 	logger.Info("wsdd", fmt.Sprintf("Matching capabilities matrix for client search Resolve from: %s", senderString))
@@ -141,8 +136,6 @@ func ExecuteResolveAction(s *EngineState, msg incoming.WSMessage) {
 		versions.SchemaList[msg.SchemaVersion][versions.Discovery],
 		versions.ResolveMatches.String(),
 		msg.Header.MessageID,
-		s.Config,
-		s.InstanceUUID,
 	)
 	if err != nil {
 		logger.Error("wsdd", "XML text transformation engine crashed processing assets folder templates", err)
@@ -159,7 +152,7 @@ func ExecuteResolveAction(s *EngineState, msg incoming.WSMessage) {
 	logger.Info("wsdd", fmt.Sprintf("Successfully dispatched complete ResolveMatches response framework to: %s", senderString))
 }
 
-func ExecuteGetAction(s *EngineState, msg incoming.WSMessage) {
+func (s *Engine) ExecuteGetAction(msg incoming.WSMessage) {
 	if msg.HTTPResponsePipe == nil {
 		logger.Error("wsdd", "ExecuteGetAction dropped execution pass: missing transaction channel reference", nil)
 		return
@@ -176,8 +169,6 @@ func ExecuteGetAction(s *EngineState, msg incoming.WSMessage) {
 		versions.TransferSchema,
 		"GetResponse",
 		msg.Header.MessageID,
-		s.Config,
-		s.InstanceUUID,
 	)
 	if err != nil {
 		logger.Error("wsdd", fmt.Sprintf("[TCP Engine] Failed to generate XML GetResponse metadata context block for host: %s", senderString), err)
@@ -191,7 +182,7 @@ func ExecuteGetAction(s *EngineState, msg incoming.WSMessage) {
 	logger.Info("wsdd", fmt.Sprintf("[TCP Engine] Successfully satisfied metadata extraction handshake transaction loop with client: %s", senderString))
 }
 
-func BroadcastHello(s *EngineState) {
+func (s *Engine) BroadcastHello() {
 	logger.Info("wsdd", "Commencing multi-version sequence broadcast for Hello advertisement pass...")
 	for schemaVersion := range versions.SchemaList {
 		logger.Debug("wsdd", fmt.Sprintf("Compiling Hello advertisement template framework target version string: %s", schemaVersion))
@@ -201,8 +192,6 @@ func BroadcastHello(s *EngineState) {
 			versions.SchemaList[schemaVersion][versions.Discovery],
 			versions.Hello.String(),
 			"",
-			s.Config,
-			s.InstanceUUID,
 		)
 		if err != nil {
 			logger.Error("wsdd", fmt.Sprintf("XML transmission synthesis failed on Hello announcement serialization steps for version: %s", schemaVersion), err)
@@ -217,7 +206,7 @@ func BroadcastHello(s *EngineState) {
 	logger.Info("wsdd", "Multi-version Hello announcement pass successfully broadcasted onto subnet.")
 }
 
-func BroadcastBye(s *EngineState) {
+func (s *Engine) BroadcastBye() {
 	logger.Info("wsdd", "Commencing multi-version sequence broadcast for Bye shutdown pass...")
 	for schemaVersion := range versions.SchemaList {
 		logger.Debug("wsdd", fmt.Sprintf("Compiling Bye notice template framework target version string: %s", schemaVersion))
@@ -227,8 +216,6 @@ func BroadcastBye(s *EngineState) {
 			versions.SchemaList[schemaVersion][versions.Discovery],
 			versions.Bye.String(),
 			"",
-			s.Config,
-			s.InstanceUUID,
 		)
 		if err != nil {
 			logger.Error("wsdd", fmt.Sprintf("XML transmission synthesis failed on Bye notice serialization steps for version: %s", schemaVersion), err)
@@ -243,10 +230,10 @@ func BroadcastBye(s *EngineState) {
 	logger.Info("wsdd", "Multi-version Bye notice pass successfully broadcasted onto subnet.")
 }
 
-func StopEngine(s *EngineState) {
+func (s *Engine) Stop() {
 	logger.Info("wsdd", "Signaling consumer queues to cease collection operations...")
 
-	BroadcastBye(s)
+	s.BroadcastBye()
 
 	<-s.ServiceDone
 	close(s.DiscoveryQueue)

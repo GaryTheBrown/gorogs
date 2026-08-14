@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+var currentInstanceUUID string
+
 func GenerateRandomUUIDv4() string {
 	bytes := make([]byte, 16)
 	_, err := rand.Read(bytes)
@@ -29,7 +31,7 @@ func GenerateRandomUUIDv4() string {
 	return uuidStr
 }
 
-func LoadOrCreatePersistentUUID(configDir string, serverName string) string {
+func LoadOrCreatePersistentUUID(configDir string, serverName string) {
 	cleanServerName := strings.ToLower(strings.TrimSpace(serverName))
 	if cleanServerName == "" {
 		logger.Error("wsdd", "Config parameter failure: empty ServerName supplied to identity loader, falling back to generic token mapping", nil)
@@ -39,19 +41,18 @@ func LoadOrCreatePersistentUUID(configDir string, serverName string) string {
 	filePath := filepath.Join(configDir, fileName)
 	data, err := os.ReadFile(filePath)
 	if err == nil {
-		storedUUID := strings.TrimSpace(string(data))
-		if len(storedUUID) == 36 {
-			logger.Debug("wsdd", fmt.Sprintf("Successfully loaded persistent machine UUID from configuration storage for identity node '%s': %s", cleanServerName, storedUUID))
-			return storedUUID
+		currentInstanceID := strings.TrimSpace(string(data))
+		if len(currentInstanceID) == 36 {
+			logger.Debug("wsdd", fmt.Sprintf("Successfully loaded persistent machine UUID from configuration storage for identity node '%s': %s", cleanServerName, currentInstanceID))
+			return
 		}
 	}
-	newUUID := GenerateRandomUUIDv4()
+	currentInstanceID := GenerateRandomUUIDv4()
 	_ = os.MkdirAll(configDir, 0755)
-	err = os.WriteFile(filePath, []byte(newUUID), 0644)
+	err = os.WriteFile(filePath, []byte(currentInstanceID), 0644)
 	if err != nil {
 		logger.Error("wsdd", fmt.Sprintf("Failed to write persistent machine UUID to shared volume configuration target path: %s", filePath), err)
 	} else {
-		logger.Info("wsdd", fmt.Sprintf("Generated and securely saved fresh unique persistent machine identifier for identity node '%s': %s", cleanServerName, newUUID))
+		logger.Info("wsdd", fmt.Sprintf("Generated and securely saved fresh unique persistent machine identifier for identity node '%s': %s", cleanServerName, currentInstanceID))
 	}
-	return newUUID
 }
