@@ -5,60 +5,50 @@ import (
 	"os"
 	"runtime"
 	"strings"
-	"time"
 )
 
-var EnableColors = true
-
-const (
-	colorReset  = "\033[0m"
-	colorGreen  = "\033[32m"
-	colorYellow = "\033[33m"
-	colorRed    = "\033[31m"
-	colorCyan   = "\033[36m"
-)
-
-func InfoF(subsystem, format string, args ...interface{}) {
+func InfoF(subsystem, format string, args ...any) {
 	Info(subsystem, fmt.Sprintf(format, args...))
-
 }
+
 func Info(subsystem, message string) {
-	timestamp := time.Now().Format("02/01/2006 15:04:05")
-
-	prefix := "[INFO]"
-	if EnableColors {
-		prefix = fmt.Sprintf("%s[INFO]%s", colorGreen, colorReset)
-	}
-
-	fmt.Printf("[%s] %s [%s] %s\n", timestamp, prefix, strings.ToUpper(subsystem), message)
+	prefix := formatPrefix(subsystem, "INFO")
+	logChan <- logMessage{kind: typeStandard, text: prefix + message + "\n"}
 }
 
-func ErrorF(subsystem string, format string, err error, args ...interface{}) {
+func InfoContinueF(subsystem, format string, args ...any) {
+	InfoContinue(subsystem, fmt.Sprintf(format, args...))
+}
+
+func InfoContinue(subsystem, message string) {
+	prefix := formatPrefix(subsystem, "INFO")
+	logChan <- logMessage{kind: typeStart, text: prefix + message, subSystem: subsystem}
+}
+
+func InfoAppendF(subsystem, format string, a ...any) {
+	InfoAppend(subsystem, fmt.Sprintf(format, a...))
+}
+
+func InfoAppend(subsystem, message string) {
+	logChan <- logMessage{kind: typeAppend, text: message, subSystem: subsystem}
+}
+
+func InfoEndF(subSystem, format string, a ...any) {
+	InfoEnd(subSystem, fmt.Sprintf(format, a...)+"\n")
+}
+func InfoEnd(subSystem, message string) {
+	logChan <- logMessage{kind: typeEnd, text: message + "\n", subSystem: subSystem}
+}
+
+func ErrorF(subsystem, format string, err error, args ...any) {
 	Error(subsystem, fmt.Sprintf(format, args...), err)
 }
-func Error(subsystem string, message string, err error) {
-	timestamp := time.Now().Format("02/01/2006 15:04:05")
-
-	prefix := "[ERROR]"
-	if EnableColors {
-		prefix = fmt.Sprintf("%s[ERROR]%s", colorYellow, colorReset)
-	}
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "[%s] %s [%s] %s: %v\n",
-			timestamp, prefix, strings.ToUpper(subsystem), message, err)
-		return
-	}
-	fmt.Fprintf(os.Stderr, "[%s] %s [%s] %s\n", timestamp, prefix, strings.ToUpper(subsystem), message)
+func Error(subsystem, message string, err error) {
+	prefix := formatPrefix(subsystem, "ERROR")
+	logChan <- logMessage{kind: typeStandard, text: prefix + message, subSystem: subsystem}
 }
-func FatalF(subsystem string, format string, err error, args ...interface{}) {
-	Fatal(subsystem, fmt.Sprintf(format, args...), err)
-}
-func Fatal(subsystem string, message string, err error) {
-	timestamp := time.Now().Format("02/01/2006 15:04:05")
-	pid := os.Getpid()
-	goVersion := runtime.Version()
-	platformArch := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+
+func FatalF(subsystem, format string, err error, args ...any) {
 
 	callerInfo := "Unknown Location"
 	if _, file, line, ok := runtime.Caller(1); ok {
@@ -68,6 +58,29 @@ func Fatal(subsystem string, message string, err error) {
 		}
 		callerInfo = fmt.Sprintf("%s:%d", shortFile, line)
 	}
+
+	fatalWithCaller(subsystem, fmt.Sprintf(format, args...), err, callerInfo)
+}
+
+func Fatal(subsystem, message string, err error) {
+	callerInfo := "Unknown Location"
+	if _, file, line, ok := runtime.Caller(1); ok {
+		shortFile := file
+		if idx := strings.LastIndex(file, "/"); idx >= 0 {
+			shortFile = file[idx+1:]
+		}
+		callerInfo = fmt.Sprintf("%s:%d", shortFile, line)
+	}
+
+	fatalWithCaller(subsystem, message, err, callerInfo)
+}
+
+func fatalWithCaller(subsystem, message string, err error, callerInfo string) {
+	prefix := formatPrefix(subsystem, "FATAL CRASH")
+
+	pid := os.Getpid()
+	goVersion := runtime.Version()
+	platformArch := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
@@ -79,26 +92,28 @@ func Fatal(subsystem string, message string, err error) {
 		containerContext = "Docker Namespace Container"
 	}
 
-	prefix := "[FATAL CRASH]"
-	if EnableColors {
-		prefix = fmt.Sprintf("%s[FATAL CRASH]%s", colorRed, colorReset)
+	var sb strings.Builder
+	sb.WriteString("\n==================================================================\n")
+
+	if err != nil {
+		sb.WriteString(fmt.Sprintf(" %s %s\n     |- System Error context: %v\n",
+			prefix, message, err))
+	} else {
+		sb.WriteString(fmt.Sprintf("%s %s\n", prefix, message))
 	}
 
-	fmt.Fprintf(os.Stderr, "\n==================================================================\n")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "[%s] %s [%s] %s\n     |- System Error context: %v\n",
-			timestamp, prefix, strings.ToUpper(subsystem), message, err)
-	} else {
-		fmt.Fprintf(os.Stderr, "[%s] %s [%s] %s\n", timestamp, prefix, strings.ToUpper(subsystem), message)
-	}
-	fmt.Fprintf(os.Stderr, "     |- Failure Origin Location : %s\n", callerInfo)
-	fmt.Fprintf(os.Stderr, "     |- Process Identifier  : PID %d\n", pid)
-	fmt.Fprintf(os.Stderr, "     |- Active Runtime Scope : %s\n", containerContext)
-	fmt.Fprintf(os.Stderr, "     |- Concurrent Routines : %d active loops\n", goroutineCount)
-	fmt.Fprintf(os.Stderr, "     |- Allocated Heap RAM  : %.2f MB\n", heapAllocMB)
-	fmt.Fprintf(os.Stderr, "     |- Compiler Runtime    : %s\n", goVersion)
-	fmt.Fprintf(os.Stderr, "     |- Target Architecture : %s\n", platformArch)
-	fmt.Fprintf(os.Stderr, "==================================================================\n\n")
+	sb.WriteString(fmt.Sprintf("     |- Failure Origin Location : %s\n", callerInfo))
+	sb.WriteString(fmt.Sprintf("     |- Process Identifier  : PID %d\n", pid))
+	sb.WriteString(fmt.Sprintf("     |- Active Runtime Scope : %s\n", containerContext))
+	sb.WriteString(fmt.Sprintf("     |- Concurrent Routines : %d active loops\n", goroutineCount))
+	sb.WriteString(fmt.Sprintf("     |- Allocated Heap RAM  : %.2f MB\n", heapAllocMB))
+	sb.WriteString(fmt.Sprintf("     |- Compiler Runtime    : %s\n", goVersion))
+	sb.WriteString(fmt.Sprintf("     |- Target Architecture : %s\n", platformArch))
+	sb.WriteString("==================================================================\n\n")
+
+	fatalChan <- sb.String()
+
+	<-fatalAck
 
 	os.Exit(1)
 }

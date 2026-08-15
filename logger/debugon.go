@@ -4,14 +4,18 @@ package logger
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 )
 
+const DebugActive = true
+
 var debugRegistry = make(map[string]bool)
 var allDebugActive = false
 
-func RegisterDebugTargets(envValue string) {
+func init() {
+	envValue := os.Getenv("DEBUG_LOG")
 	if envValue == "" {
 		return
 	}
@@ -26,7 +30,7 @@ func RegisterDebugTargets(envValue string) {
 	}
 }
 
-func DebugF(subsystem, format string, args ...interface{}) {
+func DebugF(subsystem, format string, args ...any) {
 	Debug(subsystem, fmt.Sprintf(format, args...))
 }
 
