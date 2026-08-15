@@ -77,17 +77,21 @@ func (s *SambaShare) writeDynamicSharesConfig() error {
 	for _, entry := range entries {
 		if entry.IsDir() && entry.Name() != "." && entry.Name() != ".." {
 			if !validShareName.MatchString(entry.Name()) {
-				logger.Error("SAMBA", fmt.Sprintf("Validation Error: Share directory name [%s] contains illegal characters and was dropped.", entry.Name()), nil)
+				logger.ErrorF("SAMBA", "Validation Error: Share directory name [%s] contains illegal characters and was dropped.", nil, entry.Name())
 				continue
 			}
 
 			if entry.Name() == "nfs" || entry.Name() == "ganesha" {
-				logger.Debug("SAMBA", fmt.Sprintf("Bypassing reserved sub-directory name from Samba compilation: %s", entry.Name()))
+				if logger.IsDebugActive("SAMBA") {
+					logger.DebugF("SAMBA", "Bypassing reserved sub-directory name from Samba compilation: %s", entry.Name())
+				}
 				continue
 			}
 
 			fullPath := filepath.Join(config.ShareRoot, entry.Name())
-			logger.Debug("SAMBA", fmt.Sprintf("Compiling export allocation: [%s] mapping to physical path %s", entry.Name(), fullPath))
+			if logger.IsDebugActive("SAMBA") {
+				logger.Debug("SAMBA", fmt.Sprintf("Compiling export allocation: [%s] mapping to physical path %s", entry.Name(), fullPath))
+			}
 
 			fmt.Fprintf(file, "\n[%s]\n", entry.Name())
 			fmt.Fprintf(file, "    path = %s\n", fullPath)
@@ -119,7 +123,7 @@ func (s *SambaShare) Start() error {
 
 	go s.streamSubsystemLogs(sambaPipe)
 
-	logger.Info("SAMBA", fmt.Sprintf("Samba background engine active under operational Process ID: %d. Waiting for socket readiness...", s.cmd.Process.Pid))
+	logger.InfoF("SAMBA", "Samba background engine active under operational Process ID: %d. Waiting for socket readiness...", s.cmd.Process.Pid)
 
 	select {
 	case <-s.readyChan:
@@ -148,11 +152,11 @@ func (s *SambaShare) startFSEventDirectoryWatcher(ctx context.Context) {
 	defer watcher.Close()
 
 	if err := watcher.Add(config.ShareRoot); err != nil {
-		logger.Error("SAMBA", "Failed to register directory target inside fsnotify monitor tracking path: "+config.ShareRoot, err)
+		logger.ErrorF("SAMBA", "Failed to register directory target inside fsnotify monitor tracking path: %s", err, config.ShareRoot)
 		return
 	}
 
-	logger.Info("SAMBA", "Live FS event-driven tracking loop successfully online monitoring path: "+config.ShareRoot)
+	logger.InfoF("SAMBA", "Live FS event-driven tracking loop successfully online monitoring path: %s", config.ShareRoot)
 
 	var debounceTimer *time.Timer
 	const debounceDuration = 250 * time.Millisecond
@@ -169,7 +173,7 @@ func (s *SambaShare) startFSEventDirectoryWatcher(ctx context.Context) {
 			}
 
 			if event.Has(fsnotify.Create) || event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
-				logger.Debug("SAMBA", fmt.Sprintf("FS Event intercepted -> Action: %s on Path: %s", event.Op.String(), event.Name))
+				logger.DebugF("SAMBA", "FS Event intercepted -> Action: %s on Path: %s", event.Op.String(), event.Name)
 
 				if debounceTimer != nil {
 					debounceTimer.Stop()

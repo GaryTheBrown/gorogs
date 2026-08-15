@@ -2,7 +2,6 @@ package versions
 
 import (
 	"errors"
-	"fmt"
 	"gorogs/logger"
 )
 
@@ -94,7 +93,7 @@ func (at ActionTypeEnum) String() string {
 func StringToActionType(str string) (ActionTypeEnum, error) {
 	action, found := stringToActionMap[str]
 	if !found {
-		logger.Error("wsdd", fmt.Sprintf("Action translation failure: target text command string '%s' does not exist in protocol vocabulary maps", str), ErrActionNotFound)
+		logger.ErrorF("wsdd", "Action translation failure: target text command string '%s' does not exist in protocol vocabulary maps", ErrActionNotFound, str)
 		return MaxActionType, ErrActionNotFound
 	}
 	return action, nil
@@ -107,7 +106,7 @@ func (sla SchemaListArray) Action(action ActionTypeEnum) (fullSchemaURL string, 
 	case GetMetadata, GetMetadataResponse:
 		return sla[Mex] + "/" + action.String(), nil
 	default:
-		logger.Error("wsdd", fmt.Sprintf("Action schema resolution failure: target enum index id '%d' falls outside parsing matrix parameters", action), ErrActionNotFound)
+		logger.ErrorF("wsdd", "Action schema resolution failure: target enum index id '%d' falls outside parsing matrix parameters", ErrActionNotFound, action)
 		return "", ErrActionNotFound
 	}
 }
@@ -129,7 +128,7 @@ func (sl SchemaListMap) CheckDiscoveryVersion(i string) (schemaVersion string, e
 			return k, nil
 		}
 	}
-	logger.Error("wsdd", fmt.Sprintf("Discovery schema check failure: incoming target namespace URL path context '%s' does not match any registered specification configuration release tier", i), ErrVersionNotFound)
+	logger.ErrorF("wsdd", "Discovery schema check failure: incoming target namespace URL path context '%s' does not match any registered specification configuration release tier", ErrVersionNotFound, i)
 	return "", ErrVersionNotFound
 }
 

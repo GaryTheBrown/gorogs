@@ -38,7 +38,7 @@ func (w *WsddBeacon) Setup(cfg beacons.AppConfig) error {
 	} else {
 		logger.Info("WSDD", "Standard full-document recursive namespace token validation scan is ACTIVE.")
 	}
-	logger.Info("wsdd", fmt.Sprintf("Subsystem setup completed for server name: %s", w.config.ServerName))
+	logger.InfoF("wsdd", "Subsystem setup completed for server name: %s", w.config.ServerName)
 	return nil
 }
 

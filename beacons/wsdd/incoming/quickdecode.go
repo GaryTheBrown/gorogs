@@ -128,7 +128,9 @@ func executeQuickBodyParsing(rawUDP []byte, message *WSMessage) error {
 		logger.Debug("wsdd", "[QuickDecode] GetMetadata endpoint processed successfully.")
 
 	default:
-		logger.Debug("wsdd", fmt.Sprintf("[QuickDecode] No custom payload tracker required for action: %s", message.Header.ActionType.String()))
+		if logger.IsDebugActive("wsdd") {
+			logger.DebugF("wsdd", "[QuickDecode] No custom payload tracker required for action: %s", message.Header.ActionType.String())
+		}
 	}
 
 	return nil

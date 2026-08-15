@@ -71,7 +71,7 @@ func (m *MdnsBeacon) listenForQueries() {
 			}
 
 			for _, q := range msg.Question {
-				logger.Debug("MDNS", fmt.Sprintf("Incoming Query from %s: Name=%s Type=%s", remoteAddr.String(), q.Name, dns.TypeToString[q.Qtype]))
+				logger.DebugF("MDNS", "Incoming Query from %s: Name=%s Type=%s", remoteAddr.String(), q.Name, dns.TypeToString[q.Qtype])
 
 				if q.Name == localHostTarget || q.Name == fqdnHostTarget || q.Name == servicesMetaRecord || q.Name == "_nfs._tcp.local." || q.Name == "_smb._tcp.local." {
 					resp := new(dns.Msg)
@@ -138,7 +138,7 @@ func (m *MdnsBeacon) listenForQueries() {
 
 					out, err := resp.Pack()
 					if err == nil {
-						logger.Debug("MDNS", fmt.Sprintf("Sending Targeted Response to %s for %s", remoteAddr.String(), q.Name))
+						logger.DebugF("MDNS", "Sending Targeted Response to %s for %s", remoteAddr.String(), q.Name)
 						_, _ = m.conn.WriteToUDP(out, remoteAddr)
 					}
 				}
@@ -226,7 +226,7 @@ func (m *MdnsBeacon) broadcastAnnouncement(ttl uint32) {
 
 	out, err := msg.Pack()
 	if err == nil {
-		logger.Debug("MDNS", fmt.Sprintf("Broadcasting Proactive Announcement Packet (Records: %d, TTL: %d)", len(msg.Answer), ttl))
+		logger.DebugF("MDNS", "Broadcasting Proactive Announcement Packet (Records: %d, TTL: %d)", len(msg.Answer), ttl)
 		_, _ = m.conn.WriteToUDP(out, multicastAddr)
 		time.Sleep(100 * time.Millisecond)
 		_, _ = m.conn.WriteToUDP(out, multicastAddr)

@@ -46,7 +46,7 @@ func SetupZeroSpaceOverlay() error {
 	// 4. Mount the masked OverlayFS directly onto the clean /share directory
 	err = unix.Mount("overlay", targetDir, "overlay", 0, opts)
 	if err != nil {
-		return fmt.Errorf("failed to finalize live OverlayFS allocation on %s: %w", err)
+		return fmt.Errorf("failed to finalize live OverlayFS allocation on %s: %w", targetDir, err)
 	}
 
 	// 5. Update the variable pointer so the rest of your app targets the masked path

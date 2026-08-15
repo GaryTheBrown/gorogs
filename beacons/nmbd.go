@@ -67,7 +67,7 @@ func (n *NetBIOSBeacon) Start() error {
 
 	go n.streamSubsystemLogs(nmbPipe)
 
-	logger.Info("NMBD", fmt.Sprintf("NetBIOS tracker process running (PID: %d). Probing UDP socket...", n.cmd.Process.Pid))
+	logger.InfoF("NMBD", "NetBIOS tracker process running (PID: %d). Probing UDP socket...", n.cmd.Process.Pid)
 
 	for i := 0; i < 30; i++ {
 		conn, err := net.DialTimeout("udp4", "127.0.0.1:137", 500*time.Millisecond)

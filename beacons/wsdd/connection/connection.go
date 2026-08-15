@@ -26,7 +26,7 @@ var (
 )
 
 func InitUDPSocket() error {
-	logger.Info("wsdd", "Initializing centralized WS-Discovery socket on port "+DiscoveryMulticastPort)
+	logger.InfoF("wsdd", "Initializing centralized WS-Discovery socket on port: %s ", DiscoveryMulticastPort)
 
 	localAddr, err := net.ResolveUDPAddr("udp4", "0.0.0.0:"+DiscoveryMulticastPort)
 	if err != nil {
@@ -36,7 +36,7 @@ func InitUDPSocket() error {
 
 	conn, err := net.ListenUDP("udp4", localAddr)
 	if err != nil {
-		logger.Error("wsdd", "Fatal error: Unable to bind to port "+DiscoveryMulticastPort+". Is another daemon running?", err)
+		logger.ErrorF("wsdd", "Fatal error: Unable to bind to port %s. Is another daemon running?", err, DiscoveryMulticastPort)
 		return err
 	}
 	UDPConn = conn
@@ -58,12 +58,12 @@ func InitUDPSocket() error {
 		}
 	}
 
-	logger.Info("wsdd", "Centralized WS-Discovery socket initialized and bound to port "+DiscoveryMulticastPort+" successfully")
+	logger.InfoF("wsdd", "Centralized WS-Discovery socket initialized and bound to port %s successfully", DiscoveryMulticastPort)
 	return nil
 }
 
 func InitTCPSocket(discoveryQueue chan<- incoming.WSMessage) error {
-	logger.Info("wsdd", "Initializing native WS-Transfer HTTP router on port "+TransferTCPPort)
+	logger.InfoF("wsdd", "Initializing native WS-Transfer HTTP router on port %s", TransferTCPPort)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		HandleIncomingHTTPTransfer(w, r, discoveryQueue)
@@ -75,6 +75,6 @@ func InitTCPSocket(discoveryQueue chan<- incoming.WSMessage) error {
 		}
 	}()
 
-	logger.Info("wsdd", "WS-Transfer HTTP router online and listening on port "+TransferTCPPort+" successfully")
+	logger.InfoF("wsdd", "WS-Transfer HTTP router online and listening on port %s successfully", TransferTCPPort)
 	return nil
 }

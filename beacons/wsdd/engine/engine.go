@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"fmt"
 	"gorogs/beacons"
 	"gorogs/beacons/wsdd/connection"
 	"gorogs/beacons/wsdd/incoming"
@@ -29,14 +28,14 @@ func (s *Engine) Start(ctx context.Context, config beacons.AppConfig, configDir 
 
 	templates.LoadOrCreatePersistentUUID(configDir, s.Config.ServerName)
 
-	logger.Info("wsdd", "Configuring centralized "+connection.DiscoveryMulticastPort+" UDP socket infrastructure parameters")
+	logger.InfoF("wsdd", "Configuring centralized "+connection.DiscoveryMulticastPort+" UDP socket infrastructure parameters")
 	if err := connection.InitUDPSocket(); err != nil {
 		logger.Error("wsdd", "Fatal break: Central WS-Discovery UDP socket failed to bind", err)
 		close(s.DiscoveryQueue)
 		return err
 	}
 
-	logger.Info("wsdd", "Configuring centralized "+connection.TransferTCPPort+" TCP socket infrastructure parameters")
+	logger.InfoF("wsdd", "Configuring centralized %s TCP socket infrastructure parameters", connection.TransferTCPPort)
 	if err := connection.InitTCPSocket(s.DiscoveryQueue); err != nil {
 		logger.Error("wsdd", "Fatal break: WS-Transfer TCP socket failed to bind", err)
 		if connection.UDPConn != nil {
@@ -46,7 +45,7 @@ func (s *Engine) Start(ctx context.Context, config beacons.AppConfig, configDir 
 		return err
 	}
 
-	logger.Info("wsdd", fmt.Sprintf("Initializing engine multicast routing on interface address: %s", s.Config.ContainerIP))
+	logger.InfoF("wsdd", "Initializing engine multicast routing on interface address: %s", s.Config.ContainerIP)
 	doneChan, err := connection.UDPListener(ctx, s.DiscoveryQueue)
 	if err != nil {
 		logger.Error("wsdd", "Failed to construct low-level network reader socket", err)
@@ -74,23 +73,16 @@ func (s *Engine) ActionDispatcher(ctx context.Context) {
 		actionName := msg.Header.ActionType.String()
 		senderString := msg.Sender.String()
 
-		logger.Debug("wsdd", fmt.Sprintf("Processing packet dequeued from channel. Type: %s, Source: %s", actionName, senderString))
-		logger.Info("wsdd", fmt.Sprintf("ACTION DISPATCHER ABOUT TO DEAL WITH %s", msg.Header.ActionType.String()))
+		logger.DebugF("wsdd", "Processing packet dequeued from channel. Type: %s, Source: %s", actionName, senderString)
 		switch msg.Header.ActionType {
 		case versions.Probe:
 			s.ExecuteProbeAction(msg)
 		case versions.Resolve:
 			s.ExecuteResolveAction(msg)
-		case versions.Hello:
-			logger.Info("wsdd", fmt.Sprintf("Observed Hello message announcement from external subnet node device: %s", senderString))
-		case versions.Bye:
-			logger.Info("wsdd", fmt.Sprintf("Observed Bye message disconnection notice from external subnet node device: %s", senderString))
-		case versions.GetMetadata:
-			logger.Info("wsdd", fmt.Sprintf("Received direct metadata schema configuration probe query request from: %s", senderString))
 		case versions.Get:
 			s.ExecuteGetAction(msg)
 		default:
-			logger.Debug("wsdd", fmt.Sprintf("Skipping operational command handler logic for action category type: %s", actionName))
+			logger.DebugF("wsdd", "Skipping operational command handler logic for action category type: %s", actionName)
 		}
 	}
 
@@ -101,7 +93,7 @@ func (s *Engine) ActionDispatcher(ctx context.Context) {
 
 func (s *Engine) ExecuteProbeAction(msg incoming.WSMessage) {
 	senderString := msg.Sender.String()
-	logger.Info("wsdd", fmt.Sprintf("Matching capabilities matrix for client search probe from: %s", senderString))
+	logger.InfoF("wsdd", "Matching capabilities matrix for client search probe from: %s", senderString)
 
 	payloadBytes, err := templates.GenerateXMLResponse(
 		msg.SchemaVersion,
@@ -115,20 +107,19 @@ func (s *Engine) ExecuteProbeAction(msg incoming.WSMessage) {
 		return
 	}
 
-	logger.Debug("wsdd", fmt.Sprintf("Flash transmitting compiled minified byte payload size %d via unicast to client: %s", len(payloadBytes), senderString))
+	logger.DebugF("wsdd", "Flash transmitting compiled minified byte payload size %d via unicast to client: %s", len(payloadBytes), senderString)
 	err = connection.SendUnicastResponse(payloadBytes, msg.Sender)
 	if err != nil {
-		logger.Error("wsdd", fmt.Sprintf("Socket transmission delivery failed for network target endpoint: %s", senderString), err)
+		logger.ErrorF("wsdd", "Socket transmission delivery failed for network target endpoint: %s", err, senderString)
 		return
 	}
 
-	logger.Info("wsdd", fmt.Sprintf("Successfully dispatched complete ProbeMatches response framework to: %s", senderString))
+	logger.InfoF("wsdd", "Successfully dispatched complete ProbeMatches response framework to: %s", senderString)
 }
 
 func (s *Engine) ExecuteResolveAction(msg incoming.WSMessage) {
-	logger.Info("wsdd", "EXECUTE RESOLVE ACTION")
 	senderString := msg.Sender.String()
-	logger.Info("wsdd", fmt.Sprintf("Matching capabilities matrix for client search Resolve from: %s", senderString))
+	logger.InfoF("wsdd", "Matching capabilities matrix for client search Resolve from: %s", senderString)
 
 	payloadBytes, err := templates.GenerateXMLResponse(
 		msg.SchemaVersion,
@@ -142,14 +133,14 @@ func (s *Engine) ExecuteResolveAction(msg incoming.WSMessage) {
 		return
 	}
 
-	logger.Debug("wsdd", fmt.Sprintf("Flash transmitting compiled minified byte payload size %d via unicast to client: %s", len(payloadBytes), senderString))
+	logger.DebugF("wsdd", "Flash transmitting compiled minified byte payload size %d via unicast to client: %s", len(payloadBytes), senderString)
 	err = connection.SendUnicastResponse(payloadBytes, msg.Sender)
 	if err != nil {
-		logger.Error("wsdd", fmt.Sprintf("Socket transmission delivery failed for network target endpoint: %s", senderString), err)
+		logger.ErrorF("wsdd", "Socket transmission delivery failed for network target endpoint: %s", err, senderString)
 		return
 	}
 
-	logger.Info("wsdd", fmt.Sprintf("Successfully dispatched complete ResolveMatches response framework to: %s", senderString))
+	logger.InfoF("wsdd", "Successfully dispatched complete ResolveMatches response framework to: %s", senderString)
 }
 
 func (s *Engine) ExecuteGetAction(msg incoming.WSMessage) {
@@ -159,7 +150,7 @@ func (s *Engine) ExecuteGetAction(msg incoming.WSMessage) {
 	}
 
 	senderString := msg.Sender.String()
-	logger.Debug("wsdd", fmt.Sprintf("[TCP Engine] Processing metadata rendering pass for client connection: %s using version path context: %s", senderString, msg.SchemaVersion))
+	logger.DebugF("wsdd", "[TCP Engine] Processing metadata rendering pass for client connection: %s using version path context: %s", senderString, msg.SchemaVersion)
 
 	anonymousTarget := versions.ToValueList[msg.SchemaVersion]["reply"]
 
@@ -171,21 +162,21 @@ func (s *Engine) ExecuteGetAction(msg incoming.WSMessage) {
 		msg.Header.MessageID,
 	)
 	if err != nil {
-		logger.Error("wsdd", fmt.Sprintf("[TCP Engine] Failed to generate XML GetResponse metadata context block for host: %s", senderString), err)
+		logger.ErrorF("wsdd", "[TCP Engine] Failed to generate XML GetResponse metadata context block for host: %s", err, senderString)
 		msg.HTTPResponsePipe <- connection.HTTPResponsePayload{Err: err}
 		return
 	}
 
-	logger.Debug("wsdd", fmt.Sprintf("[TCP Engine] Handing over %d payload bytes down to connection package sender framework", len(xmlPayload)))
+	logger.DebugF("wsdd", "[TCP Engine] Handing over %d payload bytes down to connection package sender framework", len(xmlPayload))
 
 	msg.HTTPResponsePipe <- connection.HTTPResponsePayload{BodyBytes: xmlPayload}
-	logger.Info("wsdd", fmt.Sprintf("[TCP Engine] Successfully satisfied metadata extraction handshake transaction loop with client: %s", senderString))
+	logger.InfoF("wsdd", "[TCP Engine] Successfully satisfied metadata extraction handshake transaction loop with client: %s", senderString)
 }
 
 func (s *Engine) BroadcastHello() {
 	logger.Info("wsdd", "Commencing multi-version sequence broadcast for Hello advertisement pass...")
 	for schemaVersion := range versions.SchemaList {
-		logger.Debug("wsdd", fmt.Sprintf("Compiling Hello advertisement template framework target version string: %s", schemaVersion))
+		logger.DebugF("wsdd", "Compiling Hello advertisement template framework target version string: %s", schemaVersion)
 		payloadBytes, err := templates.GenerateXMLResponse(
 			schemaVersion,
 			versions.ToValueList[schemaVersion]["request"],
@@ -194,12 +185,12 @@ func (s *Engine) BroadcastHello() {
 			"",
 		)
 		if err != nil {
-			logger.Error("wsdd", fmt.Sprintf("XML transmission synthesis failed on Hello announcement serialization steps for version: %s", schemaVersion), err)
+			logger.ErrorF("wsdd", "XML transmission synthesis failed on Hello announcement serialization steps for version: %s", err, schemaVersion)
 			continue
 		}
 		err = connection.SendMulticastBroadcast(payloadBytes)
 		if err != nil {
-			logger.Error("wsdd", fmt.Sprintf("Multicast transmission delivery failed for Hello startup packet frame version: %s", schemaVersion), err)
+			logger.ErrorF("wsdd", "Multicast transmission delivery failed for Hello startup packet frame version: %s", err, schemaVersion)
 			continue
 		}
 	}
@@ -209,7 +200,7 @@ func (s *Engine) BroadcastHello() {
 func (s *Engine) BroadcastBye() {
 	logger.Info("wsdd", "Commencing multi-version sequence broadcast for Bye shutdown pass...")
 	for schemaVersion := range versions.SchemaList {
-		logger.Debug("wsdd", fmt.Sprintf("Compiling Bye notice template framework target version string: %s", schemaVersion))
+		logger.DebugF("wsdd", "Compiling Bye notice template framework target version string: %s", schemaVersion)
 		payloadBytes, err := templates.GenerateXMLResponse(
 			schemaVersion,
 			versions.ToValueList[schemaVersion]["request"],
@@ -218,12 +209,12 @@ func (s *Engine) BroadcastBye() {
 			"",
 		)
 		if err != nil {
-			logger.Error("wsdd", fmt.Sprintf("XML transmission synthesis failed on Bye notice serialization steps for version: %s", schemaVersion), err)
+			logger.ErrorF("wsdd", "XML transmission synthesis failed on Bye notice serialization steps for version: %s", err, schemaVersion)
 			continue
 		}
 		err = connection.SendMulticastBroadcast(payloadBytes)
 		if err != nil {
-			logger.Error("wsdd", fmt.Sprintf("Multicast transmission delivery failed for Bye shutdown packet frame version: %s", schemaVersion), err)
+			logger.ErrorF("wsdd", "Multicast transmission delivery failed for Bye shutdown packet frame version: %s", err, schemaVersion)
 			continue
 		}
 	}

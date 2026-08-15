@@ -27,7 +27,7 @@ func GenerateRandomUUIDv4() string {
 		bytes[8:10],
 		bytes[10:16],
 	)
-	logger.Debug("wsdd", fmt.Sprintf("Cryptographically secure unique transaction identifier string generated successfully: %s", uuidStr))
+	logger.DebugF("wsdd", "Cryptographically secure unique transaction identifier string generated successfully: %s", uuidStr)
 	return uuidStr
 }
 
@@ -43,7 +43,7 @@ func LoadOrCreatePersistentUUID(configDir string, serverName string) {
 	if err == nil {
 		currentInstanceID := strings.TrimSpace(string(data))
 		if len(currentInstanceID) == 36 {
-			logger.Debug("wsdd", fmt.Sprintf("Successfully loaded persistent machine UUID from configuration storage for identity node '%s': %s", cleanServerName, currentInstanceID))
+			logger.DebugF("wsdd", "Successfully loaded persistent machine UUID from configuration storage for identity node '%s': %s", cleanServerName, currentInstanceID)
 			return
 		}
 	}
@@ -51,8 +51,8 @@ func LoadOrCreatePersistentUUID(configDir string, serverName string) {
 	_ = os.MkdirAll(configDir, 0755)
 	err = os.WriteFile(filePath, []byte(currentInstanceID), 0644)
 	if err != nil {
-		logger.Error("wsdd", fmt.Sprintf("Failed to write persistent machine UUID to shared volume configuration target path: %s", filePath), err)
+		logger.ErrorF("wsdd", "Failed to write persistent machine UUID to shared volume configuration target path: %s", err, filePath)
 	} else {
-		logger.Info("wsdd", fmt.Sprintf("Generated and securely saved fresh unique persistent machine identifier for identity node '%s': %s", cleanServerName, currentInstanceID))
+		logger.InfoF("wsdd", "Generated and securely saved fresh unique persistent machine identifier for identity node '%s': %s", cleanServerName, currentInstanceID)
 	}
 }

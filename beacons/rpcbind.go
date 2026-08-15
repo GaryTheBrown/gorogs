@@ -118,10 +118,10 @@ func (r *RpcbindBeacon) Start() error {
 	} else {
 		go r.streamRpcbindLogs(statdStdout)
 		go r.streamRpcbindLogs(statdStderr)
-		logger.Info("RPCBIND", fmt.Sprintf("NFSv3 statd tool active under process ID: %d", r.statdCmd.Process.Pid))
+		logger.InfoF("RPCBIND", "NFSv3 statd tool active under process ID: %d", r.statdCmd.Process.Pid)
 	}
 
-	logger.Info("RPCBIND", fmt.Sprintf("RPC portmapper tracking loop active and listening under process ID: %d", r.cmd.Process.Pid))
+	logger.InfoF("RPCBIND", "RPC portmapper tracking loop active and listening under process ID: %d", r.cmd.Process.Pid)
 	return nil
 }
 

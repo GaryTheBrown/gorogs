@@ -45,7 +45,7 @@ func QueryNetworkLayout() (net.IP, net.IP, error) {
 			gwHex := fields[2]
 
 			if len(gwHex) != 8 {
-				logger.Debug("NETUTIL", fmt.Sprintf("Skipping parsed route entry: hex length (%d) != 8 characters.", len(gwHex)))
+				logger.DebugF("NETUTIL", "Skipping parsed route entry: hex length (%d) != 8 characters.", len(gwHex))
 				continue
 			}
 

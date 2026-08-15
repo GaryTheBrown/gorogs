@@ -47,6 +47,7 @@ func (n *NfsShare) writeGaneshaConfig() error {
 		"    MNT_Port = 892;\n" +
 		"    NLM_Port = 4045;\n" +
 		"    Rquota_Port = 875;\n" +
+		"    Log_File= \"/dev/stderr\"" +
 		"}\n\n" +
 		"NFSV4 {\n" +
 		"    Graceless = true;\n" +
@@ -91,7 +92,7 @@ func (n *NfsShare) Start() error {
 
 	go n.streamSubsystemLogs(ganeshaPipe)
 
-	logger.Info("NFS", fmt.Sprintf("NFS-Ganesha binary actively supervised under Process ID: %d. Waiting for socket readiness...", n.ganeshaCmd.Process.Pid))
+	logger.InfoF("NFS", "NFS-Ganesha binary actively supervised under Process ID: %d. Waiting for socket readiness...", n.ganeshaCmd.Process.Pid)
 
 	select {
 	case <-n.readyChan:

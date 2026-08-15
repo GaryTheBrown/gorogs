@@ -45,7 +45,7 @@ func StartHealthServer() {
 		failureMessage := ""
 		currentMode := config.HealthMode
 
-		logger.Debug("HEALTH", fmt.Sprintf("Executing active evaluation loop under strategy level code: %d", currentMode))
+		logger.DebugF("HEALTH", "Executing active evaluation loop under strategy level code: %d", currentMode)
 
 		if currentMode == config.LevelDisabled {
 			w.WriteHeader(http.StatusOK)
@@ -73,8 +73,7 @@ func StartHealthServer() {
 
 				if shouldFail {
 					isHealthy = false
-					failureMessage = fmt.Sprintf("Critical storage share error on component [%s]", name)
-					logger.Error("HEALTH", failureMessage, err)
+					logger.ErrorF("HEALTH", "Critical storage share error on component [%s]", err, name)
 					break
 				}
 			}
@@ -94,8 +93,7 @@ func StartHealthServer() {
 
 					if shouldFail {
 						isHealthy = false
-						failureMessage = fmt.Sprintf("Critical advertisement beacon error on component [%s]", name)
-						logger.Error("HEALTH", failureMessage, err)
+						logger.ErrorF("HEALTH", "Critical advertisement beacon error on component [%s]", err, name)
 						break
 					}
 				}

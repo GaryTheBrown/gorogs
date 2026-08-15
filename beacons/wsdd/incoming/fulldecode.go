@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/xml"
 	"errors"
-	"fmt"
 	"strings"
 
 	"gorogs/beacons/wsdd/versions"
@@ -18,7 +17,7 @@ func FullDecode(rawUDP []byte, message *WSMessage) error {
 	logger.Debug("wsdd", "Initializing new list collection structure matrices")
 	lists := NewListsStruct()
 
-	logger.Debug("wsdd", fmt.Sprintf("Commencing outer SOAP envelope wrapper unmarshalling pass for %d bytes", len(rawUDP)))
+	logger.DebugF("wsdd", "Commencing outer SOAP envelope wrapper unmarshalling pass for %d bytes", len(rawUDP))
 	var envelope SoapEnvelope
 	decoder := xml.NewDecoder(bytes.NewReader(rawUDP))
 	if err := decoder.Decode(&envelope); err != nil {
@@ -33,7 +32,7 @@ func FullDecode(rawUDP []byte, message *WSMessage) error {
 	}
 
 	if !SkipValidation && message.Header.ActionType != versions.Get {
-		logger.Debug("wsdd", fmt.Sprintf("Executing gatekeeper envelope attribute strict check for version: %s", message.SchemaVersion))
+		logger.DebugF("wsdd", "Executing gatekeeper envelope attribute strict check for version: %s", message.SchemaVersion)
 		if err := ValidateStrictNamespaces(message.SchemaVersion, envelope.Attrs, lists); err != nil {
 			logger.Error("wsdd", "Strict envelope attribute namespace gatekeeper pass rejected payload layout", err)
 			return err
@@ -47,7 +46,7 @@ func FullDecode(rawUDP []byte, message *WSMessage) error {
 	}
 
 	actionTypeString := message.Header.ActionType.String()
-	logger.Info("wsdd", fmt.Sprintf("Full document structure validated successfully. Extracting body payload type: %s", actionTypeString))
+	logger.InfoF("wsdd", "Full document structure validated successfully. Extracting body payload type: %s", actionTypeString)
 
 	switch message.Header.ActionType {
 	case versions.Probe:
@@ -56,7 +55,6 @@ func FullDecode(rawUDP []byte, message *WSMessage) error {
 			return err
 		}
 	case versions.Resolve:
-		logger.Info("wsdd", "PARSING RESOLVE MESSAGE")
 		if err := ParseBodyResolve(envelope.Body.RawInner, message); err != nil {
 			errCheck := ErrResolveNotForUs{}
 			if err != errCheck {
@@ -80,7 +78,7 @@ func FullDecode(rawUDP []byte, message *WSMessage) error {
 			return err
 		}
 	default:
-		logger.Debug("wsdd", fmt.Sprintf("No unique structural body unmarshaler mapped for execution criteria type: %s", actionTypeString))
+		logger.DebugF("wsdd", "No unique structural body unmarshaler mapped for execution criteria type: %s", actionTypeString)
 	}
 
 	logger.Debug("wsdd", "Parsing tracking process successfully concluded for raw payload block")
@@ -98,43 +96,43 @@ func ParseHeader(envelope *SoapEnvelope, message *WSMessage) error {
 	lastSlash := strings.LastIndex(actionStr, "/")
 	if lastSlash == -1 {
 		err := errors.New("Action header is not a valid structured URL path")
-		logger.Error("wsdd", fmt.Sprintf("Malformed context found evaluating header value string: '%s'", actionStr), err)
+		logger.ErrorF("wsdd", "Malformed context found evaluating header value string: '%s'", err, actionStr)
 		return err
 	}
 
 	actionURL := actionStr[:lastSlash]
 	actionCmdStr := actionStr[lastSlash+1:]
 
-	logger.Debug("wsdd", fmt.Sprintf("Converting text tag component string token context target: '%s'", actionCmdStr))
+	logger.DebugF("wsdd", "Converting text tag component string token context target: '%s'", actionCmdStr)
 	var err error
 	message.Header.ActionType, err = versions.StringToActionType(actionCmdStr)
 	if err != nil {
-		logger.Error("wsdd", fmt.Sprintf("Action command string token mapping failed completely for payload action: '%s'", actionCmdStr), err)
+		logger.ErrorF("wsdd", "Action command string token mapping failed completely for payload action: '%s'", err, actionCmdStr)
 		return err
 	}
 
 	if message.Header.ActionType == versions.Get {
 		if actionURL != versions.TransferSchema {
 			err = ErrTransferSchemaWrong{}
-			logger.Error("wsdd", fmt.Sprintf("Transfer Schema Is not what we expect we got: %s", actionURL), err)
+			logger.ErrorF("wsdd", "Transfer Schema Is not what we expect we got: %s", err, actionURL)
 			return err
 		}
 
 		detectedVersion, found := GlobalSessionTracker.LookupVersion(message.Sender)
 		if found {
 			message.SchemaVersion = detectedVersion
-			logger.Debug("wsdd", fmt.Sprintf("Successfully restored active protocol version session mapping from incoming cache: %s", message.SchemaVersion))
+			logger.DebugF("wsdd", "Successfully restored active protocol version session mapping from incoming cache: %s", message.SchemaVersion)
 		} else {
 			message.SchemaVersion = "2005/04"
 			logger.Debug("wsdd", "No matching peer session context found inside incoming tracker. Assigning fallback version: 2005/04")
 		}
 
 	} else {
-		logger.Debug("wsdd", fmt.Sprintf("Running matrix reverse lookup validating active discovery schema version identifier path matching: '%s'", actionURL))
+		logger.DebugF("wsdd", "Running matrix reverse lookup validating active discovery schema version identifier path matching: '%s'", actionURL)
 
 		message.SchemaVersion, err = versions.SchemaList.CheckDiscoveryVersion(actionURL)
 		if err != nil {
-			logger.Error("wsdd", fmt.Sprintf("Active version check matrix rejected discovery path mapping context target: '%s'", actionURL), err)
+			logger.ErrorF("wsdd", "Active version check matrix rejected discovery path mapping context target: '%s'", err, actionURL)
 			return err
 		}
 
@@ -146,24 +144,24 @@ func ParseHeader(envelope *SoapEnvelope, message *WSMessage) error {
 	message.Header.AppSequence.InstanceID = envelope.Header.AppSequence.InstanceId
 	message.Header.AppSequence.MessageNumber = envelope.Header.AppSequence.MessageNumber
 
-	logger.Info("wsdd", fmt.Sprintf("Header configuration extracted completely. MsgID: %s, Detected Protocol Specification Release: %s", message.Header.MessageID, message.SchemaVersion))
+	logger.InfoF("wsdd", "Header configuration extracted completely. MsgID: %s, Detected Protocol Specification Release: %s", message.Header.MessageID, message.SchemaVersion)
 	return nil
 }
 
 func ParseBodyProbe(rawData []byte, message *WSMessage) error {
-	logger.Debug("wsdd", fmt.Sprintf("Executing inner unmarshal operation targeting inner Probe body raw data block sizes: %d bytes", len(rawData)))
+	logger.DebugF("wsdd", "Executing inner unmarshal operation targeting inner Probe body raw data block sizes: %d bytes", len(rawData))
 	var payload ProbePayload
 	if err := xml.Unmarshal(rawData, &payload); err != nil {
 		logger.Error("wsdd", "Probe structural body schema translation mapping task encountered fatal syntax error", err)
 		return ErrBadSchemaBodyUnmarshalFailed{ExternalError: err}
 	}
 	message.Body.Probe.Types = payload.Types
-	logger.Debug("wsdd", fmt.Sprintf("Probe data block extracted cleanly. Target Capability Types parsed matching: %s", payload.Types))
+	logger.DebugF("wsdd", "Probe data block extracted cleanly. Target Capability Types parsed matching: %s", payload.Types)
 	return nil
 }
 
 func ParseBodyResolve(rawData []byte, message *WSMessage) error {
-	logger.Debug("wsdd", fmt.Sprintf("Executing inner unmarshal operation targeting inner Resolve body raw data block sizes: %d bytes", len(rawData)))
+	logger.DebugF("wsdd", "Executing inner unmarshal operation targeting inner Resolve body raw data block sizes: %d bytes", len(rawData))
 	var payload ResolvePayload
 	if err := xml.Unmarshal(rawData, &payload); err != nil {
 		logger.Error("wsdd", "Probe structural body schema translation mapping task encountered fatal syntax error", err)
@@ -172,17 +170,17 @@ func ParseBodyResolve(rawData []byte, message *WSMessage) error {
 
 	requestUUID := strings.TrimPrefix(payload.EndpointReference.Address, "urn:uuid:")
 	if InstanceUUID != requestUUID {
-		logger.Info("wsdd", fmt.Sprintf("Resolve request not for us Dropping message expected=%s got=%s", InstanceUUID, requestUUID))
+		logger.InfoF("wsdd", "Resolve request not for us Dropping message expected=%s got=%s", InstanceUUID, requestUUID)
 		return ErrResolveNotForUs{}
 	}
 	message.Body.Resolve.Address = requestUUID
-	logger.Debug("wsdd", fmt.Sprintf("Probe data block extracted cleanly. Address Requesting: %s", payload.EndpointReference.Address))
+	logger.DebugF("wsdd", "Probe data block extracted cleanly. Address Requesting: %s", payload.EndpointReference.Address)
 	logger.Info("wsdd", "PARSED RESOLVE MESSAGE")
 	return nil
 }
 
 func ParseBodyHello(rawData []byte, message *WSMessage) error {
-	logger.Debug("wsdd", fmt.Sprintf("Executing inner unmarshal operation targeting inner Hello body raw data block sizes: %d bytes", len(rawData)))
+	logger.DebugF("wsdd", "Executing inner unmarshal operation targeting inner Hello body raw data block sizes: %d bytes", len(rawData))
 	var payload HelloPayload
 	if err := xml.Unmarshal(rawData, &payload); err != nil {
 		logger.Error("wsdd", "Hello structural body schema translation mapping task encountered fatal syntax error", err)
@@ -190,12 +188,12 @@ func ParseBodyHello(rawData []byte, message *WSMessage) error {
 	}
 	message.Body.Hello.Address = payload.EndpointReference.Address
 	message.Body.Hello.Types = payload.Types
-	logger.Debug("wsdd", fmt.Sprintf("Hello data block extracted cleanly. Device Address: %s, Announced Types: %s", payload.EndpointReference.Address, payload.Types))
+	logger.DebugF("wsdd", "Hello data block extracted cleanly. Device Address: %s, Announced Types: %s", payload.EndpointReference.Address, payload.Types)
 	return nil
 }
 
 func ParseBodyBye(rawData []byte, message *WSMessage) error {
-	logger.Debug("wsdd", fmt.Sprintf("Executing inner unmarshal operation targeting inner Bye body raw data block sizes: %d bytes", len(rawData)))
+	logger.DebugF("wsdd", "Executing inner unmarshal operation targeting inner Bye body raw data block sizes: %d bytes", len(rawData))
 	var payload ByePayload
 	if err := xml.Unmarshal(rawData, &payload); err != nil {
 		logger.Error("wsdd", "Bye structural body schema translation mapping task encountered fatal syntax error", err)
@@ -203,18 +201,18 @@ func ParseBodyBye(rawData []byte, message *WSMessage) error {
 	}
 	message.Body.Bye.Address = payload.EndpointReference.Address
 
-	logger.Debug("wsdd", fmt.Sprintf("Bye data block extracted cleanly. Device Disconnection Target Address: %s", payload.EndpointReference.Address))
+	logger.DebugF("wsdd", "Bye data block extracted cleanly. Device Disconnection Target Address: %s", payload.EndpointReference.Address)
 	return nil
 }
 
 func ParseBodyGetMetadata(rawData []byte, message *WSMessage) error {
-	logger.Debug("wsdd", fmt.Sprintf("Executing inner unmarshal operation targeting inner GetMetadata body raw data block sizes: %d bytes", len(rawData)))
+	logger.DebugF("wsdd", "Executing inner unmarshal operation targeting inner GetMetadata body raw data block sizes: %d bytes", len(rawData))
 	var payload GetMetadataPayload
 	if err := xml.Unmarshal(rawData, &payload); err != nil {
 		logger.Error("wsdd", "GetMetadata structural body schema translation mapping task encountered fatal syntax error", err)
 		return ErrBadSchemaBodyUnmarshalFailed{ExternalError: err}
 	}
 	message.Body.GetMetadata.XMLName = payload.XMLName
-	logger.Debug("wsdd", fmt.Sprintf("GetMetadata schema container header element parsed cleanly. Namespace Local Target tag: %s", payload.XMLName.Local))
+	logger.DebugF("wsdd", "GetMetadata schema container header element parsed cleanly. Namespace Local Target tag: %s", payload.XMLName.Local)
 	return nil
 }

@@ -72,7 +72,7 @@ func InitializeRuntimeConfig() {
 					fields := strings.Fields(rLine)
 					if len(fields) > 1 {
 						detectedDomain = fields[1]
-						logger.Info("CONFIG", "Successfully synchronized domain suffix from resolv engine: "+detectedDomain)
+						logger.InfoF("CONFIG", "Successfully synchronized domain suffix from resolv engine: %s", detectedDomain)
 						break
 					}
 				}
@@ -131,8 +131,8 @@ rpc:            db files
 	}
 
 	logger.Info("CONFIG", "Boot evaluation: Commencing structural system configuration analysis...")
-	logger.Info("CONFIG", fmt.Sprintf("Health Check Strategy Configured: Mode Level [%d]", resolvedLevel))
-	logger.Info("CONFIG", fmt.Sprintf("Evaluated service matrices: NFS=%v, SMB=%v, RPCBIND=%v, WSDD=%v, MDNS=%v",
-		config.NfsEnabled, config.SambaEnabled, config.RpcbindEnabled, config.WsddEnabled, config.MdnsEnabled))
-	logger.Info("CONFIG", fmt.Sprintf("Network bounds validated: Node Unicast IP=%s, Domain FQDN=%s.%s", cIP.String(), nodeName, detectedDomain))
+	logger.InfoF("CONFIG", "Health Check Strategy Configured: Mode Level [%d]", resolvedLevel)
+	logger.InfoF("CONFIG", "Evaluated service matrices: NFS=%v, SMB=%v, RPCBIND=%v, WSDD=%v, MDNS=%v",
+		config.NfsEnabled, config.SambaEnabled, config.RpcbindEnabled, config.WsddEnabled, config.MdnsEnabled)
+	logger.InfoF("CONFIG", "Network bounds validated: Node Unicast IP=%s, Domain FQDN=%s.%s", cIP.String(), nodeName, detectedDomain)
 }

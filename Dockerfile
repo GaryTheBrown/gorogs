@@ -1,7 +1,21 @@
 FROM golang:1.26-alpine AS builder
+
 WORKDIR /src
+
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+ARG ENABLE_DEBUG=false
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /gorogs main.go
+
+
+RUN if [ "$ENABLE_DEBUG" = "true" ] ; then \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags=debug -ldflags="-s -w" -o /gorogs main.go; \
+    else \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /gorogs main.go; \
+    fi
+
 
 FROM debian:trixie-slim
 ENV DEBIAN_FRONTEND=noninteractive

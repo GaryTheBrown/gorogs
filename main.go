@@ -87,7 +87,7 @@ func main() {
 			continue
 		}
 
-		logger.Info("CORE", "Executing setup checks for component: "+item.name)
+		logger.InfoF("CORE", "Executing setup checks for component: %s", item.name)
 		if err := item.share.Setup(); err != nil {
 			logger.Fatal("CORE", "Critical initialization failure during share configuration setup phase", err)
 		}
@@ -112,7 +112,7 @@ func main() {
 			continue
 		}
 
-		logger.Info("CORE", "Executing setup checks for component: "+item.name)
+		logger.InfoF("CORE", "Executing setup checks for component: %s", item.name)
 		err := item.beacon.Setup(beaconConfig)
 
 		if err == beacons.ErrServiceDisabled {
@@ -134,17 +134,17 @@ func main() {
 	signal.Notify(shutdownSignalChan, syscall.SIGTERM, syscall.SIGINT)
 
 	caughtSignal := <-shutdownSignalChan
-	logger.Info("CORE", "Interception caught system event signal: "+caughtSignal.String()+". Commencing orderly cleanup procedures...")
+	logger.InfoF("CORE", "Interception caught system event signal: %s Commencing orderly cleanup procedures...", caughtSignal.String())
 
 	for name, beacon := range health.TrackedBeacons {
-		logger.Info("CORE", "Dismantling network beacon handler channels: "+name)
+		logger.InfoF("CORE", "Dismantling network beacon handler channels: %s", name)
 		if err := beacon.Stop(); err != nil {
 			logger.Error("CORE", "Teardown sequence returned errors during beacon resource release", err)
 		}
 	}
 
 	for name, share := range health.TrackedShares {
-		logger.Info("CORE", "Halting physical file system process tree: "+name)
+		logger.InfoF("CORE", "Halting physical file system process tree: %s", name)
 		if err := share.Stop(); err != nil {
 			logger.Error("CORE", "Teardown sequence returned errors during daemon execution release", err)
 		}

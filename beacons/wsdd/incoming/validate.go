@@ -13,11 +13,11 @@ import (
 func ValidateStrictNamespaces(version string, attrs []xml.Attr, lists *listsStruct) error {
 	schemaList, exists := versions.SchemaList[version]
 	if !exists {
-		logger.Error("wsdd", fmt.Sprintf("Namespace validator aborted: active schema release lookup matrix has no map matching release string version: '%s'", version), nil)
+		logger.ErrorF("wsdd", "Namespace validator aborted: active schema release lookup matrix has no map matching release string version: '%s'", nil, version)
 		return ErrVersionNotFound{}
 	}
 
-	logger.Debug("wsdd", fmt.Sprintf("Auditing envelope attributes. Validating %d items against active vocabulary registration rules.", len(attrs)))
+	logger.DebugF("wsdd", "Auditing envelope attributes. Validating %d items against active vocabulary registration rules.", len(attrs))
 
 	for _, attr := range attrs {
 		if attr.Name.Space == "xmlns" || (attr.Name.Local == "xmlns" && attr.Name.Space == "") {
@@ -30,11 +30,12 @@ func ValidateStrictNamespaces(version string, attrs []xml.Attr, lists *listsStru
 			schemaType, err := schemaList.Find(urlVal)
 			if err == nil {
 				if lists.Found[schemaType] {
-					logger.Error("wsdd", fmt.Sprintf("Gatekeeper pass violation: detected duplicate namespace prefix target schema type registration mapping for prefix: '%s'", attr.Name.Local), nil)
+					logger.ErrorF("wsdd", "Gatekeeper pass violation: detected duplicate namespace prefix target schema type registration mapping for prefix: '%s'", nil, attr.Name.Local)
 					return ErrDuplicateNamespacePrefix{}
 				}
-
-				logger.Debug("wsdd", fmt.Sprintf("Valid namespace matched: Attribute Prefix Key '%s' binds cleanly to explicit Schema Standard Type [%s]", attr.Name.Local, schemaType.String()))
+				if logger.IsDebugActive("wsdd") {
+					logger.DebugF("wsdd", "Valid namespace matched: Attribute Prefix Key '%s' binds cleanly to explicit Schema Standard Type [%s]", attr.Name.Local, schemaType.String())
+				}
 				lists.Found[schemaType] = true
 				continue
 			}
@@ -43,15 +44,15 @@ func ValidateStrictNamespaces(version string, attrs []xml.Attr, lists *listsStru
 				if err2 == versions.ErrSchemaNotFound {
 					_, foundInList := lists.UnknownSchema[prefixKey]
 					if foundInList {
-						logger.Error("wsdd", fmt.Sprintf("Gatekeeper pass violation: detected duplicate unknown prefix schema target mapping inside registration lists for prefix: '%s'", prefixKey), nil)
+						logger.ErrorF("wsdd", "Gatekeeper pass violation: detected duplicate unknown prefix schema target mapping inside registration lists for prefix: '%s'", nil, prefixKey)
 						return ErrDuplicateNamespacePrefix{}
 					}
-					logger.Debug("wsdd", fmt.Sprintf("Registering extension/external unmanaged vendor namespace path shortcut link: %s=\"%s\"", prefixKey, urlVal))
+					logger.DebugF("wsdd", "Registering extension/external unmanaged vendor namespace path shortcut link: %s=\"%s\"", prefixKey, urlVal)
 					lists.UnknownSchema[prefixKey] = urlVal
 					continue
 				}
 
-				logger.Error("wsdd", fmt.Sprintf("Gatekeeper pass violation: schema URL matches a completely different WS-Discovery version variant than current runtime target configuration expects. Rejected URL: %s", urlVal), nil)
+				logger.ErrorF("wsdd", "Gatekeeper pass violation: schema URL matches a completely different WS-Discovery version variant than current runtime target configuration expects. Rejected URL: %s", nil, urlVal)
 				return ErrBadSchemaWrongVersion{}
 			} else {
 				lists.Shortcut[prefixKey] = schemaType
@@ -109,10 +110,10 @@ func ValidateFullDocumentNamespaces(version string, rawXML []byte, lists *listsS
 		if schemaType, exists := approvedMap[name.Local]; exists {
 			expectedSpace := versions.SchemaList[version][schemaType]
 			if expectedSpace == name.Space {
-				logger.Debug("wsdd", fmt.Sprintf("[Token Match] Verified element <%s:%s> correctly binds to expected active protocol namespace path URL: %s", schemaType.String(), name.Local, name.Space))
+				logger.DebugF("wsdd", "[Token Match] Verified element <%s:%s> correctly binds to expected active protocol namespace path URL: %s", schemaType.String(), name.Local, name.Space)
 				continue
 			} else {
-				logger.Error("wsdd", fmt.Sprintf("[Schema Mismatch] Element variant structural validation failure: tag name '%s' attempted to execute using unauthorized namespace URL space: %s", name.Local, name.Space), nil)
+				logger.ErrorF("wsdd", "[Schema Mismatch] Element variant structural validation failure: tag name '%s' attempted to execute using unauthorized namespace URL space: %s", nil, name.Local, name.Space)
 				return ErrBadSchemaTagNameBad{}
 			}
 		} else {
@@ -124,10 +125,10 @@ func ValidateFullDocumentNamespaces(version string, rawXML []byte, lists *listsS
 				}
 			}
 			if !foundInUnknownList {
-				logger.Error("wsdd", fmt.Sprintf("[Unknown Tag Error] Security verification pass rejected unrecognized or unapproved rogue payload tag name element target: <%s:%s>", name.Space, name.Local), nil)
+				logger.ErrorF("wsdd", "[Unknown Tag Error] Security verification pass rejected unrecognized or unapproved rogue payload tag name element target: <%s:%s>", nil, name.Space, name.Local)
 				return ErrBadSchemaTagNameBad{}
 			}
-			logger.Debug("wsdd", fmt.Sprintf("[Extension Tag Match] Processing safe vendor extension tag name component: <%s:%s>", name.Space, name.Local))
+			logger.DebugF("wsdd", "[Extension Tag Match] Processing safe vendor extension tag name component: <%s:%s>", name.Space, name.Local)
 		}
 	}
 
