@@ -43,7 +43,21 @@ func HandleIncomingHTTPTransfer(w http.ResponseWriter, r *http.Request, outputCh
 	clientAddr, _ := net.ResolveTCPAddr("tcp", remoteAddrStr)
 
 	var msg incoming.WSMessage
-	if err := incoming.Decode(bodyBytes, &msg); err != nil {
+
+	if FastDecodingMode {
+		if err := incoming.QuickDecode(bodyBytes, &msg); err != nil {
+			logger.Error("wsdd", fmt.Sprintf("[Worker] Fast Decoding Failed: %s", remoteAddrStr), err)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+	} else {
+		if err := incoming.FullDecode(bodyBytes, &msg); err != nil {
+			logger.Error("wsdd", fmt.Sprintf("[Worker] Dropping invalid/malformed payload block from remote host: %s", remoteAddrStr), err)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+	}
+	if err := incoming.FullDecode(bodyBytes, &msg); err != nil {
 		logger.Error("wsdd", fmt.Sprintf("[HTTP Transfer] Dropping invalid/malformed SOAP frame from: %s", remoteAddrStr), err)
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return

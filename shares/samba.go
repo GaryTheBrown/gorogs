@@ -21,8 +21,8 @@ import (
 
 type SambaShare struct {
 	cmd         *exec.Cmd
-	readyChan   chan struct{}      // Synchronises Go lifecycle with Samba state
-	cancelWatch context.CancelFunc // Cleans up dynamic directory tracking threads on Stop
+	readyChan   chan struct{}
+	cancelWatch context.CancelFunc
 }
 
 func (s *SambaShare) Setup() error {
@@ -125,7 +125,6 @@ func (s *SambaShare) Start() error {
 	case <-s.readyChan:
 		logger.Info("SAMBA", "Samba successfully bound network ports and is accepting incoming client requests.")
 
-		// LIVE CHANGES PIPELINE CONFIGURATION CHECK
 		if config.LiveChangesEnabled {
 			watchCtx, cancel := context.WithCancel(context.Background())
 			s.cancelWatch = cancel
@@ -169,7 +168,6 @@ func (s *SambaShare) startFSEventDirectoryWatcher(ctx context.Context) {
 				return
 			}
 
-			// Capture directory changes: creations, removals, and renames
 			if event.Has(fsnotify.Create) || event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
 				logger.Debug("SAMBA", fmt.Sprintf("FS Event intercepted -> Action: %s on Path: %s", event.Op.String(), event.Name))
 
@@ -177,17 +175,14 @@ func (s *SambaShare) startFSEventDirectoryWatcher(ctx context.Context) {
 					debounceTimer.Stop()
 				}
 
-				// Reset the rolling debouncer execution latch timer
 				debounceTimer = time.AfterFunc(debounceDuration, func() {
 					logger.Info("SAMBA", "FSEvent stabilization window cleared. Recompiling dynamic shares...")
 
-					// 1. Rebuild the dynamic shares configuration tracking file
 					if err := s.writeDynamicSharesConfig(); err != nil {
 						logger.Error("SAMBA", "Failed to compile updated share text block modifications to memory configuration space", err)
 						return
 					}
 
-					// 2. Dispatch a SIGHUP signal directly to smbd to trigger a seamless hot-reload
 					if s.cmd != nil && s.cmd.Process != nil {
 						if err := s.cmd.Process.Signal(syscall.SIGHUP); err != nil {
 							logger.Error("SAMBA", "Failed to transmit SIGHUP configuration hot-reload trigger command to smbd process", err)
@@ -251,7 +246,6 @@ func (s *SambaShare) Healthcheck() error {
 func (s *SambaShare) IsCritical() bool { return true }
 
 func (s *SambaShare) Stop() error {
-	// Cancel the active background fsnotify watcher context cleanly
 	if s.cancelWatch != nil {
 		s.cancelWatch()
 	}

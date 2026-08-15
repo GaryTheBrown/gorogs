@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"gorogs/beacons"
+	"gorogs/beacons/wsdd/connection"
 	"gorogs/beacons/wsdd/engine"
 	"gorogs/beacons/wsdd/incoming"
 	"gorogs/beacons/wsdd/templates"
@@ -16,9 +17,7 @@ type WsddBeacon struct {
 	cancel context.CancelFunc
 	engine *engine.Engine
 
-	//Configs For This this will eventually be something we get from the cfg when we
-	// switch to a more dynamic way of passing configs in and out.
-	FastDecodingMode bool
+	SkipValidation bool
 }
 
 func (w *WsddBeacon) Setup(cfg beacons.AppConfig) error {
@@ -28,10 +27,13 @@ func (w *WsddBeacon) Setup(cfg beacons.AppConfig) error {
 	templates.PreCompileTemplates(cfg)
 	w.ctx, w.cancel = context.WithCancel(context.Background())
 	w.engine = engine.NewEngineState()
-	w.FastDecodingMode = true
-	incoming.EnableFastDecoding = w.FastDecodingMode
 
-	if incoming.EnableFastDecoding {
+	//Configs For This this will eventually be something we get from the cfg when we
+	// switch to a more dynamic way of passing configs in and out.
+	incoming.SkipValidation = false //only works if fastdecodingmode is false
+	connection.FastDecodingMode = false
+
+	if incoming.SkipValidation {
 		logger.Info("WSDD", "High-speed tokenless XML decoding optimization shunt is ACTIVE.")
 	} else {
 		logger.Info("WSDD", "Standard full-document recursive namespace token validation scan is ACTIVE.")

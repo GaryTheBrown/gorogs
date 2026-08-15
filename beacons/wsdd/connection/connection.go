@@ -17,6 +17,10 @@ const (
 )
 
 var (
+	FastDecodingMode bool
+)
+
+var (
 	UDPConn     *net.UDPConn
 	TCPListener net.Listener
 )

@@ -69,10 +69,16 @@ func UDPWorker(wg *sync.WaitGroup, data []byte, sender net.Addr, outputChan chan
 	senderString := sender.String()
 
 	logger.Debug("wsdd", fmt.Sprintf("[Worker] Commencing strict structural verification and token extraction pass on data from: %s", senderString))
-
-	if err := incoming.Decode(data, &msg); err != nil {
-		logger.Error("wsdd", fmt.Sprintf("[Worker] Dropping invalid/malformed payload block from remote host: %s", senderString), err)
-		return
+	if FastDecodingMode {
+		if err := incoming.QuickDecode(data, &msg); err != nil {
+			logger.Error("wsdd", fmt.Sprintf("[Worker] Fast Decoding Failed: %s", senderString), err)
+			return
+		}
+	} else {
+		if err := incoming.FullDecode(data, &msg); err != nil {
+			logger.Error("wsdd", fmt.Sprintf("[Worker] Dropping invalid/malformed payload block from remote host: %s", senderString), err)
+			return
+		}
 	}
 
 	msg.Sender = sender
