@@ -12,6 +12,7 @@ import (
 	"gorogs/health"
 	"gorogs/logger"
 	"gorogs/shares"
+	"gorogs/storage"
 	"gorogs/utils"
 )
 
@@ -22,6 +23,12 @@ func main() {
 	if config.IsCheckMode {
 		health.RunHealthProbeClient()
 		return
+	}
+
+	if config.ZeroSpaceEnabled {
+		if err := storage.SetupZeroSpaceOverlay(); err != nil {
+			logger.Fatal("Main", "Zero Space Overlay Initialization failed", err)
+		}
 	}
 
 	beaconConfig := beacons.AppConfig{

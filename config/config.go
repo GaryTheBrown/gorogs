@@ -14,7 +14,7 @@ const (
 	LevelDisabled
 )
 
-const ShareRoot = "/srv"
+var ShareRoot = "/srv"
 
 var (
 	Name         string
@@ -33,4 +33,5 @@ var (
 	MdnsNfsEnabled     bool
 	MdnsSambaEnabled   bool
 	LiveChangesEnabled bool
+	ZeroSpaceEnabled   bool
 )

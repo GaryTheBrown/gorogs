@@ -13,7 +13,6 @@ import (
 func InitializeRuntimeConfig() {
 	logger.RegisterDebugTargets(os.Getenv("DEBUG_LOG"))
 
-	
 	isCheck := len(os.Args) > 1 && os.Args[1] == "--check-health"
 
 	_, hasNfsKill := os.LookupEnv("DISABLE_NFS")
@@ -25,6 +24,7 @@ func InitializeRuntimeConfig() {
 	_, hasMdnsNfsKill := os.LookupEnv("DISABLE_ZEROCONF_NFS")
 	_, hasMdnsSambaKill := os.LookupEnv("DISABLE_ZEROCONF_SAMBA")
 	_, hasLiveKill := os.LookupEnv("DISABLE_LIVECHANGES")
+	_, hasZeroSpaceKill := os.LookupEnv("DISABLE_ZEROSPACE")
 
 	hEnv := strings.ToLower(os.Getenv("HEALTH_MODE"))
 	var resolvedLevel config.HealthLevel
@@ -124,6 +124,7 @@ rpc:            db files
 	config.MdnsNfsEnabled = !hasNfsKill && !hasMdnsNfsKill
 	config.MdnsSambaEnabled = !hasSambaKill && !hasMdnsSambaKill
 	config.LiveChangesEnabled = !hasLiveKill
+	config.ZeroSpaceEnabled = !hasZeroSpaceKill
 
 	if isCheck {
 		return
