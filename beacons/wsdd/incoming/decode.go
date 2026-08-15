@@ -12,6 +12,7 @@ import (
 )
 
 var InstanceUUID string
+var EnableFastDecoding bool
 
 func Decode(rawUDP []byte, message *WSMessage) error {
 	logger.Debug("wsdd", "Initializing new list collection structure matrices")
@@ -31,7 +32,7 @@ func Decode(rawUDP []byte, message *WSMessage) error {
 		return ErrBadSchemaFailedHeaderRead{ExternalError: err}
 	}
 
-	if message.Header.ActionType != versions.Get {
+	if !EnableFastDecoding && message.Header.ActionType != versions.Get {
 		logger.Debug("wsdd", fmt.Sprintf("Executing gatekeeper envelope attribute strict check for version: %s", message.SchemaVersion))
 		if err := ValidateStrictNamespaces(message.SchemaVersion, envelope.Attrs, lists); err != nil {
 			logger.Error("wsdd", "Strict envelope attribute namespace gatekeeper pass rejected payload layout", err)

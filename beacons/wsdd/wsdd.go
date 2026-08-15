@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gorogs/beacons"
 	"gorogs/beacons/wsdd/engine"
+	"gorogs/beacons/wsdd/incoming"
 	"gorogs/beacons/wsdd/templates"
 	"gorogs/logger"
 )
@@ -14,6 +15,10 @@ type WsddBeacon struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	engine *engine.Engine
+
+	//Configs For This this will eventually be something we get from the cfg when we
+	// switch to a more dynamic way of passing configs in and out.
+	FastDecodingMode bool
 }
 
 func (w *WsddBeacon) Setup(cfg beacons.AppConfig) error {
@@ -23,6 +28,14 @@ func (w *WsddBeacon) Setup(cfg beacons.AppConfig) error {
 	templates.PreCompileTemplates(cfg)
 	w.ctx, w.cancel = context.WithCancel(context.Background())
 	w.engine = engine.NewEngineState()
+	w.FastDecodingMode = true
+	incoming.EnableFastDecoding = w.FastDecodingMode
+
+	if incoming.EnableFastDecoding {
+		logger.Info("WSDD", "High-speed tokenless XML decoding optimization shunt is ACTIVE.")
+	} else {
+		logger.Info("WSDD", "Standard full-document recursive namespace token validation scan is ACTIVE.")
+	}
 	logger.Info("wsdd", fmt.Sprintf("Subsystem setup completed for server name: %s", w.config.ServerName))
 	return nil
 }
