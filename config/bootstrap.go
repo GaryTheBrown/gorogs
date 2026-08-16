@@ -11,17 +11,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func init() {
-	init_getEnvironFillMap()
-	init_getDisabled()
-	init_getEnabled()
-	init_getHostname()
-	init_getDomainName()
-	init_getSystemIP()
-	init_etc_hosts()
-	init_etc_nsswitch_conf()
-}
-
 func loopedMapWrite(cmap map[string]any, keys []string, value any) bool {
 	if len(keys) == 0 {
 		return false
@@ -47,7 +36,7 @@ func loopedMapWrite(cmap map[string]any, keys []string, value any) bool {
 	return loopedMapWrite(nextMap, keys[1:], value)
 }
 
-func init_getEnvironFillMap() {
+func init() { //_getEnvironFillMap() {}
 	prefix := "gorogs."
 
 	for _, env := range os.Environ() {
@@ -63,7 +52,7 @@ func init_getEnvironFillMap() {
 	}
 }
 
-func init_getDisabled() {
+func init() { //_getDisabled() {
 	if disabledStr, ok := massConfigMap["disabled"].(string); ok {
 		disabledSlice := strings.SplitSeq(strings.ToLower(disabledStr), ",")
 		for val := range disabledSlice {
@@ -75,7 +64,7 @@ func init_getDisabled() {
 	}
 }
 
-func init_getEnabled() {
+func init() { //_getEnabled() {
 	if enabledStr, ok := massConfigMap["enabled"].(string); ok {
 		enabledSlice := strings.SplitSeq(strings.ToLower(enabledStr), ",")
 		for val := range enabledSlice {
@@ -87,7 +76,7 @@ func init_getEnabled() {
 	}
 }
 
-func init_getHostname() {
+func init() { //_getHostname() {
 	Hostname = os.Getenv("HOSTNAME")
 	if Hostname != "" {
 		return
@@ -105,7 +94,7 @@ func init_getHostname() {
 	}
 }
 
-func init_getDomainName() {
+func init() { //_getDomainName() {
 	if strings.Contains(Hostname, ".") {
 		DomainName = "." + strings.Join(strings.Split(Hostname, ".")[1:], ".")
 		return
@@ -131,7 +120,7 @@ func init_getDomainName() {
 	DomainName = ".local"
 }
 
-func init_getSystemIP() {
+func init() { //_getSystemIP() {
 	var err error
 	if waitForSystemIP(5*time.Second) == nil {
 		return

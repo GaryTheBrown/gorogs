@@ -11,11 +11,11 @@ func ProbeClient() {
 	client := http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", socketPath)
+				return net.Dial("unix", socketFile)
 			},
 		},
 	}
-	resp, err := client.Get("http://unix/healthz")
+	resp, err := client.Get("http://unix/")
 	if err != nil || resp.StatusCode != http.StatusOK {
 		os.Exit(1)
 	}

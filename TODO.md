@@ -8,7 +8,8 @@
 3. nfs is empty in dolphin.
    
 ## TODO ADDS:
-1. simplify all systems struct file and clean up all the logger.info to logger.debug if it's the struct itself
+1. be able to say a system requires another system so we can do some ordering of startups.
+2. 
  
 
 ## TODO MAYBE?

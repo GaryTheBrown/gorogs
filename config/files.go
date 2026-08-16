@@ -17,7 +17,7 @@ func fileExists(filename string) bool {
 	return false
 }
 
-func init_etc_hosts() {
+func init() { //_etc_hosts() {
 	if !fileExists("/etc/hosts") {
 		hostsContent := fmt.Sprintf(
 			"127.0.0.1\tlocalhost\n"+
@@ -30,7 +30,7 @@ func init_etc_hosts() {
 		}
 	}
 }
-func init_etc_nsswitch_conf() {
+func init() { //_etc_nsswitch_conf() {
 	if !fileExists("/etc/nsswitch.conf") {
 		nsswitchContent := "passwd:         files\n" +
 			"group:          files\n" +

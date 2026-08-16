@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 )
 
 const DebugActive = true
@@ -39,14 +38,32 @@ func Debug(subsystem, message string) {
 	if !allDebugActive && !debugRegistry[lowerSub] {
 		return
 	}
-	timestamp := time.Now().Format("02/01/2006 15:04:05")
+	prefix := formatPrefix(subsystem, "DEBUG")
+	logChan <- logMessage{kind: typeStandard, text: prefix + message + "\n"}
+}
 
-	prefix := "[DEBUG]"
-	if EnableColors {
-		prefix = fmt.Sprintf("%s[DEBUG]%s", colorCyan, colorReset)
-	}
+func DebugContinueF(subsystem, format string, args ...any) {
+	DebugContinue(subsystem, fmt.Sprintf(format, args...))
+}
 
-	fmt.Printf("[%s] %s [%s] %s\n", timestamp, prefix, strings.ToUpper(subsystem), message)
+func DebugContinue(subsystem, message string) {
+	prefix := formatPrefix(subsystem, "DEBUG")
+	logChan <- logMessage{kind: typeStart, text: prefix + message, subSystem: subsystem}
+}
+
+func DebugAppendF(subsystem, format string, a ...any) {
+	DebugAppend(subsystem, fmt.Sprintf(format, a...))
+}
+
+func DebugAppend(subsystem, message string) {
+	logChan <- logMessage{kind: typeAppend, text: message, subSystem: subsystem}
+}
+
+func DebugEndF(subSystem, format string, a ...any) {
+	DebugEnd(subSystem, fmt.Sprintf(format, a...)+"\n")
+}
+func DebugEnd(subSystem, message string) {
+	logChan <- logMessage{kind: typeEnd, text: message + "\n", subSystem: subSystem}
 }
 
 func IsDebugActive(subsystem string) bool {
