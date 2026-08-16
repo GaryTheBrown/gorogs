@@ -1,131 +1,97 @@
 package main
 
 import (
+	"gorogs/config"
+	"gorogs/health"
+	"gorogs/logger"
+	"gorogs/systems"
+	"gorogs/systems/beacons/netbios"
+	"gorogs/systems/beacons/rpcbind"
+	"gorogs/systems/beacons/wsdiscovery"
+	"gorogs/systems/beacons/zeroconf"
+	"gorogs/systems/shares/nfs"
+	"gorogs/systems/shares/samba"
+	"gorogs/systems/utilities/zerospace"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+)
 
-	"gorogs/beacons"
-	"gorogs/beacons/wsdd"
-	"gorogs/config"
-	"gorogs/health"
-	"gorogs/logger"
-	"gorogs/shares"
-	"gorogs/storage"
-	"gorogs/utils"
+type SystemNameEnum uint16
+
+const (
+	ZeroSpace SystemNameEnum = iota
+	RpcBind
+	NFS
+	NetBIOS
+	Samba
+	WSDiscovery
+	ZeroCONF
+)
+
+var (
+	systemList = []systems.System{
+		//ORDER IS IMPORTAND DON'T CHANGE THIS ORDER
+		&zerospace.ZeroSpaceStruct{},
+		&rpcbind.RPCBindStruct{},
+		&nfs.NFSStruct{},
+		&netbios.NetBIOSStruct{},
+		&samba.SambaStruct{},
+		&wsdiscovery.WSDiscoveryStruct{},
+		&zeroconf.ZeroconfStruct{},
+	}
 )
 
 func main() {
-
-	utils.InitializeRuntimeConfig()
-
-	if config.IsCheckMode {
-		health.RunHealthProbeClient()
+	if len(os.Args) > 1 && os.Args[1] == "--check-health" {
+		health.ProbeClient()
 		return
 	}
 
-	if config.ZeroSpaceEnabled {
-		if err := storage.SetupZeroSpaceOverlay(); err != nil {
-			logger.Fatal("Main", "Zero Space Overlay Initialization failed", err)
+	healthChecker := health.CheckStruct{}
+	healthChecker.Setup()
+	healthChecker.Start()
+
+	for i, sys := range systemList {
+		sysAutoStart := sys.AutoStart()
+		if sysAutoStart {
+			sysDisabled := config.IsDisabled(sys.Name())
+			if i == int(RpcBind) {
+				if sysDisabled {
+					if (systemList[NFS].AutoStart() && config.IsDisabled("nfs")) ||
+						(!systemList[NFS].AutoStart() && !config.IsEnabled("nfs")) {
+						continue
+					}
+				}
+			} else if sysDisabled {
+				continue
+			}
+		} else {
+			sysEnabled := config.IsEnabled(sys.Name())
+			if i == int(RpcBind) {
+				if (systemList[NFS].AutoStart() && config.IsDisabled("nfs")) ||
+					(!systemList[NFS].AutoStart() && !config.IsEnabled("nfs")) {
+					continue
+				}
+			} else if !sysEnabled {
+				continue
+			}
+		}
+		if err := sys.Setup(); err != nil {
+			//ERROR DO WE STOP. OF COURSE WE ARE
 		}
 	}
 
-	beaconConfig := beacons.AppConfig{
-		ServerName:   config.Name,
-		DomainSuffix: config.DomainSuffix,
-		ContainerIP:  config.ContainerIP,
-		HostGateway:  config.HostGateway,
-	}
-	logger.Info("CORE", "Initializing master storage orchestration supervisor engine...")
-	health.StartHealthServer()
-
-	rpcbind := &beacons.RpcbindBeacon{}
-	logger.Info("CORE", "Executing mandatory priority pre-flight checks for component: rpcbind")
-	rpcErr := rpcbind.Setup(beaconConfig)
-
-	if rpcErr == beacons.ErrServiceDisabled {
-		logger.Info("CORE", "RPCBIND setup notice: Service is deactivated via environment toggles.")
-	} else if rpcErr != nil {
-		logger.Fatal("CORE", "Critical initialization failure during priority rpcbind configuration setup phase", rpcErr)
-	} else {
-		if err := rpcbind.Start(); err != nil {
-			logger.Fatal("CORE", "Failed to launch priority rpcbind daemon binary process tree", err)
+	for _, sys := range systemList {
+		if sys.State(systems.SETUP) {
+			if err := sys.Start(); err != nil {
+				//Problem Starting system
+			}
+			if !healthChecker.AddTracker(sys) {
+				//problem with adding to tracker
+			}
 		}
-		health.TrackedBeacons["rpcbind"] = rpcbind
-	}
-
-	// if config.NmbdEnabled {
-	// 	nmbdBeacon := &beacons.NetBIOSBeacon{}
-	// 	logger.Info("CORE", "Executing mandatory priority pre-flight checks for component: nmbd")
-
-	// 	if err := nmbdBeacon.Setup(beaconConfig); err != nil {
-	// 		logger.Fatal("CORE", "Critical initialization failure during priority nmbd configuration setup phase", err)
-	// 	}
-
-	// 	if err := nmbdBeacon.Start(); err != nil {
-	// 		logger.Fatal("CORE", "Failed to launch priority nmbd beacon binary process tree", err)
-	// 	}
-	// 	health.TrackedBeacons["nmbd"] = nmbdBeacon
-	// } else {
-	// 	logger.Info("CORE", "NMBD setup notice: NetBIOS discovery beacon is deactivated via environment toggles.")
-	// }
-
-	activeShares := []struct {
-		name  string
-		share shares.StorageShare
-	}{
-		{"nfs", &shares.NfsShare{}},
-		{"samba", &shares.SambaShare{}},
-	}
-
-	for _, item := range activeShares {
-		if item.name == "nfs" && !config.NfsEnabled {
-			continue
-		}
-		if item.name == "samba" && !config.SambaEnabled {
-			continue
-		}
-
-		logger.InfoF("CORE", "Executing setup checks for component: %s", item.name)
-		if err := item.share.Setup(); err != nil {
-			logger.Fatal("CORE", "Critical initialization failure during share configuration setup phase", err)
-		}
-
-		if err := item.share.Start(); err != nil {
-			logger.Fatal("CORE", "Failed to launch supervised daemon binary process tree", err)
-		}
-
-		health.TrackedShares[item.name] = item.share
-	}
-
-	activeBeacons := []struct {
-		name   string
-		beacon beacons.DiscoveryBeacon
-	}{
-		{"mdns", &beacons.MdnsBeacon{}},
-		{"wsdd", &wsdd.WsddBeacon{}},
-	}
-
-	for _, item := range activeBeacons {
-		if item.name == "wsdd" && !config.SambaEnabled {
-			continue
-		}
-
-		logger.InfoF("CORE", "Executing setup checks for component: %s", item.name)
-		err := item.beacon.Setup(beaconConfig)
-
-		if err == beacons.ErrServiceDisabled {
-			continue
-		} else if err != nil {
-			logger.Fatal("CORE", "Critical initialization failure during discovery beacon setup phase", err)
-		}
-
-		if err := item.beacon.Start(); err != nil {
-			logger.Fatal("CORE", "Failed to arm advertisement handles or bind discovery sockets", err)
-		}
-
-		health.TrackedBeacons[item.name] = item.beacon
 	}
 
 	logger.Info("CORE", "All active operational layers successfully linked. Arming signal interception traps.")
@@ -136,20 +102,15 @@ func main() {
 	caughtSignal := <-shutdownSignalChan
 	logger.InfoF("CORE", "Interception caught system event signal: %s Commencing orderly cleanup procedures...", caughtSignal.String())
 
-	for name, beacon := range health.TrackedBeacons {
-		logger.InfoF("CORE", "Dismantling network beacon handler channels: %s", name)
-		if err := beacon.Stop(); err != nil {
-			logger.Error("CORE", "Teardown sequence returned errors during beacon resource release", err)
+	for i := len(systemList) - 1; i >= 0; i-- {
+		sys := systemList[i]
+		if sys.State(systems.STARTED) {
+			logger.InfoContinueF(sys.Name(), "Stopping [%s] system...", sys.Name())
+			sys.Stop()
+			logger.InfoEnd(sys.Name(), "[DONE]")
 		}
-	}
 
-	for name, share := range health.TrackedShares {
-		logger.InfoF("CORE", "Halting physical file system process tree: %s", name)
-		if err := share.Stop(); err != nil {
-			logger.Error("CORE", "Teardown sequence returned errors during daemon execution release", err)
-		}
 	}
-
 	time.Sleep(500 * time.Millisecond)
 	logger.Info("CORE", "All background worker threads reaped cleanly. Orchestrator runtime loop completed.")
 }

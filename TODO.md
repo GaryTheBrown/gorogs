@@ -8,8 +8,7 @@
 3. nfs is empty in dolphin.
    
 ## TODO ADDS:
-1. a better disable/enable env var setup where user can list items. make it so each beacon/share (plugin) is individually added to the list like debug_log. 
-
+1. simplify all systems struct file and clean up all the logger.info to logger.debug if it's the struct itself
  
 
 ## TODO MAYBE?
