@@ -1,4 +1,4 @@
-package systems
+package systeminterface
 
 type System interface {
 	Name() string
@@ -7,10 +7,10 @@ type System interface {
 	AutoStart() bool
 	State(in SysStateEnum) bool
 
-	Setup() error
+	Setup()
 	Start() error
 	Healthcheck() error
-	Stop() error
+	Stop()
 }
 
 type SystemTypeEnum uint8

@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"gorogs/config"
 	"gorogs/logger"
-	"gorogs/systems"
 	"gorogs/systems/beacons/wsdiscovery/connection"
 	"gorogs/systems/beacons/wsdiscovery/engine"
 	"gorogs/systems/beacons/wsdiscovery/incoming"
 	"gorogs/systems/beacons/wsdiscovery/templates"
+	"gorogs/systems/systeminterface"
 )
 
 type WSDiscoveryStruct struct {
-	sState systems.SysStateEnum
+	sState systeminterface.SysStateEnum
 	ctx    context.Context
 	cancel context.CancelFunc
 	engine *engine.Engine
@@ -21,13 +21,13 @@ type WSDiscoveryStruct struct {
 	SkipValidation bool
 }
 
-func (_ *WSDiscoveryStruct) Name() string                       { return "WSDiscovery" }
-func (_ *WSDiscoveryStruct) Type() systems.SystemTypeEnum       { return systems.Beacon }
-func (_ *WSDiscoveryStruct) IsCritical() bool                   { return false }
-func (_ *WSDiscoveryStruct) AutoStart() bool                    { return true }
-func (w *WSDiscoveryStruct) State(in systems.SysStateEnum) bool { return w.sState == in }
+func (_ *WSDiscoveryStruct) Name() string                               { return "wsdiscovery" }
+func (_ *WSDiscoveryStruct) Type() systeminterface.SystemTypeEnum       { return systeminterface.Beacon }
+func (_ *WSDiscoveryStruct) IsCritical() bool                           { return false }
+func (_ *WSDiscoveryStruct) AutoStart() bool                            { return true }
+func (w *WSDiscoveryStruct) State(in systeminterface.SysStateEnum) bool { return w.sState == in }
 
-func (w *WSDiscoveryStruct) Setup() error {
+func (w *WSDiscoveryStruct) Setup() {
 	logger.Info("WSDiscovery", "Executing service configuration pre-flight routines...")
 
 	templates.PreCompileTemplates()
@@ -45,8 +45,7 @@ func (w *WSDiscoveryStruct) Setup() error {
 		logger.Info("WSDiscovery", "Standard full-document recursive namespace token validation scan is ACTIVE.")
 	}
 	logger.InfoF("WSDiscovery", "Subsystem setup completed for server name: %s", config.Hostname)
-	w.sState = systems.SETUP
-	return nil
+	w.sState = systeminterface.SETUP
 }
 
 func (w *WSDiscoveryStruct) Start() error {
@@ -67,7 +66,7 @@ func (w *WSDiscoveryStruct) Start() error {
 	}
 
 	logger.Info("WSDiscovery", "Daemon engine successfully running in background mode.")
-	w.sState = systems.STARTED
+	w.sState = systeminterface.STARTED
 	return nil
 }
 
@@ -80,16 +79,16 @@ func (w *WSDiscoveryStruct) Healthcheck() error {
 	return nil
 }
 
-func (w *WSDiscoveryStruct) Stop() error {
+func (w *WSDiscoveryStruct) Stop() {
 	if w.cancel == nil {
 		logger.Error("WSDiscovery", "Stop command skipped: cancellation pointer wrapper is unallocated", nil)
-		return nil
+		return
 	}
 
 	logger.Info("WSDiscovery", "Shutdown execution requested. Safely draining network workers...")
 	w.cancel()
 	w.engine.Stop()
 	logger.Info("WSDiscovery", "Subsystem completely closed down. Multicast groups detached cleanly.")
-	w.sState = systems.STOPPED
-	return nil
+	w.sState = systeminterface.STOPPED
+	return
 }

@@ -13,58 +13,57 @@ import (
 
 	"gorogs/config"
 	"gorogs/logger"
-	"gorogs/systems"
+	"gorogs/systems/systeminterface"
 )
 
 type RPCBindStruct struct {
-	sState   systems.SysStateEnum
+	sState   systeminterface.SysStateEnum
 	cmd      *exec.Cmd
 	statdCmd *exec.Cmd
 }
 
-func (_ RPCBindStruct) Name() string                        { return "rpcbind" }
-func (_ RPCBindStruct) Type() systems.SystemTypeEnum        { return systems.Beacon }
-func (_ RPCBindStruct) IsCritical() bool                    { return false }
-func (_ RPCBindStruct) AutoStart() bool                     { return true }
-func (r *RPCBindStruct) State(in systems.SysStateEnum) bool { return r.sState == in }
+func (_ RPCBindStruct) Name() string                                { return "rpcbind" }
+func (_ RPCBindStruct) Type() systeminterface.SystemTypeEnum        { return systeminterface.Beacon }
+func (_ RPCBindStruct) IsCritical() bool                            { return false }
+func (_ RPCBindStruct) AutoStart() bool                             { return true }
+func (r *RPCBindStruct) State(in systeminterface.SysStateEnum) bool { return r.sState == in }
 
-func (r *RPCBindStruct) Setup() error {
-	logger.Info("RPCBIND", "Evaluating protocol dependencies and pre-flight requirements...")
+func (r *RPCBindStruct) Setup() {
+	logger.Info(r.Name(), "Evaluating protocol dependencies and pre-flight requirements...")
 	rpcPath := "/run/sendsigs.omit.d"
 	if err := os.MkdirAll(rpcPath, 0755); err != nil {
-		return fmt.Errorf("failed to construct mandatory rpcbind system tracking directory %s: %w", rpcPath, err)
+		logger.FatalF(r.Name(), "failed to construct mandatory rpcbind system tracking directory %s: %w", err, rpcPath)
 	}
 
 	runRpcbindPath := "/run/rpcbind"
 	if err := os.MkdirAll(runRpcbindPath, 0755); err != nil {
-		return fmt.Errorf("failed to construct essential runtime socket directory %s: %w", runRpcbindPath, err)
+		logger.FatalF(r.Name(), "failed to construct essential runtime socket directory %s: %w", err, runRpcbindPath)
 	}
 
 	servicesPath := "/etc/services"
 	if _, err := os.Stat(servicesPath); os.IsNotExist(err) {
-		logger.Info("RPCBIND", "Notice: System /etc/services layout missing. Compiling fallback rules...")
+		logger.Info(r.Name(), "Notice: System /etc/services layout missing. Compiling fallback rules...")
 		fallbackServices := "sunrpc          111/tcp         portmapper rpcbind\n" +
 			"sunrpc          111/udp         portmapper rpcbind\n"
 		_ = os.WriteFile(servicesPath, []byte(fallbackServices), 0644)
 	}
 
-	logger.Info("RPCBIND", "Subsystem validation check successful. Component ready for boot.")
-	r.sState = systems.SETUP
-	return nil
+	logger.Info(r.Name(), "Subsystem validation check successful. Component ready for boot.")
+	r.sState = systeminterface.SETUP
 }
 
 func (r *RPCBindStruct) Start() error {
-	logger.Info("RPCBIND", "Spawning background system RPC portmapper daemon...")
+	logger.Info(r.Name(), "Spawning background system RPC portmapper daemon...")
 
 	rpcArgs := []string{"-w", "-f"}
-	if logger.IsDebugActive("rpcbind") {
+	if logger.IsDebugActive(r.Name()) {
 		rpcArgs = append(rpcArgs, "-d")
 	}
 
 	containerIPStr := config.SystemIP.String()
 
 	if config.IsDisabled(r.Name()) {
-		logger.Info("RPCBIND", "RPCBind flag set to disabled. Binding portmapper explicitly to container IP layout.")
+		logger.Info(r.Name(), "RPCBind flag set to disabled. Binding portmapper explicitly to container IP layout.")
 		rpcArgs = append(rpcArgs, "-h", containerIPStr)
 	}
 
@@ -87,7 +86,7 @@ func (r *RPCBindStruct) Start() error {
 	go r.streamRpcbindLogs(rpcStderr)
 
 	dialTarget := "127.0.0.1:111"
-	logger.Info("RPCBIND", "Verifying portmapper socket readiness on loopback channel...")
+	logger.Info(r.Name(), "Verifying portmapper socket readiness on loopback channel...")
 
 	rpcReady := false
 	for i := 0; i < 10; i++ {
@@ -100,7 +99,7 @@ func (r *RPCBindStruct) Start() error {
 		if err == nil {
 			conn.Close()
 			rpcReady = true
-			logger.Info("RPCBIND", "RPC portmapper socket successfully initialized and synchronized.")
+			logger.Info(r.Name(), "RPC portmapper socket successfully initialized and synchronized.")
 			break
 		}
 
@@ -111,7 +110,7 @@ func (r *RPCBindStruct) Start() error {
 		return fmt.Errorf("timeout waiting for rpcbind process to open port 111")
 	}
 
-	logger.Info("RPCBIND", "Spawning background NFSv3 status monitor daemon (rpc.statd)...")
+	logger.Info(r.Name(), "Spawning background NFSv3 status monitor daemon (rpc.statd)...")
 
 	_ = os.MkdirAll("/var/lib/nfs/sm", 0755)
 	_ = os.MkdirAll("/var/lib/nfs/sm.bak", 0755)
@@ -123,15 +122,15 @@ func (r *RPCBindStruct) Start() error {
 	statdStderr, _ := r.statdCmd.StderrPipe()
 
 	if err := r.statdCmd.Start(); err != nil {
-		logger.Error("RPCBIND", "Failed to launch network status monitor process tree", err)
+		logger.Error(r.Name(), "Failed to launch network status monitor process tree", err)
 	} else {
 		go r.streamRpcbindLogs(statdStdout)
 		go r.streamRpcbindLogs(statdStderr)
-		logger.InfoF("RPCBIND", "NFSv3 statd tool active under process ID: %d", r.statdCmd.Process.Pid)
+		logger.InfoF(r.Name(), "NFSv3 statd tool active under process ID: %d", r.statdCmd.Process.Pid)
 	}
 
-	logger.InfoF("RPCBIND", "RPC portmapper tracking loop active and listening under process ID: %d", r.cmd.Process.Pid)
-	r.sState = systems.STARTED
+	logger.InfoF(r.Name(), "RPC portmapper tracking loop active and listening under process ID: %d", r.cmd.Process.Pid)
+	r.sState = systeminterface.STARTED
 	return nil
 }
 
@@ -146,15 +145,15 @@ func (r *RPCBindStruct) streamRpcbindLogs(pipe io.ReadCloser) {
 			continue
 		}
 
-		if logger.IsDebugActive("rpcbind") {
-			logger.Debug("RPCBIND", trimmedLine)
+		if logger.IsDebugActive(r.Name()) {
+			logger.Debug(r.Name(), trimmedLine)
 		} else {
-			logger.Info("RPCBIND", trimmedLine)
+			logger.Info(r.Name(), trimmedLine)
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		logger.Error("RPCBIND", "Log scanning utility loop encountered an underlying stream parsing error", err)
+		logger.Error(r.Name(), "Log scanning utility loop encountered an underlying stream parsing error", err)
 	}
 }
 
@@ -165,23 +164,23 @@ func (r *RPCBindStruct) Healthcheck() error {
 	return r.cmd.Process.Signal(syscall.Signal(0))
 }
 
-func (r *RPCBindStruct) Stop() error {
+func (r *RPCBindStruct) Stop() {
 	if r.statdCmd != nil && r.statdCmd.Process != nil {
-		logger.Info("RPCBIND", "Conveying termination signal to system statd threads...")
+		logger.Info(r.Name(), "Conveying termination signal to system statd threads...")
 		_ = r.statdCmd.Process.Signal(syscall.SIGTERM)
 		_ = r.statdCmd.Wait()
 	}
 
 	if r.cmd == nil || r.cmd.Process == nil {
-		return nil
+		return
 	}
 
-	logger.Info("RPCBIND", "Conveying termination signal to system RPC daemon threads...")
+	logger.Info(r.Name(), "Conveying termination signal to system RPC daemon threads...")
 	if err := r.cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		return r.cmd.Process.Kill()
+		r.cmd.Process.Kill()
+		return
 	}
 
 	_ = r.cmd.Wait()
-	r.sState = systems.STOPPED
-	return nil
+	r.sState = systeminterface.STOPPED
 }

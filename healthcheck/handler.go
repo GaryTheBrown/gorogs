@@ -1,4 +1,4 @@
-package health
+package healthcheck
 
 import (
 	"fmt"
@@ -7,30 +7,30 @@ import (
 	"gorogs/logger"
 )
 
-func (h *CheckStruct) handler(w http.ResponseWriter, r *http.Request) {
+func handler(w http.ResponseWriter, r *http.Request) {
 	isHealthy := true
 	failureMessage := ""
 
-	logger.DebugF(logName, "Executing active evaluation loop under strategy level code: %d", h.healthMode)
+	logger.DebugF(logName, "Executing active evaluation loop under strategy level code: %d", healthMode)
 
-	if h.healthMode == Disabled {
+	if healthMode == Disabled {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "OK")
 		return
 	}
 
-	for name, share := range h.trackedShares {
-		if h.healthMode == Nfs && name != "nfs" {
+	for name, share := range trackedShares {
+		if healthMode == Nfs && name != "nfs" {
 			continue
 		}
-		if h.healthMode == Samba && name != "samba" {
+		if healthMode == Samba && name != "samba" {
 			continue
 		}
 
 		err := share.Healthcheck()
 		if err != nil {
 			shouldFail := false
-			switch h.healthMode {
+			switch healthMode {
 			case Full, Shares, Nfs, Samba:
 				shouldFail = true
 			case Critical, Default:
@@ -45,12 +45,12 @@ func (h *CheckStruct) handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if isHealthy && h.healthMode != Shares && h.healthMode != Nfs && h.healthMode != Samba {
-		for name, beacon := range h.trackedBeacons {
+	if isHealthy && healthMode != Shares && healthMode != Nfs && healthMode != Samba {
+		for name, beacon := range trackedBeacons {
 			err := beacon.Healthcheck()
 			if err != nil {
 				shouldFail := false
-				switch h.healthMode {
+				switch healthMode {
 				case Full:
 					shouldFail = true
 				case Critical:

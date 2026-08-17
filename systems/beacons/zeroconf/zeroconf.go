@@ -7,22 +7,22 @@ import (
 
 	"gorogs/config"
 	"gorogs/logger"
-	"gorogs/systems"
+	"gorogs/systems/systeminterface"
 
 	"github.com/miekg/dns"
 )
 
 type ZeroconfStruct struct {
-	sState systems.SysStateEnum
+	sState systeminterface.SysStateEnum
 	conn   *net.UDPConn
 	done   chan struct{}
 }
 
-func (_ ZeroconfStruct) Name() string                        { return "mdns" }
-func (_ ZeroconfStruct) Type() systems.SystemTypeEnum        { return systems.Beacon }
-func (_ ZeroconfStruct) IsCritical() bool                    { return false }
-func (_ ZeroconfStruct) AutoStart() bool                     { return true }
-func (z *ZeroconfStruct) State(in systems.SysStateEnum) bool { return z.sState == in }
+func (_ ZeroconfStruct) Name() string                                { return "mdns" }
+func (_ ZeroconfStruct) Type() systeminterface.SystemTypeEnum        { return systeminterface.Beacon }
+func (_ ZeroconfStruct) IsCritical() bool                            { return false }
+func (_ ZeroconfStruct) AutoStart() bool                             { return true }
+func (z *ZeroconfStruct) State(in systeminterface.SysStateEnum) bool { return z.sState == in }
 
 func (z *ZeroconfStruct) Healthcheck() error {
 	if z.conn == nil {
@@ -31,11 +31,10 @@ func (z *ZeroconfStruct) Healthcheck() error {
 	return nil
 }
 
-func (z *ZeroconfStruct) Setup() error {
+func (z *ZeroconfStruct) Setup() {
 	// logger.Info(m.Name(), "Evaluating network discovery broadcast requirements...")
+	z.sState = systeminterface.SETUP
 	// logger.Info(m.Name(), "Pre-flight checks passed. Service registration profile is valid.")
-	z.sState = systems.SETUP
-	return nil
 }
 
 func (z *ZeroconfStruct) Start() error {
@@ -58,7 +57,7 @@ func (z *ZeroconfStruct) Start() error {
 	go z.listenForQueries()
 
 	logger.Info(z.Name(), "Universal mDNS service discovery proxies active and broadcasting Hello packets.")
-	z.sState = systems.STARTED
+	z.sState = systeminterface.STARTED
 	return nil
 }
 
@@ -248,7 +247,7 @@ func (z *ZeroconfStruct) broadcastAnnouncement(ttl uint32) {
 	}
 }
 
-func (z *ZeroconfStruct) Stop() error {
+func (z *ZeroconfStruct) Stop() {
 	logger.Info(z.Name(), "Initiating shutdown sequence on unified mDNS channels...")
 
 	if z.done != nil {
@@ -264,6 +263,5 @@ func (z *ZeroconfStruct) Stop() error {
 	}
 
 	logger.Info(z.Name(), "mDNS broadcast beacons dropped cleanly from network space.")
-	z.sState = systems.STOPPED
-	return nil
+	z.sState = systeminterface.STOPPED
 }
