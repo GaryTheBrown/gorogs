@@ -107,7 +107,6 @@ func (s *Engine) ExecuteProbeAction(msg incoming.WSMessage) {
 		return
 	}
 
-	// 🚀 NEW: Dual-Transport Output Router Routing Bridge
 	if msg.UseTCPTransport && msg.Header.ReplyToURL != "" {
 		logger.DebugF("WSDiscovery", "[TCP Engine] Transmitting compiled byte payload size %d via HTTP POST to: %s", len(payloadBytes), msg.Header.ReplyToURL)
 		err = connection.SendTCPUnicastResponse(payloadBytes, msg.Header.ReplyToURL)
@@ -119,7 +118,6 @@ func (s *Engine) ExecuteProbeAction(msg incoming.WSMessage) {
 		return
 	}
 
-	// Fallback to traditional UDP Unicast path
 	logger.DebugF("WSDiscovery", "Flash transmitting compiled minified byte payload size %d via unicast to client: %s", len(payloadBytes), senderString)
 	err = connection.SendUnicastResponse(payloadBytes, msg.Sender)
 	if err != nil {
@@ -146,7 +144,6 @@ func (s *Engine) ExecuteResolveAction(msg incoming.WSMessage) {
 		return
 	}
 
-	// 🚀 NEW: Dual-Transport Output Router Routing Bridge
 	if msg.UseTCPTransport && msg.Header.ReplyToURL != "" {
 		logger.DebugF("WSDiscovery", "[TCP Engine] Transmitting compiled byte payload size %d via HTTP POST to: %s", len(payloadBytes), msg.Header.ReplyToURL)
 		err = connection.SendTCPUnicastResponse(payloadBytes, msg.Header.ReplyToURL)
@@ -158,7 +155,6 @@ func (s *Engine) ExecuteResolveAction(msg incoming.WSMessage) {
 		return
 	}
 
-	// Fallback to traditional UDP Unicast path
 	logger.DebugF("WSDiscovery", "Flash transmitting compiled minified byte payload size %d via unicast to client: %s", len(payloadBytes), senderString)
 	err = connection.SendUnicastResponse(payloadBytes, msg.Sender)
 	if err != nil {

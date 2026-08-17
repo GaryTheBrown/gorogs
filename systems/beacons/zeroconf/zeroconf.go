@@ -33,9 +33,7 @@ func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
 func (s *Struct) Setup() {
-	// logger.Info(m.Name(), "Evaluating network discovery broadcast requirements...")
 	s.sState = systeminterface.SETUP
-	// logger.Info(m.Name(), "Pre-flight checks passed. Service registration profile is valid.")
 }
 
 func (s *Struct) Start() error {
@@ -119,16 +117,26 @@ func (s *Struct) listenForQueries() {
 					resp.Compress = true
 					resp.Authoritative = true
 
-					resp.Answer = append(resp.Answer, &dns.A{
-						Hdr: dns.RR_Header{Name: localHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 120},
-						A:   config.SystemIP,
-					})
-					resp.Answer = append(resp.Answer, &dns.A{
-						Hdr: dns.RR_Header{Name: fqdnHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 120},
-						A:   config.SystemIP,
-					})
+					if q.Name == localHostTarget || q.Name == fqdnHostTarget {
+						resp.Answer = append(resp.Answer, &dns.A{
+							Hdr: dns.RR_Header{Name: localHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 120},
+							A:   config.SystemIP,
+						})
+						resp.Answer = append(resp.Answer, &dns.A{
+							Hdr: dns.RR_Header{Name: fqdnHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 120},
+							A:   config.SystemIP,
+						})
+					} else {
+						resp.Extra = append(resp.Extra, &dns.A{
+							Hdr: dns.RR_Header{Name: localHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 120},
+							A:   config.SystemIP,
+						})
+						resp.Extra = append(resp.Extra, &dns.A{
+							Hdr: dns.RR_Header{Name: fqdnHostTarget, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 120},
+							A:   config.SystemIP,
+						})
+					}
 
-					// Handle DNS-SD Service Enumeration (Browsing for available service types)
 					if q.Name == servicesMetaRecord {
 						if !config.IsDisabled("nfs") && !config.IsDisabled("zeroconf_nfs") {
 							resp.Answer = append(resp.Answer, &dns.PTR{

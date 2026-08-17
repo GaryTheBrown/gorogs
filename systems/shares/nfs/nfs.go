@@ -48,12 +48,16 @@ func (s *Struct) Setup() {
 
 	logger.Info(s.Name(), "NFS-Ganesha system runtime configuration generation phase successfully completed.")
 	s.sState = systeminterface.SETUP
-
 }
 
 func (s *Struct) writeGaneshaConfig() error {
 	configPath := "/etc/ganesha/ganesha.conf"
 	logger.Info(s.Name(), "Compiling unified ganesha.conf layout definition parameters...")
+
+	logFileTarget := "/dev/null"
+	if logger.IsDebugActive(Name) {
+		logFileTarget = "/dev/dev/stderr"
+	}
 
 	configContent := "NFS_CORE_PARAM {\n" +
 		"    Protocols = 3, 4;\n" +
@@ -63,7 +67,7 @@ func (s *Struct) writeGaneshaConfig() error {
 		"    MNT_Port = 892;\n" +
 		"    NLM_Port = 4045;\n" +
 		"    Rquota_Port = 875;\n" +
-		"    Log_File= \"/dev/stderr\"" +
+		"    Log_File= \"" + logFileTarget + "\"\n" +
 		"}\n\n" +
 		"NFSV4 {\n" +
 		"    Graceless = true;\n" +
@@ -86,30 +90,54 @@ func (s *Struct) writeGaneshaConfig() error {
 func (s *Struct) Start() error {
 	logger.Info(s.Name(), "Spawning containerised user-space NFS-Ganesha storage engine...")
 
-	ganeshaArgs := []string{"-F", "-L", "/dev/stdout", "-f", "/etc/ganesha/ganesha.conf"}
+	s.readyChan = make(chan struct{})
+
+	ganeshaArgs := []string{"-F", "-f", "/etc/ganesha/ganesha.conf"}
+
 	if logger.IsDebugActive(s.Name()) {
-		ganeshaArgs = append(ganeshaArgs, "-N", "NIV_FULL_DEBUG")
-		s.logWriter = helpers.NewSubsystemWriter(s.Name(), nil, nil, nil)
-		s.ganeshaCmd.Stdout = s.logWriter
-		s.ganeshaCmd.Stderr = s.logWriter
+		ganeshaArgs = append(ganeshaArgs, "-L", "/dev/stdout", "-N", "NIV_FULL_DEBUG")
 	}
 
 	s.ganeshaCmd = exec.Command("/usr/bin/ganesha.nfsd", ganeshaArgs...)
 	s.ganeshaCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
+	if logger.IsDebugActive(s.Name()) {
+		phrases := []string{"NFS SERVER INITIALIZED", "General fridge was started successfully"}
+		s.logWriter = helpers.NewSubsystemWriter(s.Name(), s.readyChan, phrases, nil)
+		s.ganeshaCmd.Stdout = s.logWriter
+		s.ganeshaCmd.Stderr = s.logWriter
+	}
+
 	if err := s.ganeshaCmd.Start(); err != nil {
+		close(s.readyChan)
+		if s.logWriter != nil {
+			_ = s.logWriter.Close()
+		}
 		return fmt.Errorf("failed to initialize background ganesha.nfsd: %w", err)
 	}
 
-	logger.InfoF(s.Name(), "NFS-Ganesha active (PID: %d). Probing port 2049...", s.ganeshaCmd.Process.Pid)
+	logger.InfoF(s.Name(), "NFS-Ganesha binary actively supervised under Process ID: %d. Synchronizing socket state...", s.ganeshaCmd.Process.Pid)
 
-	if !helpers.WaitForSocket("tcp", "127.0.0.1:2049", 5*time.Second) {
-		return fmt.Errorf("timeout waiting for NFS-Ganesha to bind port 2049")
+	if logger.IsDebugActive(s.Name()) {
+		select {
+		case <-s.readyChan:
+			logger.Info(s.Name(), "NFS-Ganesha successfully verified milestone log signatures and is online.")
+			s.sState = systeminterface.STARTED
+			return nil
+		case <-time.After(10 * time.Second):
+			if s.logWriter != nil {
+				_ = s.logWriter.Close()
+			}
+			return fmt.Errorf("timeout waiting for NFS-Ganesha to declare readiness state milestone log tags")
+		}
+	} else {
+		if !helpers.WaitForSocket("tcp", "127.0.0.1:2049", 10*time.Second) {
+			return fmt.Errorf("timeout waiting for production NFS-Ganesha daemon to bind port 2049")
+		}
+		logger.Info(s.Name(), "NFS-Ganesha network port 2049 successfully bound and listening.")
+		s.sState = systeminterface.STARTED
+		return nil
 	}
-
-	logger.Info(s.Name(), "NFS-Ganesha successfully initialized sockets and is accepting connections.")
-	s.sState = systeminterface.STARTED
-	return nil
 }
 
 func (s *Struct) Stop() {
@@ -120,6 +148,11 @@ func (s *Struct) Stop() {
 		}
 		_ = s.ganeshaCmd.Wait()
 	}
+
+	if s.logWriter != nil {
+		_ = s.logWriter.Close()
+	}
+
 	s.sState = systeminterface.STOPPED
 }
 

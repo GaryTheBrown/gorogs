@@ -128,7 +128,6 @@ func ValidateFullDocumentNamespaces(version string, rawXML []byte, lists *listsS
 				logger.ErrorF("WSDiscovery", "[Schema Mismatch] Element variant structural validation failure: tag name '%s' attempted to execute using unauthorized namespace URL space: %s", nil, name.Local, name.Space)
 				return ErrBadSchemaTagNameBad{}
 			}
-			// -------------------------------------------------------------------------
 
 		} else {
 			foundInUnknownList := false

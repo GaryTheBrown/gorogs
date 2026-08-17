@@ -123,7 +123,13 @@ func (s *Struct) writeDynamicSharesConfig() error {
 func (s *Struct) Start() error {
 	logger.Info(s.Name(), "Spawning primary Samba smbd background engine...")
 
-	s.cmd = exec.Command("/usr/sbin/smbd", "--foreground", "--no-process-group", "--debug-stdout", "-s", "/etc/samba/smbd.conf")
+	args := []string{"--foreground", "--no-process-group"}
+	if logger.IsDebugActive(s.Name()) {
+		args = append(args, "--debug-stdout")
+	}
+	args = append(args, "-s", "/etc/samba/smbd.conf")
+
+	s.cmd = exec.Command("/usr/sbin/smbd", args...)
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	if logger.IsDebugActive(s.Name()) {
