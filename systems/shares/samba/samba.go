@@ -68,6 +68,8 @@ func (s *Struct) writeMasterSambaConfig(serverName string) error {
 		"    map to guest = bad user\n" +
 		"    usershare allow guests = yes\n" +
 		"    usershare max shares = 0\n" +
+		"    dns proxy = no\n" +
+		"    hostname lookups = no\n" +
 		"\n" +
 		"    include = /dev/shm/smb-shares.conf\n"
 
