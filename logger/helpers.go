@@ -29,9 +29,9 @@ func formatPrefix(subSystem, messageType string) string {
 		switch mt {
 		case "INFO":
 			sb.WriteString(colorGreen)
-		case "ERROR":
+		case "WARN":
 			sb.WriteString(colorYellow)
-		case "FATAL CRASH":
+		case "ERROR", "FATAL CRASH":
 			sb.WriteString(colorRed)
 		case "DEBUG":
 			sb.WriteString(colorCyan)
