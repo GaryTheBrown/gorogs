@@ -1,8 +1,10 @@
 package connection
 
 import (
+	"bytes"
 	"gorogs/logger"
 	"net/http"
+	"time"
 )
 
 func SendSimpleHTTPResponse(w http.ResponseWriter, statusCode int, statusText string) {
@@ -18,5 +20,16 @@ func StreamHTTPMetadataPayload(w http.ResponseWriter, xmlPayload []byte) error {
 		return err
 	}
 
+	return nil
+}
+
+func SendTCPUnicastResponse(payload []byte, targetURL string) error {
+	client := &http.Client{Timeout: 2 * time.Second}
+
+	resp, err := client.Post(targetURL, "application/soap+xml", bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	_ = resp.Body.Close()
 	return nil
 }

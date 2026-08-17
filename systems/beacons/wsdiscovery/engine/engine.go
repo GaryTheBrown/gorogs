@@ -100,19 +100,32 @@ func (s *Engine) ExecuteProbeAction(msg incoming.WSMessage) {
 		versions.SchemaList[msg.SchemaVersion][versions.Discovery],
 		versions.ProbeMatches.String(),
 		msg.Header.MessageID,
+		msg.Header.ReplyToURL,
 	)
 	if err != nil {
 		logger.Error("WSDiscovery", "XML text transformation engine crashed processing assets folder templates", err)
 		return
 	}
 
+	// 🚀 NEW: Dual-Transport Output Router Routing Bridge
+	if msg.UseTCPTransport && msg.Header.ReplyToURL != "" {
+		logger.DebugF("WSDiscovery", "[TCP Engine] Transmitting compiled byte payload size %d via HTTP POST to: %s", len(payloadBytes), msg.Header.ReplyToURL)
+		err = connection.SendTCPUnicastResponse(payloadBytes, msg.Header.ReplyToURL)
+		if err != nil {
+			logger.ErrorF("WSDiscovery", "[TCP Engine] HTTP POST transaction delivery failed for client target: %s", err, msg.Header.ReplyToURL)
+			return
+		}
+		logger.InfoF("WSDiscovery", "[TCP Engine] Successfully dispatched ProbeMatches framework to: %s", msg.Header.ReplyToURL)
+		return
+	}
+
+	// Fallback to traditional UDP Unicast path
 	logger.DebugF("WSDiscovery", "Flash transmitting compiled minified byte payload size %d via unicast to client: %s", len(payloadBytes), senderString)
 	err = connection.SendUnicastResponse(payloadBytes, msg.Sender)
 	if err != nil {
 		logger.ErrorF("WSDiscovery", "Socket transmission delivery failed for network target endpoint: %s", err, senderString)
 		return
 	}
-
 	logger.InfoF("WSDiscovery", "Successfully dispatched complete ProbeMatches response framework to: %s", senderString)
 }
 
@@ -126,19 +139,32 @@ func (s *Engine) ExecuteResolveAction(msg incoming.WSMessage) {
 		versions.SchemaList[msg.SchemaVersion][versions.Discovery],
 		versions.ResolveMatches.String(),
 		msg.Header.MessageID,
+		msg.Header.ReplyToURL,
 	)
 	if err != nil {
 		logger.Error("WSDiscovery", "XML text transformation engine crashed processing assets folder templates", err)
 		return
 	}
 
+	// 🚀 NEW: Dual-Transport Output Router Routing Bridge
+	if msg.UseTCPTransport && msg.Header.ReplyToURL != "" {
+		logger.DebugF("WSDiscovery", "[TCP Engine] Transmitting compiled byte payload size %d via HTTP POST to: %s", len(payloadBytes), msg.Header.ReplyToURL)
+		err = connection.SendTCPUnicastResponse(payloadBytes, msg.Header.ReplyToURL)
+		if err != nil {
+			logger.ErrorF("WSDiscovery", "[TCP Engine] HTTP POST transaction delivery failed for client target: %s", err, msg.Header.ReplyToURL)
+			return
+		}
+		logger.InfoF("WSDiscovery", "[TCP Engine] Successfully dispatched ResolveMatches framework to: %s", msg.Header.ReplyToURL)
+		return
+	}
+
+	// Fallback to traditional UDP Unicast path
 	logger.DebugF("WSDiscovery", "Flash transmitting compiled minified byte payload size %d via unicast to client: %s", len(payloadBytes), senderString)
 	err = connection.SendUnicastResponse(payloadBytes, msg.Sender)
 	if err != nil {
 		logger.ErrorF("WSDiscovery", "Socket transmission delivery failed for network target endpoint: %s", err, senderString)
 		return
 	}
-
 	logger.InfoF("WSDiscovery", "Successfully dispatched complete ResolveMatches response framework to: %s", senderString)
 }
 
@@ -159,6 +185,7 @@ func (s *Engine) ExecuteGetAction(msg incoming.WSMessage) {
 		versions.TransferSchema,
 		"GetResponse",
 		msg.Header.MessageID,
+		"",
 	)
 	if err != nil {
 		logger.ErrorF("WSDiscovery", "[TCP Engine] Failed to generate XML GetResponse metadata context block for host: %s", err, senderString)
@@ -181,6 +208,7 @@ func (s *Engine) BroadcastHello() {
 			versions.ToValueList[schemaVersion]["request"],
 			versions.SchemaList[schemaVersion][versions.Discovery],
 			versions.Hello.String(),
+			"",
 			"",
 		)
 		if err != nil {
@@ -205,6 +233,7 @@ func (s *Engine) BroadcastBye() {
 			versions.ToValueList[schemaVersion]["request"],
 			versions.SchemaList[schemaVersion][versions.Discovery],
 			versions.Bye.String(),
+			"",
 			"",
 		)
 		if err != nil {

@@ -29,10 +29,11 @@ type StaticBakingContext struct {
 }
 
 type RuntimeContext struct {
-	To            string
-	MessageID     string
-	RelatesTo     string
-	MessageNumber uint64
+	To             string
+	MessageID      string
+	RelatesTo      string
+	MessageNumber  uint64
+	ReplyToAddress string // 🚀 NEW: Maps context out to your precompiled header template block
 }
 
 var schemaIndexMap map[string]int
@@ -90,7 +91,7 @@ func BuildEnvelopeAttributes(schemaArray versions.SchemaListArray) string {
 	return sb.String()
 }
 
-func GenerateXMLResponse(currentVersion string, to string, actionurl string, action string, trackingMsgID string) ([]byte, error) {
+func GenerateXMLResponse(currentVersion string, to string, actionurl string, action string, trackingMsgID string, replyToAddress string) ([]byte, error) {
 	versionMap, foundVersion := CombinedTemplateCache[currentVersion]
 	if !foundVersion {
 		return nil, fmt.Errorf("requested schema version entry layout map matrix not found: %s", currentVersion)
@@ -102,10 +103,11 @@ func GenerateXMLResponse(currentVersion string, to string, actionurl string, act
 	}
 
 	ctx := RuntimeContext{
-		To:            to,
-		MessageID:     GenerateRandomUUIDv4(),
-		RelatesTo:     trackingMsgID,
-		MessageNumber: getNextMessageNumber(),
+		To:             to,
+		MessageID:      GenerateRandomUUIDv4(),
+		RelatesTo:      trackingMsgID,
+		MessageNumber:  getNextMessageNumber(),
+		ReplyToAddress: replyToAddress,
 	}
 
 	var finalBuf bytes.Buffer

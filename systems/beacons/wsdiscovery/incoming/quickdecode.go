@@ -61,6 +61,26 @@ func QuickDecode(rawUDP []byte, message *WSMessage) error {
 		message.Header.To = string(extractTagContentsOrDefault(rawUDP, []byte("<To>"), []byte("</To>")))
 	}
 
+	replyToBytes := extractTagContentsOrDefault(rawUDP, []byte("<wsa:ReplyTo>"), []byte("</wsa:ReplyTo>"))
+	if len(replyToBytes) == 0 {
+		replyToBytes = extractTagContentsOrDefault(rawUDP, []byte("<ReplyTo>"), []byte("</ReplyTo>"))
+	}
+
+	if len(replyToBytes) > 0 {
+		addrStrBytes := extractTagContentsOrDefault(replyToBytes, []byte("<wsa:Address>"), []byte("</wsa:Address>"))
+		if len(addrStrBytes) == 0 {
+			addrStrBytes = extractTagContentsOrDefault(replyToBytes, []byte("<Address>"), []byte("</Address>"))
+		}
+
+		if len(addrStrBytes) > 0 {
+			rawAddrURL := string(addrStrBytes)
+			if strings.HasPrefix(rawAddrURL, "http://") || strings.HasPrefix(rawAddrURL, "https://") {
+				message.Header.ReplyToURL = rawAddrURL
+				message.UseTCPTransport = true
+			}
+		}
+	}
+
 	if message.Header.ActionType == versions.Get {
 		return nil
 	}

@@ -33,15 +33,16 @@ func NewListsStruct() *listsStruct {
 }
 
 type WSMessage struct {
-	Sender        net.Addr
-	SchemaVersion string
-
+	Sender           net.Addr
+	SchemaVersion    string
+	UseTCPTransport  bool
 	HTTPResponsePipe chan interface{}
 
 	Header struct {
 		To          string
 		ActionType  versions.ActionTypeEnum
 		MessageID   string
+		ReplyToURL  string
 		AppSequence struct {
 			InstanceID    int64
 			MessageNumber int64
@@ -66,13 +67,15 @@ type WSMessage struct {
 		}
 	}
 }
+
 type SoapEnvelope struct {
 	XMLName xml.Name   `xml:"Envelope"`
 	Attrs   []xml.Attr `xml:",attr"`
 	Header  struct {
-		MessageID   string `xml:"MessageID"`
-		Action      string `xml:"Action"`
-		To          string `xml:"To"`
+		MessageID   string           `xml:"MessageID"`
+		Action      string           `xml:"Action"`
+		To          string           `xml:"To"`
+		ReplyTo     *ReplyToEndpoint `xml:"ReplyTo,omitempty"`
 		AppSequence struct {
 			InstanceId    int64 `xml:"InstanceId,attr"`
 			MessageNumber int64 `xml:"MessageNumber,attr"`
@@ -81,6 +84,9 @@ type SoapEnvelope struct {
 	Body struct {
 		RawInner []byte `xml:",innerxml"`
 	} `xml:"Body"`
+}
+type ReplyToEndpoint struct {
+	Address string `xml:"Address"`
 }
 
 type EndpointReference struct {

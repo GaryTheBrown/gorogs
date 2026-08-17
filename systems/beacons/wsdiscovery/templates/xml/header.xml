@@ -5,6 +5,7 @@
 <wsa:Action>{{.ActionType}}</wsa:Action>
 <wsa:MessageID>urn:uuid:{{ "{{" }}.MessageID{{ "}}" }}</wsa:MessageID>
 {{ "{{" }}if .RelatesTo{{ "}}" }}<wsa:RelatesTo>{{ "{{" }}.RelatesTo{{ "}}" }}</wsa:RelatesTo>{{ "{{" }}end{{ "}}" }}
+{{ "{{" }}if .ReplyToAddress{{ "}}" }}<wsa:ReplyTo><wsa:Address>{{ "{{" }}.ReplyToAddress{{ "}}" }}</wsa:Address></wsa:ReplyTo>{{ "{{" }}end{{ "}}" }}
 <wsd:AppSequence InstanceId="{{.InstanceID}}" MessageNumber="{{ "{{" }}.MessageNumber{{ "}}" }}"/>
 </soap:Header>
 <soap:Body>{{.BodyPayload}}</soap:Body>

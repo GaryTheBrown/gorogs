@@ -143,6 +143,16 @@ func ParseHeader(envelope *SoapEnvelope, message *WSMessage) error {
 	message.Header.AppSequence.InstanceID = envelope.Header.AppSequence.InstanceId
 	message.Header.AppSequence.MessageNumber = envelope.Header.AppSequence.MessageNumber
 
+	if envelope.Header.ReplyTo != nil && envelope.Header.ReplyTo.Address != "" {
+		rawAddr := strings.TrimSpace(envelope.Header.ReplyTo.Address)
+
+		if strings.HasPrefix(rawAddr, "http://") || strings.HasPrefix(rawAddr, "https://") {
+			message.Header.ReplyToURL = rawAddr
+			message.UseTCPTransport = true
+			logger.DebugF("WSDiscovery", "[TCP Route detected] Whitelisted Unicast HTTP destination mapped cleanly: %s", rawAddr)
+		}
+	}
+
 	logger.InfoF("WSDiscovery", "Header configuration extracted completely. MsgID: %s, Detected Protocol Specification Release: %s", message.Header.MessageID, message.SchemaVersion)
 	return nil
 }

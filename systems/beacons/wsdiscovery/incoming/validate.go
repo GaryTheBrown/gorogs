@@ -74,6 +74,7 @@ var approvedMap = map[string]versions.SchemaTypeEnum{
 	"MessageID":         versions.Addressing,
 	"EndpointReference": versions.Addressing,
 	"Address":           versions.Addressing,
+	"ReplyTo":           versions.Addressing,
 	"AppSequence":       versions.Discovery,
 	"MetadataVersion":   versions.Discovery,
 	"XAddrs":            versions.Discovery,
@@ -107,15 +108,28 @@ func ValidateFullDocumentNamespaces(version string, rawXML []byte, lists *listsS
 		} else {
 			continue
 		}
+
 		if schemaType, exists := approvedMap[name.Local]; exists {
 			expectedSpace := versions.SchemaList[version][schemaType]
-			if expectedSpace == name.Space {
-				logger.DebugF("WSDiscovery", "[Token Match] Verified element <%s:%s> correctly binds to expected active protocol namespace path URL: %s", schemaType.String(), name.Local, name.Space)
+
+			isCrossVersionAddressingMatch := false
+			if schemaType == versions.Addressing {
+				for _, schemaArray := range versions.SchemaList {
+					if schemaArray[versions.Addressing] == name.Space {
+						isCrossVersionAddressingMatch = true
+						break
+					}
+				}
+			}
+			if expectedSpace == name.Space || isCrossVersionAddressingMatch {
+				logger.DebugF("WSDiscovery", "[Token Match] Verified element <%s:%s> correctly binds to validated protocol namespace: %s", schemaType.String(), name.Local, name.Space)
 				continue
 			} else {
 				logger.ErrorF("WSDiscovery", "[Schema Mismatch] Element variant structural validation failure: tag name '%s' attempted to execute using unauthorized namespace URL space: %s", nil, name.Local, name.Space)
 				return ErrBadSchemaTagNameBad{}
 			}
+			// -------------------------------------------------------------------------
+
 		} else {
 			foundInUnknownList := false
 			for _, v := range lists.UnknownSchema {
