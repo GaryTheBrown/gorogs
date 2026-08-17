@@ -3,8 +3,11 @@ package healthcheck
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"gorogs/logger"
+	"gorogs/systems/shares/nfs"
+	"gorogs/systems/shares/samba"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -20,10 +23,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for name, share := range trackedShares {
-		if healthMode == Nfs && name != "nfs" {
+		if healthMode == Nfs && name != strings.ToLower(nfs.Name) {
 			continue
 		}
-		if healthMode == Samba && name != "samba" {
+		if healthMode == Samba && name != strings.ToLower(samba.Name) {
 			continue
 		}
 

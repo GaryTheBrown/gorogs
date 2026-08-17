@@ -15,38 +15,45 @@ import (
 	"gorogs/systems/systeminterface"
 )
 
-type NFSStruct struct {
+const (
+	Name       = "NFS"
+	Type       = systeminterface.Share
+	IsCritical = true
+	AutoStart  = true
+)
+
+type Struct struct {
 	sState     systeminterface.SysStateEnum
 	ganeshaCmd *exec.Cmd
 	readyChan  chan struct{}
 }
 
-func (_ NFSStruct) Name() string                                { return "nfs" }
-func (_ NFSStruct) Type() systeminterface.SystemTypeEnum        { return systeminterface.Share }
-func (_ NFSStruct) IsCritical() bool                            { return true }
-func (_ NFSStruct) AutoStart() bool                             { return true }
-func (n *NFSStruct) State(in systeminterface.SysStateEnum) bool { return n.sState == in }
+func (_ *Struct) Name() string                               { return Name }
+func (_ *Struct) Type() systeminterface.SystemTypeEnum       { return Type }
+func (_ *Struct) IsCritical() bool                           { return IsCritical }
+func (_ *Struct) AutoStart() bool                            { return AutoStart }
+func (s *Struct) State(in systeminterface.SysStateEnum) bool { return s.sState == in }
 
-func (n *NFSStruct) Setup() {
-	logger.Info(n.Name(), "Commencing pre-flight checks and runtime directory layout parsing...")
+func (s *Struct) Setup() {
+	logger.Info(s.Name(), "Commencing pre-flight checks and runtime directory layout parsing...")
 
 	ganeshaPath := "/var/run/ganesha"
 	if err := os.MkdirAll(ganeshaPath, 0755); err != nil {
-		logger.Fatal(n.Name(), "failed to construct mandatory NFS-Ganesha tracking path", err)
+		logger.Fatal(s.Name(), "failed to construct mandatory NFS-Ganesha tracking path", err)
 	}
 
-	if err := n.writeGaneshaConfig(); err != nil {
-		logger.Fatal(n.Name(), "failed to execute master ganesha config file write utility", err)
+	if err := s.writeGaneshaConfig(); err != nil {
+		logger.Fatal(s.Name(), "failed to execute master ganesha config file write utility", err)
 	}
 
-	logger.Info(n.Name(), "NFS-Ganesha system runtime configuration generation phase successfully completed.")
-	n.sState = systeminterface.SETUP
+	logger.Info(s.Name(), "NFS-Ganesha system runtime configuration generation phase successfully completed.")
+	s.sState = systeminterface.SETUP
 
 }
 
-func (n *NFSStruct) writeGaneshaConfig() error {
+func (s *Struct) writeGaneshaConfig() error {
 	configPath := "/etc/ganesha/ganesha.conf"
-	logger.Info(n.Name(), "Compiling unified ganesha.conf layout definition parameters...")
+	logger.Info(s.Name(), "Compiling unified ganesha.conf layout definition parameters...")
 
 	configContent := "NFS_CORE_PARAM {\n" +
 		"    Protocols = 3, 4;\n" +
@@ -76,44 +83,44 @@ func (n *NFSStruct) writeGaneshaConfig() error {
 	return os.WriteFile(configPath, []byte(configContent), 0644)
 }
 
-func (n *NFSStruct) Start() error {
-	logger.Info(n.Name(), "Spawning containerised user-space NFS-Ganesha storage engine...")
+func (s *Struct) Start() error {
+	logger.Info(s.Name(), "Spawning containerised user-space NFS-Ganesha storage engine...")
 
-	n.readyChan = make(chan struct{})
+	s.readyChan = make(chan struct{})
 
 	ganeshaArgs := []string{"-F", "-L", "/dev/stdout", "-f", "/etc/ganesha/ganesha.conf"}
-	if logger.IsDebugActive(n.Name()) {
+	if logger.IsDebugActive(s.Name()) {
 		ganeshaArgs = append(ganeshaArgs, "-N", "NIV_FULL_DEBUG")
 	}
 
-	n.ganeshaCmd = exec.Command("/usr/bin/ganesha.nfsd", ganeshaArgs...)
-	n.ganeshaCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	s.ganeshaCmd = exec.Command("/usr/bin/ganesha.nfsd", ganeshaArgs...)
+	s.ganeshaCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	ganeshaPipe, err := n.ganeshaCmd.StdoutPipe()
+	ganeshaPipe, err := s.ganeshaCmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to link Ganesha stdout processing pipeline: %w", err)
 	}
-	n.ganeshaCmd.Stderr = n.ganeshaCmd.Stdout
+	s.ganeshaCmd.Stderr = s.ganeshaCmd.Stdout
 
-	if err := n.ganeshaCmd.Start(); err != nil {
+	if err := s.ganeshaCmd.Start(); err != nil {
 		return fmt.Errorf("failed to initialize background ganesha.nfsd execution loop: %w", err)
 	}
 
-	go n.streamSubsystemLogs(ganeshaPipe)
+	go s.streamSubsystemLogs(ganeshaPipe)
 
-	logger.InfoF(n.Name(), "NFS-Ganesha binary actively supervised under Process ID: %d. Waiting for socket readiness...", n.ganeshaCmd.Process.Pid)
+	logger.InfoF(s.Name(), "NFS-Ganesha binary actively supervised under Process ID: %d. Waiting for socket readiness...", s.ganeshaCmd.Process.Pid)
 
 	select {
-	case <-n.readyChan:
-		logger.Info(n.Name(), "NFS-Ganesha successfully initialized sockets and is accepting connections.")
-		n.sState = systeminterface.STARTED
+	case <-s.readyChan:
+		logger.Info(s.Name(), "NFS-Ganesha successfully initialized sockets and is accepting connections.")
+		s.sState = systeminterface.STARTED
 		return nil
 	case <-time.After(5 * time.Second):
 		return fmt.Errorf("timeout waiting for NFS-Ganesha to declare readiness state milestone")
 	}
 }
 
-func (n *NFSStruct) streamSubsystemLogs(pipe io.ReadCloser) {
+func (s *Struct) streamSubsystemLogs(pipe io.ReadCloser) {
 	defer pipe.Close()
 	scanner := bufio.NewScanner(pipe)
 
@@ -125,7 +132,7 @@ func (n *NFSStruct) streamSubsystemLogs(pipe io.ReadCloser) {
 		if !hasSignaledReady && (strings.Contains(line, "NFS SERVER INITIALIZED") ||
 			strings.Contains(line, "General fridge was started successfully")) {
 
-			close(n.readyChan)
+			close(s.readyChan)
 			hasSignaledReady = true
 		}
 
@@ -139,36 +146,36 @@ func (n *NFSStruct) streamSubsystemLogs(pipe io.ReadCloser) {
 			continue
 		}
 
-		if logger.IsDebugActive(n.Name()) {
-			logger.Debug(n.Name(), trimmedLine)
+		if logger.IsDebugActive(s.Name()) {
+			logger.Debug(s.Name(), trimmedLine)
 		} else {
-			logger.Info(n.Name(), trimmedLine)
+			logger.Info(s.Name(), trimmedLine)
 		}
 	}
 
 	if !hasSignaledReady {
-		close(n.readyChan)
+		close(s.readyChan)
 	}
 
 	if err := scanner.Err(); err != nil {
-		logger.Error(n.Name(), "Log scanning utility loop encountered an underlying stream parsing error", err)
+		logger.Error(s.Name(), "Log scanning utility loop encountered an underlying stream parsing error", err)
 	}
 }
 
-func (n *NFSStruct) Healthcheck() error {
-	if n.ganeshaCmd == nil || n.ganeshaCmd.Process == nil {
+func (s *Struct) Stop() {
+	if s.ganeshaCmd != nil && s.ganeshaCmd.Process != nil {
+		logger.Info(s.Name(), "Initiating graceful termination sequence on NFS-Ganesha process tree...")
+		if err := s.ganeshaCmd.Process.Signal(syscall.SIGTERM); err != nil {
+			_ = s.ganeshaCmd.Process.Kill()
+		}
+		_ = s.ganeshaCmd.Wait()
+	}
+	s.sState = systeminterface.STOPPED
+}
+
+func (s *Struct) Healthcheck() error {
+	if s.ganeshaCmd == nil || s.ganeshaCmd.Process == nil {
 		return fmt.Errorf("nfs background system execution tracking instance is not initialized")
 	}
-	return n.ganeshaCmd.Process.Signal(syscall.Signal(0))
-}
-
-func (n *NFSStruct) Stop() {
-	if n.ganeshaCmd != nil && n.ganeshaCmd.Process != nil {
-		logger.Info(n.Name(), "Initiating graceful termination sequence on NFS-Ganesha process tree...")
-		if err := n.ganeshaCmd.Process.Signal(syscall.SIGTERM); err != nil {
-			_ = n.ganeshaCmd.Process.Kill()
-		}
-		_ = n.ganeshaCmd.Wait()
-	}
-	n.sState = systeminterface.STOPPED
+	return s.ganeshaCmd.Process.Signal(syscall.Signal(0))
 }

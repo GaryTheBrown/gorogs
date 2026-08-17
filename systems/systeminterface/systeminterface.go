@@ -9,8 +9,9 @@ type System interface {
 
 	Setup()
 	Start() error
-	Healthcheck() error
 	Stop()
+
+	Healthcheck() error
 }
 
 type SystemTypeEnum uint8

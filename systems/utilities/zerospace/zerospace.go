@@ -5,26 +5,33 @@ import (
 	"gorogs/systems/systeminterface"
 )
 
-type ZeroSpaceStruct struct {
+const (
+	Name       = "ZeroSpace"
+	Type       = systeminterface.Utility
+	IsCritical = false
+	AutoStart  = true
+)
+
+type Struct struct {
 	sState systeminterface.SysStateEnum
 }
 
-func (m *ZeroSpaceStruct) Name() string                               { return "zerospace" }
-func (m *ZeroSpaceStruct) Type() systeminterface.SystemTypeEnum       { return systeminterface.Utility }
-func (m *ZeroSpaceStruct) IsCritical() bool                           { return false }
-func (m *ZeroSpaceStruct) AutoStart() bool                            { return true }
-func (m *ZeroSpaceStruct) State(in systeminterface.SysStateEnum) bool { return m.sState == in }
-func (m *ZeroSpaceStruct) Setup() {
-	logger.InfoContinue(m.Name(), "Setting Up Zero Space Overlay...")
-	err := m.setupOverlay()
+func (_ *Struct) Name() string                               { return Name }
+func (_ *Struct) Type() systeminterface.SystemTypeEnum       { return Type }
+func (_ *Struct) IsCritical() bool                           { return IsCritical }
+func (_ *Struct) AutoStart() bool                            { return AutoStart }
+func (s *Struct) State(in systeminterface.SysStateEnum) bool { return s.sState == in }
+func (s *Struct) Setup() {
+	logger.InfoContinue(s.Name(), "Setting Up Zero Space Overlay...")
+	err := s.setupOverlay()
 	if err != nil {
-		logger.Fatal(m.Name(), "", err)
+		logger.Fatal(s.Name(), "", err)
 	}
-	logger.InfoEnd(m.Name(), "[DONE]")
-	m.sState = systeminterface.FINISHED
+	logger.InfoEnd(s.Name(), "[DONE]")
+	s.sState = systeminterface.FINISHED
 
 }
 
-func (m *ZeroSpaceStruct) Start() error       { return nil }
-func (m *ZeroSpaceStruct) Stop()              {}
-func (m *ZeroSpaceStruct) Healthcheck() error { return nil }
+func (_ *Struct) Start() error       { return nil }
+func (_ *Struct) Stop()              {}
+func (_ *Struct) Healthcheck() error { return nil }

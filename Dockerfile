@@ -11,9 +11,9 @@ COPY . .
 
 
 RUN if [ "$ENABLE_DEBUG" = "true" ] ; then \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags=debug -ldflags="-s -w" -o /gorogs main.go; \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -v -tags=debug -ldflags="-s -w" -o /gorogs main.go; \
     else \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /gorogs main.go; \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -v -ldflags="-s -w" -o /gorogs main.go; \
     fi
 
 

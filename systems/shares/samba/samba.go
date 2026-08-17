@@ -20,20 +20,27 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-type SambaStruct struct {
+const (
+	Name       = "Samba"
+	Type       = systeminterface.Share
+	IsCritical = true
+	AutoStart  = true
+)
+
+type Struct struct {
 	sState      systeminterface.SysStateEnum
 	cmd         *exec.Cmd
 	readyChan   chan struct{}
 	cancelWatch context.CancelFunc
 }
 
-func (_ SambaStruct) Name() string                                { return "samba" }
-func (_ SambaStruct) Type() systeminterface.SystemTypeEnum        { return systeminterface.Share }
-func (_ SambaStruct) IsCritical() bool                            { return true }
-func (_ SambaStruct) AutoStart() bool                             { return true }
-func (s *SambaStruct) State(in systeminterface.SysStateEnum) bool { return s.sState == in }
+func (_ *Struct) Name() string                               { return Name }
+func (_ *Struct) Type() systeminterface.SystemTypeEnum       { return Type }
+func (_ *Struct) IsCritical() bool                           { return IsCritical }
+func (_ *Struct) AutoStart() bool                            { return AutoStart }
+func (s *Struct) State(in systeminterface.SysStateEnum) bool { return s.sState == in }
 
-func (s *SambaStruct) Setup() {
+func (s *Struct) Setup() {
 	logger.Info(s.Name(), "Commencing pre-flight checks and configuration layout parsing...")
 
 	if err := s.writeMasterSambaConfig(config.Hostname); err != nil {
@@ -48,7 +55,7 @@ func (s *SambaStruct) Setup() {
 	s.sState = systeminterface.SETUP
 }
 
-func (s *SambaStruct) writeMasterSambaConfig(serverName string) error {
+func (s *Struct) writeMasterSambaConfig(serverName string) error {
 	masterConfigPath := "/etc/samba/smbd.conf"
 
 	masterContent := "[global]\n" +
@@ -67,7 +74,7 @@ func (s *SambaStruct) writeMasterSambaConfig(serverName string) error {
 	return os.WriteFile(masterConfigPath, []byte(masterContent), 0644)
 }
 
-func (s *SambaStruct) writeDynamicSharesConfig() error {
+func (s *Struct) writeDynamicSharesConfig() error {
 	shareConfigPath := "/dev/shm/smb-shares.conf"
 	file, err := os.Create(shareConfigPath)
 	if err != nil {
@@ -111,7 +118,7 @@ func (s *SambaStruct) writeDynamicSharesConfig() error {
 	return nil
 }
 
-func (s *SambaStruct) Start() error {
+func (s *Struct) Start() error {
 	logger.Info(s.Name(), "Spawning primary Samba smbd background engine...")
 
 	s.readyChan = make(chan struct{})
@@ -151,7 +158,7 @@ func (s *SambaStruct) Start() error {
 	}
 }
 
-func (s *SambaStruct) startFSEventDirectoryWatcher(ctx context.Context) {
+func (s *Struct) startFSEventDirectoryWatcher(ctx context.Context) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		logger.Error(s.Name(), "Failed to initialize fsnotify monitor subsystem hook", err)
@@ -214,7 +221,7 @@ func (s *SambaStruct) startFSEventDirectoryWatcher(ctx context.Context) {
 	}
 }
 
-func (s *SambaStruct) streamSubsystemLogs(pipe io.ReadCloser) {
+func (s *Struct) streamSubsystemLogs(pipe io.ReadCloser) {
 	defer pipe.Close()
 	scanner := bufio.NewScanner(pipe)
 
@@ -248,14 +255,7 @@ func (s *SambaStruct) streamSubsystemLogs(pipe io.ReadCloser) {
 	}
 }
 
-func (s *SambaStruct) Healthcheck() error {
-	if s.cmd == nil || s.cmd.Process == nil {
-		return fmt.Errorf("samba background system execution tracking instance is not initialized")
-	}
-	return s.cmd.Process.Signal(syscall.Signal(0))
-}
-
-func (s *SambaStruct) Stop() {
+func (s *Struct) Stop() {
 	if s.cancelWatch != nil {
 		s.cancelWatch()
 	}
@@ -270,4 +270,11 @@ func (s *SambaStruct) Stop() {
 	}
 	_ = s.cmd.Wait()
 	s.sState = systeminterface.STOPPED
+}
+
+func (s *Struct) Healthcheck() error {
+	if s.cmd == nil || s.cmd.Process == nil {
+		return fmt.Errorf("samba background system execution tracking instance is not initialized")
+	}
+	return s.cmd.Process.Signal(syscall.Signal(0))
 }

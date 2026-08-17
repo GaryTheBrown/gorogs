@@ -12,33 +12,33 @@ import (
 	"github.com/miekg/dns"
 )
 
-type ZeroconfStruct struct {
+const (
+	Name       = "ZeroCONF"
+	Type       = systeminterface.Beacon
+	IsCritical = false
+	AutoStart  = true
+)
+
+type Struct struct {
 	sState systeminterface.SysStateEnum
 	conn   *net.UDPConn
 	done   chan struct{}
 }
 
-func (_ ZeroconfStruct) Name() string                                { return "mdns" }
-func (_ ZeroconfStruct) Type() systeminterface.SystemTypeEnum        { return systeminterface.Beacon }
-func (_ ZeroconfStruct) IsCritical() bool                            { return false }
-func (_ ZeroconfStruct) AutoStart() bool                             { return true }
-func (z *ZeroconfStruct) State(in systeminterface.SysStateEnum) bool { return z.sState == in }
+func (_ *Struct) Name() string                               { return Name }
+func (_ *Struct) Type() systeminterface.SystemTypeEnum       { return Type }
+func (_ *Struct) IsCritical() bool                           { return IsCritical }
+func (_ *Struct) AutoStart() bool                            { return AutoStart }
+func (s *Struct) State(in systeminterface.SysStateEnum) bool { return s.sState == in }
 
-func (z *ZeroconfStruct) Healthcheck() error {
-	if z.conn == nil {
-		return fmt.Errorf("unified mDNS discovery server connection instance is uninitialized")
-	}
-	return nil
-}
-
-func (z *ZeroconfStruct) Setup() {
+func (s *Struct) Setup() {
 	// logger.Info(m.Name(), "Evaluating network discovery broadcast requirements...")
-	z.sState = systeminterface.SETUP
+	s.sState = systeminterface.SETUP
 	// logger.Info(m.Name(), "Pre-flight checks passed. Service registration profile is valid.")
 }
 
-func (z *ZeroconfStruct) Start() error {
-	logger.Info(z.Name(), "Initializing proactive proxy-routing mDNS discovery engine...")
+func (s *Struct) Start() error {
+	logger.Info(s.Name(), "Initializing proactive proxy-routing mDNS discovery engine...")
 
 	multicastAddr, err := net.ResolveUDPAddr("udp4", "224.0.0.251:5353")
 	if err != nil {
@@ -49,19 +49,45 @@ func (z *ZeroconfStruct) Start() error {
 	if err != nil {
 		return fmt.Errorf("failed to join kernel mDNS multicast loop: %w", err)
 	}
-	z.conn = conn
-	z.done = make(chan struct{})
+	s.conn = conn
+	s.done = make(chan struct{})
 
-	z.broadcastAnnouncement(120)
+	s.broadcastAnnouncement(120)
 
-	go z.listenForQueries()
+	go s.listenForQueries()
 
-	logger.Info(z.Name(), "Universal mDNS service discovery proxies active and broadcasting Hello packets.")
-	z.sState = systeminterface.STARTED
+	logger.Info(s.Name(), "Universal mDNS service discovery proxies active and broadcasting Hello packets.")
+	s.sState = systeminterface.STARTED
 	return nil
 }
 
-func (z *ZeroconfStruct) listenForQueries() {
+func (s *Struct) Stop() {
+	logger.Info(s.Name(), "Initiating shutdown sequence on unified mDNS channels...")
+
+	if s.done != nil {
+		close(s.done)
+	}
+
+	if s.conn != nil {
+		s.broadcastAnnouncement(0)
+		time.Sleep(500 * time.Millisecond)
+
+		_ = s.conn.Close()
+		s.conn = nil
+	}
+
+	logger.Info(s.Name(), "mDNS broadcast beacons dropped cleanly from network space.")
+	s.sState = systeminterface.STOPPED
+}
+
+func (s *Struct) Healthcheck() error {
+	if s.conn == nil {
+		return fmt.Errorf("unified mDNS discovery server connection instance is uninitialized")
+	}
+	return nil
+}
+
+func (s *Struct) listenForQueries() {
 	localHostTarget := fmt.Sprintf("%s.local.", config.Hostname)
 	fqdnHostTarget := fmt.Sprintf("%s.%s.", config.Hostname, config.DomainName)
 
@@ -71,10 +97,10 @@ func (z *ZeroconfStruct) listenForQueries() {
 	buf := make([]byte, 1500)
 	for {
 		select {
-		case <-z.done:
+		case <-s.done:
 			return
 		default:
-			n, remoteAddr, err := z.conn.ReadFromUDP(buf)
+			n, remoteAddr, err := s.conn.ReadFromUDP(buf)
 			if err != nil {
 				return
 			}
@@ -85,7 +111,7 @@ func (z *ZeroconfStruct) listenForQueries() {
 			}
 
 			for _, q := range msg.Question {
-				logger.DebugF(z.Name(), "Incoming Query from %s: Name=%s Type=%s", remoteAddr.String(), q.Name, dns.TypeToString[q.Qtype])
+				logger.DebugF(s.Name(), "Incoming Query from %s: Name=%s Type=%s", remoteAddr.String(), q.Name, dns.TypeToString[q.Qtype])
 
 				if q.Name == localHostTarget || q.Name == fqdnHostTarget || q.Name == servicesMetaRecord || q.Name == "_nfs._tcp.local." || q.Name == "_smb._tcp.local." {
 					resp := new(dns.Msg)
@@ -152,8 +178,8 @@ func (z *ZeroconfStruct) listenForQueries() {
 
 					out, err := resp.Pack()
 					if err == nil {
-						logger.DebugF(z.Name(), "Sending Targeted Response to %s for %s", remoteAddr.String(), q.Name)
-						_, _ = z.conn.WriteToUDP(out, remoteAddr)
+						logger.DebugF(s.Name(), "Sending Targeted Response to %s for %s", remoteAddr.String(), q.Name)
+						_, _ = s.conn.WriteToUDP(out, remoteAddr)
 					}
 				}
 			}
@@ -161,7 +187,7 @@ func (z *ZeroconfStruct) listenForQueries() {
 	}
 }
 
-func (z *ZeroconfStruct) broadcastAnnouncement(ttl uint32) {
+func (s *Struct) broadcastAnnouncement(ttl uint32) {
 	localHostTarget := fmt.Sprintf("%s.local.", config.Hostname)
 	fqdnHostTarget := fmt.Sprintf("%s.%s.", config.Hostname, config.DomainName)
 
@@ -240,28 +266,9 @@ func (z *ZeroconfStruct) broadcastAnnouncement(ttl uint32) {
 
 	out, err := msg.Pack()
 	if err == nil {
-		logger.DebugF(z.Name(), "Broadcasting Proactive Announcement Packet (Records: %d, TTL: %d)", len(msg.Answer), ttl)
-		_, _ = z.conn.WriteToUDP(out, multicastAddr)
+		logger.DebugF(s.Name(), "Broadcasting Proactive Announcement Packet (Records: %d, TTL: %d)", len(msg.Answer), ttl)
+		_, _ = s.conn.WriteToUDP(out, multicastAddr)
 		time.Sleep(100 * time.Millisecond)
-		_, _ = z.conn.WriteToUDP(out, multicastAddr)
+		_, _ = s.conn.WriteToUDP(out, multicastAddr)
 	}
-}
-
-func (z *ZeroconfStruct) Stop() {
-	logger.Info(z.Name(), "Initiating shutdown sequence on unified mDNS channels...")
-
-	if z.done != nil {
-		close(z.done)
-	}
-
-	if z.conn != nil {
-		z.broadcastAnnouncement(0)
-		time.Sleep(500 * time.Millisecond)
-
-		_ = z.conn.Close()
-		z.conn = nil
-	}
-
-	logger.Info(z.Name(), "mDNS broadcast beacons dropped cleanly from network space.")
-	z.sState = systeminterface.STOPPED
 }

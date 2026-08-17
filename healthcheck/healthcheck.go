@@ -128,15 +128,16 @@ func Stop() error {
 
 func AddTracker(sys systeminterface.System) bool {
 	logger.DebugContinueF(logName, "Adding Tracker for %s...", sys.Name())
+	lName := strings.ToLower(sys.Name())
 	switch sys.Type() {
 	case systeminterface.Beacon:
-		trackedBeacons[sys.Name()] = sys
+		trackedBeacons[lName] = sys
 		logger.DebugAppend(logName, "[TYPE BEACON]")
 	case systeminterface.Share:
-		trackedShares[sys.Name()] = sys
+		trackedShares[lName] = sys
 		logger.DebugAppend(logName, "[TYPE SHARE]")
 	case systeminterface.Utility:
-		trackedUtilities[sys.Name()] = sys
+		trackedUtilities[lName] = sys
 		logger.DebugAppend(logName, "[TYPE UTILITY]")
 	default:
 		logger.DebugEnd(logName, "[TYPE UNKNOWN]")

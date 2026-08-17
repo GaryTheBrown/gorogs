@@ -70,15 +70,6 @@ func (w *WSDiscoveryStruct) Start() error {
 	return nil
 }
 
-func (w *WSDiscoveryStruct) Healthcheck() error {
-	if w.ctx != nil && w.ctx.Err() != nil {
-		logger.Error("WSDiscovery", "Healthcheck failed: execution context is dropped", w.ctx.Err())
-		return fmt.Errorf("WSDiscovery system operational context has dropped: %w", w.ctx.Err())
-	}
-	logger.Debug("WSDiscovery", "Healthcheck verified successfully. Context is uncorrupted.")
-	return nil
-}
-
 func (w *WSDiscoveryStruct) Stop() {
 	if w.cancel == nil {
 		logger.Error("WSDiscovery", "Stop command skipped: cancellation pointer wrapper is unallocated", nil)
@@ -91,4 +82,13 @@ func (w *WSDiscoveryStruct) Stop() {
 	logger.Info("WSDiscovery", "Subsystem completely closed down. Multicast groups detached cleanly.")
 	w.sState = systeminterface.STOPPED
 	return
+}
+
+func (w *WSDiscoveryStruct) Healthcheck() error {
+	if w.ctx != nil && w.ctx.Err() != nil {
+		logger.Error("WSDiscovery", "Healthcheck failed: execution context is dropped", w.ctx.Err())
+		return fmt.Errorf("WSDiscovery system operational context has dropped: %w", w.ctx.Err())
+	}
+	logger.Debug("WSDiscovery", "Healthcheck verified successfully. Context is uncorrupted.")
+	return nil
 }

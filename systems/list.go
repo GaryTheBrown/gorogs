@@ -27,11 +27,11 @@ const (
 
 var systemList = []systeminterface.System{
 	//ORDER IS IMPORTANT DON'T CHANGE THIS ORDER
-	&zerospace.ZeroSpaceStruct{},
-	&rpcbind.RPCBindStruct{},
-	&nfs.NFSStruct{},
-	&netbios.NetBIOSStruct{},
-	&samba.SambaStruct{},
+	&zerospace.Struct{},
+	&rpcbind.Struct{},
+	&nfs.Struct{},
+	&netbios.Struct{},
+	&samba.Struct{},
 	&wsdiscovery.WSDiscoveryStruct{},
-	&zeroconf.ZeroconfStruct{},
+	&zeroconf.Struct{},
 }
