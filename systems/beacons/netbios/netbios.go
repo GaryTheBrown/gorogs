@@ -27,25 +27,28 @@ type Struct struct {
 	cmd    *exec.Cmd
 }
 
-func (_ *Struct) Name() string                               { return Name }
-func (_ *Struct) Type() systeminterface.SystemTypeEnum       { return Type }
-func (_ *Struct) IsCritical() bool                           { return IsCritical }
-func (_ *Struct) AutoStart() bool                            { return AutoStart }
-func (s *Struct) State(in systeminterface.SysStateEnum) bool { return s.sState == in }
+func (_ *Struct) Name() string                                 { return Name }
+func (_ *Struct) Type() systeminterface.SystemTypeEnum         { return Type }
+func (_ *Struct) IsCritical() bool                             { return IsCritical }
+func (_ *Struct) AutoStart() bool                              { return AutoStart }
+func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
+func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
 func (s *Struct) Setup() {
-	logger.Info(s.Name(), "Commencing pre-flight checks and isolated NetBIOS configuration generatios...")
+	logger.DebugContinue(Name, "System Setup...")
 
 	if err := os.MkdirAll("/var/log/samba", 0755); err != nil {
-		logger.Fatal(s.Name(), "failed to provision local samba logging directories", err)
+		logger.Fatal(Name, "failed to provision local samba logging directories", err)
 	}
+	logger.DebugAppend(Name, "[mkdir]")
 
 	if err := s.writeMasterNmbdConfig(config.Hostname); err != nil {
-		logger.Fatal(s.Name(), "failed to execute master nmbd config write utility", err)
+		logger.FatalF(Name, "failed to write %s config file", err, Name)
 	}
+	logger.DebugAppend(Name, "[write config]")
 
-	logger.Info(s.Name(), "NetBIOS beacon configuration generation phase successfully completed.")
 	s.sState = systeminterface.SETUP
+	logger.DebugEnd(Name, "[DONE]")
 }
 
 func (s *Struct) writeMasterNmbdConfig(serverName string) error {
@@ -66,7 +69,7 @@ func (s *Struct) writeMasterNmbdConfig(serverName string) error {
 }
 
 func (s *Struct) Start() error {
-	logger.Info(s.Name(), "Spawning standalone NetBIOS name discovery beacon companion (nmbd)...")
+	logger.DebugContinue(Name, "System Starting...")
 
 	s.cmd = exec.Command("/usr/sbin/nmbd", "--foreground", "--no-process-group", "--debug-stdout", "-s", "/etc/samba/nmbd.conf")
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -83,13 +86,13 @@ func (s *Struct) Start() error {
 
 	go s.streamSubsystemLogs(nmbPipe)
 
-	logger.InfoF(s.Name(), "NetBIOS tracker process running (PID: %d). Probing UDP socket...", s.cmd.Process.Pid)
+	logger.DebugF(Name, "NetBIOS tracker process running (PID: %d). Probing UDP socket...", s.cmd.Process.Pid)
 
 	for range 30 {
 		conn, err := net.DialTimeout("udp4", "127.0.0.1:137", 500*time.Millisecond)
 		if err == nil {
 			conn.Close()
-			logger.Info(s.Name(), "Verified: NetBIOS daemon has successfully bound UDP Port 137 and is online.")
+			logger.Debug(Name, "Verified: NetBIOS daemon has successfully bound UDP Port 137 and is online.")
 			s.sState = systeminterface.STARTED
 			return nil
 		}
@@ -109,11 +112,11 @@ func (s *Struct) streamSubsystemLogs(pipe io.ReadCloser) {
 		if trimmedLine == "" {
 			continue
 		}
-		logger.Info(s.Name(), trimmedLine)
+		logger.Debug(Name, trimmedLine)
 	}
 
 	if err := scanner.Err(); err != nil {
-		logger.Error(s.Name(), "Log scanning utility loop encountered an underlying stream parsing error", err)
+		logger.Error(Name, "Log scanning utility loop encountered an underlying stream parsing error", err)
 	}
 }
 
@@ -121,7 +124,7 @@ func (s *Struct) Stop() {
 	if s.cmd == nil || s.cmd.Process == nil {
 		return
 	}
-	logger.Info(s.Name(), "Initiating graceful termination sequence on NetBIOS beacon threads...")
+	logger.Debug(Name, "Initiating graceful termination sequence on NetBIOS beacon threads...")
 	if err := s.cmd.Process.Signal(syscall.SIGTERM); err != nil {
 		s.cmd.Process.Kill()
 		return

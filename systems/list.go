@@ -32,6 +32,6 @@ var systemList = []systeminterface.System{
 	&nfs.Struct{},
 	&netbios.Struct{},
 	&samba.Struct{},
-	&wsdiscovery.WSDiscoveryStruct{},
+	&wsdiscovery.Struct{},
 	&zeroconf.Struct{},
 }

@@ -25,11 +25,12 @@ type Struct struct {
 	done   chan struct{}
 }
 
-func (_ *Struct) Name() string                               { return Name }
-func (_ *Struct) Type() systeminterface.SystemTypeEnum       { return Type }
-func (_ *Struct) IsCritical() bool                           { return IsCritical }
-func (_ *Struct) AutoStart() bool                            { return AutoStart }
-func (s *Struct) State(in systeminterface.SysStateEnum) bool { return s.sState == in }
+func (_ *Struct) Name() string                                 { return Name }
+func (_ *Struct) Type() systeminterface.SystemTypeEnum         { return Type }
+func (_ *Struct) IsCritical() bool                             { return IsCritical }
+func (_ *Struct) AutoStart() bool                              { return AutoStart }
+func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
+func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
 func (s *Struct) Setup() {
 	// logger.Info(m.Name(), "Evaluating network discovery broadcast requirements...")

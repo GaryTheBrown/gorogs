@@ -17,10 +17,11 @@ func Setup() {
 		}
 		sys.Setup()
 	}
+	logger.AddSystemsStopFunction(Stop)
 }
 func Start() error {
 	for _, sys := range systemList {
-		if sys.State(systeminterface.SETUP) {
+		if sys.IsState(systeminterface.SETUP) {
 			if err := sys.Start(); err != nil {
 				//Problem Starting system
 			}
@@ -31,14 +32,16 @@ func Start() error {
 	}
 	return nil
 }
-func Stop() error {
+func Stop() {
 	for _, sys := range slices.Backward(systemList) {
-		if sys.State(systeminterface.STARTED) {
+		if sys.IsState(systeminterface.STARTED) {
 			logger.InfoContinueF(sys.Name(), "Stopping [%s] system...", sys.Name())
 			sys.Stop()
-			logger.InfoEnd(sys.Name(), "[DONE]")
+			if sys.IsState(systeminterface.STOPPED) {
+				logger.InfoEnd(sys.Name(), "[DONE]")
+			} else {
+				logger.InfoEnd(sys.Name(), "[FAILED]")
+			}
 		}
-
 	}
-	return nil
 }

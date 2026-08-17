@@ -39,7 +39,7 @@ var (
 	listener         net.Listener
 )
 
-func Setup() error {
+func Setup() {
 	logger.DebugContinue(logName, "System Setup...")
 	trackedBeacons = make(map[string]systeminterface.System)
 	logger.DebugAppend(logName, "[make map]")
@@ -74,8 +74,8 @@ func Setup() error {
 		logger.DebugAppend(logName, "[set healthmode][DEFAULT]")
 	}
 
+	logger.AddHealthCheckStopFunction(Stop)
 	logger.DebugEnd(logName, "[DONE]")
-	return nil
 }
 
 func Start() error {
@@ -106,24 +106,23 @@ func Start() error {
 	return nil
 }
 
-func Stop() error {
-	logger.DebugContinue(logName, "System Stopping...")
+func Stop() {
 	if server == nil {
-		return nil
+		return
 	}
-	logger.DebugAppend(logName, "[SOCKET SHUTDOWN]")
+	logger.DebugContinue(logName, "System Stopping...")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
+	logger.DebugAppend(logName, "[SOCKET SHUTDOWN]")
 	err := server.Shutdown(ctx)
 	if err != nil {
-		logger.DebugEnd(logName, "[SOCKET SHUTDOWN FAILED]")
-		return err
+		logger.DebugEnd(logName, "[FAILED]")
+		return
 	}
 
 	_ = os.Remove(socketFile)
 	logger.DebugEnd(logName, "[REMOVE SOCKET][DONE]")
 
-	return nil
 }
 
 func AddTracker(sys systeminterface.System) bool {

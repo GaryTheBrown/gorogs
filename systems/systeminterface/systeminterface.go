@@ -5,7 +5,8 @@ type System interface {
 	Type() SystemTypeEnum
 	IsCritical() bool
 	AutoStart() bool
-	State(in SysStateEnum) bool
+	IsState(in SysStateEnum) bool
+	GetState() SysStateEnum
 
 	Setup()
 	Start() error

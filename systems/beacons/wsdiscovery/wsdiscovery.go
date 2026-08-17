@@ -12,7 +12,7 @@ import (
 	"gorogs/systems/systeminterface"
 )
 
-type WSDiscoveryStruct struct {
+type Struct struct {
 	sState systeminterface.SysStateEnum
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -21,18 +21,19 @@ type WSDiscoveryStruct struct {
 	SkipValidation bool
 }
 
-func (_ *WSDiscoveryStruct) Name() string                               { return "wsdiscovery" }
-func (_ *WSDiscoveryStruct) Type() systeminterface.SystemTypeEnum       { return systeminterface.Beacon }
-func (_ *WSDiscoveryStruct) IsCritical() bool                           { return false }
-func (_ *WSDiscoveryStruct) AutoStart() bool                            { return true }
-func (w *WSDiscoveryStruct) State(in systeminterface.SysStateEnum) bool { return w.sState == in }
+func (_ *Struct) Name() string                                 { return "wsdiscovery" }
+func (_ *Struct) Type() systeminterface.SystemTypeEnum         { return systeminterface.Beacon }
+func (_ *Struct) IsCritical() bool                             { return false }
+func (_ *Struct) AutoStart() bool                              { return true }
+func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
+func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
-func (w *WSDiscoveryStruct) Setup() {
+func (s *Struct) Setup() {
 	logger.Info("WSDiscovery", "Executing service configuration pre-flight routines...")
 
 	templates.PreCompileTemplates()
-	w.ctx, w.cancel = context.WithCancel(context.Background())
-	w.engine = engine.NewEngineState()
+	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.engine = engine.NewEngineState()
 
 	//Configs For This this will eventually be something we get from the cfg when we
 	// switch to a more dynamic way of passing configs in and out.
@@ -45,19 +46,19 @@ func (w *WSDiscoveryStruct) Setup() {
 		logger.Info("WSDiscovery", "Standard full-document recursive namespace token validation scan is ACTIVE.")
 	}
 	logger.InfoF("WSDiscovery", "Subsystem setup completed for server name: %s", config.Hostname)
-	w.sState = systeminterface.SETUP
+	s.sState = systeminterface.SETUP
 }
 
-func (w *WSDiscoveryStruct) Start() error {
-	if w.engine == nil {
+func (s *Struct) Start() error {
+	if s.engine == nil {
 		err := fmt.Errorf("setup state was not executed")
 		logger.Error("WSDiscovery", "Start process failed fundamentally", err)
 		return fmt.Errorf("WSDiscovery service failed to start: %w", err)
 	}
 
 	logger.Info("WSDiscovery", "Launching background network engines and dispatcher routines...")
-	err := w.engine.Start(
-		w.ctx,
+	err := s.engine.Start(
+		s.ctx,
 		"/config",
 	)
 	if err != nil {
@@ -66,28 +67,27 @@ func (w *WSDiscoveryStruct) Start() error {
 	}
 
 	logger.Info("WSDiscovery", "Daemon engine successfully running in background mode.")
-	w.sState = systeminterface.STARTED
+	s.sState = systeminterface.STARTED
 	return nil
 }
 
-func (w *WSDiscoveryStruct) Stop() {
-	if w.cancel == nil {
+func (s *Struct) Stop() {
+	if s.cancel == nil {
 		logger.Error("WSDiscovery", "Stop command skipped: cancellation pointer wrapper is unallocated", nil)
 		return
 	}
 
 	logger.Info("WSDiscovery", "Shutdown execution requested. Safely draining network workers...")
-	w.cancel()
-	w.engine.Stop()
+	s.cancel()
+	s.engine.Stop()
 	logger.Info("WSDiscovery", "Subsystem completely closed down. Multicast groups detached cleanly.")
-	w.sState = systeminterface.STOPPED
-	return
+	s.sState = systeminterface.STOPPED
 }
 
-func (w *WSDiscoveryStruct) Healthcheck() error {
-	if w.ctx != nil && w.ctx.Err() != nil {
-		logger.Error("WSDiscovery", "Healthcheck failed: execution context is dropped", w.ctx.Err())
-		return fmt.Errorf("WSDiscovery system operational context has dropped: %w", w.ctx.Err())
+func (s *Struct) Healthcheck() error {
+	if s.ctx != nil && s.ctx.Err() != nil {
+		logger.Error("WSDiscovery", "Healthcheck failed: execution context is dropped", s.ctx.Err())
+		return fmt.Errorf("WSDiscovery system operational context has dropped: %w", s.ctx.Err())
 	}
 	logger.Debug("WSDiscovery", "Healthcheck verified successfully. Context is uncorrupted.")
 	return nil
