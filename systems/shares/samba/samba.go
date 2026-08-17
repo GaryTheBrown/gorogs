@@ -1,20 +1,18 @@
 package samba
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"syscall"
 	"time"
 
 	"gorogs/config"
 	"gorogs/logger"
+	"gorogs/systems/helpers"
 	"gorogs/systems/systeminterface"
 
 	"github.com/fsnotify/fsnotify"
@@ -30,6 +28,7 @@ const (
 type Struct struct {
 	sState      systeminterface.SysStateEnum
 	cmd         *exec.Cmd
+	logWriter   *helpers.SubsystemWriter
 	readyChan   chan struct{}
 	cancelWatch context.CancelFunc
 }
@@ -124,41 +123,60 @@ func (s *Struct) writeDynamicSharesConfig() error {
 func (s *Struct) Start() error {
 	logger.Info(s.Name(), "Spawning primary Samba smbd background engine...")
 
-	s.readyChan = make(chan struct{})
-
 	s.cmd = exec.Command("/usr/sbin/smbd", "--foreground", "--no-process-group", "--debug-stdout", "-s", "/etc/samba/smbd.conf")
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	sambaPipe, err := s.cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to link Samba stdout processing pipeline: %w", err)
+	if logger.IsDebugActive(s.Name()) {
+		s.logWriter = helpers.NewSubsystemWriter(s.Name(), nil, nil, nil)
+		s.cmd.Stdout = s.logWriter
+		s.cmd.Stderr = s.logWriter
 	}
-	s.cmd.Stderr = s.cmd.Stdout
 
 	if err := s.cmd.Start(); err != nil {
-		return fmt.Errorf("failed to initialize background smbd execution tracking loop: %w", err)
+		return fmt.Errorf("failed to initialize background smbd process: %w", err)
 	}
 
-	go s.streamSubsystemLogs(sambaPipe)
+	logger.InfoF(s.Name(), "Samba active (PID: %d). Probing port 445...", s.cmd.Process.Pid)
 
-	logger.InfoF(s.Name(), "Samba background engine active under operational Process ID: %d. Waiting for socket readiness...", s.cmd.Process.Pid)
-
-	select {
-	case <-s.readyChan:
-		logger.Info(s.Name(), "Samba successfully bound network ports and is accepting incoming client requests.")
-
-		if !config.IsDisabled("livechanges") {
-			watchCtx, cancel := context.WithCancel(context.Background())
-			s.cancelWatch = cancel
-			go s.startFSEventDirectoryWatcher(watchCtx)
-		} else {
-			logger.Info(s.Name(), "Live share adjustments are deactivated via system configuration flags.")
+	if !helpers.WaitForSocket("tcp", "127.0.0.1:445", 5*time.Second) {
+		if s.logWriter != nil {
+			s.logWriter.Close()
 		}
-		s.sState = systeminterface.STARTED
-		return nil
-	case <-time.After(5 * time.Second):
-		return fmt.Errorf("timeout waiting for Samba daemon process tree to declare socket readiness")
+		return fmt.Errorf("timeout waiting for Samba daemon to bind port 445")
 	}
+
+	logger.Info(s.Name(), "Samba successfully bound network ports and is accepting incoming client requests.")
+
+	if !config.IsDisabled("livechanges") {
+		watchCtx, cancel := context.WithCancel(context.Background())
+		s.cancelWatch = cancel
+		go s.startFSEventDirectoryWatcher(watchCtx)
+	}
+
+	s.sState = systeminterface.STARTED
+	return nil
+}
+
+func (s *Struct) Stop() {
+	if s.cancelWatch != nil {
+		s.cancelWatch()
+	}
+
+	if s.cmd != nil && s.cmd.Process != nil {
+		logger.Info(s.Name(), "Initiating graceful termination sequence on Samba daemon threads...")
+
+		if err := s.cmd.Process.Signal(syscall.SIGTERM); err != nil {
+			_ = s.cmd.Process.Kill()
+		}
+
+		_ = s.cmd.Wait()
+	}
+
+	if s.logWriter != nil {
+		_ = s.logWriter.Close()
+	}
+
+	s.sState = systeminterface.STOPPED
 }
 
 func (s *Struct) startFSEventDirectoryWatcher(ctx context.Context) {
@@ -222,57 +240,6 @@ func (s *Struct) startFSEventDirectoryWatcher(ctx context.Context) {
 			logger.Error(s.Name(), "Inbound filesystem monitor tracking pipeline encountered an asynchronous operation fault", err)
 		}
 	}
-}
-
-func (s *Struct) streamSubsystemLogs(pipe io.ReadCloser) {
-	defer pipe.Close()
-	scanner := bufio.NewScanner(pipe)
-
-	hasSignaledReady := false
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		trimmedLine := strings.TrimSpace(line)
-		if trimmedLine == "" {
-			continue
-		}
-
-		if !hasSignaledReady && (strings.Contains(line, "started") || strings.Contains(line, "Ready for connections") || strings.Contains(line, "smbd_open_once_socket")) {
-			close(s.readyChan)
-			hasSignaledReady = true
-		}
-
-		if logger.IsDebugActive(s.Name()) {
-			logger.Debug(s.Name(), trimmedLine)
-		} else {
-			logger.Info(s.Name(), trimmedLine)
-		}
-	}
-
-	if !hasSignaledReady {
-		close(s.readyChan)
-	}
-
-	if err := scanner.Err(); err != nil {
-		logger.Error(s.Name(), "Log scanning utility loop encountered an underlying stream parsing error", err)
-	}
-}
-
-func (s *Struct) Stop() {
-	if s.cancelWatch != nil {
-		s.cancelWatch()
-	}
-
-	if s.cmd == nil || s.cmd.Process == nil {
-		return
-	}
-	logger.Info(s.Name(), "Initiating graceful termination sequence on Samba daemon threads...")
-	if err := s.cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		s.cmd.Process.Kill()
-		return
-	}
-	_ = s.cmd.Wait()
-	s.sState = systeminterface.STOPPED
 }
 
 func (s *Struct) Healthcheck() error {

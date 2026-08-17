@@ -1,16 +1,13 @@
 package netbios
 
 import (
-	"bufio"
 	"fmt"
 	"gorogs/config"
 	"gorogs/logger"
+	"gorogs/systems/helpers"
 	"gorogs/systems/systeminterface"
-	"io"
-	"net"
 	"os"
 	"os/exec"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -23,8 +20,9 @@ const (
 )
 
 type Struct struct {
-	sState systeminterface.SysStateEnum
-	cmd    *exec.Cmd
+	sState    systeminterface.SysStateEnum
+	cmd       *exec.Cmd
+	logWriter *helpers.SubsystemWriter
 }
 
 func (_ *Struct) Name() string                                 { return Name }
@@ -73,63 +71,53 @@ func (s *Struct) Start() error {
 
 	s.cmd = exec.Command("/usr/sbin/nmbd", "--foreground", "--no-process-group", "--debug-stdout", "-s", "/etc/samba/nmbd.conf")
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	logger.DebugAppend(Name, "[CMD SETUP]")
 
-	nmbPipe, err := s.cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to link NetBIOS nmbd stdout processing pipeline: %w", err)
+	if logger.IsDebugActive(Name) {
+		s.logWriter = helpers.NewSubsystemWriter(Name+".CMD", nil, nil, nil)
+		s.cmd.Stdout = s.logWriter
+		s.cmd.Stderr = s.logWriter
+		logger.DebugAppend(Name, "[LINK STDOUT->LOG]")
 	}
-	s.cmd.Stderr = s.cmd.Stdout
 
 	if err := s.cmd.Start(); err != nil {
+		if s.logWriter != nil {
+			_ = s.logWriter.Close()
+		}
 		return fmt.Errorf("failed to start standalone nmbd beacon process: %w", err)
 	}
+	logger.DebugAppend(Name, "[CMD START]")
 
-	go s.streamSubsystemLogs(nmbPipe)
-
-	logger.DebugF(Name, "NetBIOS tracker process running (PID: %d). Probing UDP socket...", s.cmd.Process.Pid)
-
-	for range 30 {
-		conn, err := net.DialTimeout("udp4", "127.0.0.1:137", 500*time.Millisecond)
-		if err == nil {
-			conn.Close()
-			logger.Debug(Name, "Verified: NetBIOS daemon has successfully bound UDP Port 137 and is online.")
-			s.sState = systeminterface.STARTED
-			return nil
+	if !helpers.WaitForSocket("udp4", "127.0.0.1:137", 15*time.Second) {
+		if s.logWriter != nil {
+			_ = s.logWriter.Close()
 		}
-		time.Sleep(500 * time.Millisecond)
+		logger.DebugEnd(Name, "[TIMEOUT][FAILED]")
+		return fmt.Errorf("timeout waiting for NetBIOS network interface to bind socket 137")
 	}
 
-	return fmt.Errorf("timeout waiting for NetBIOS network interface to bind socket 137")
-}
-
-func (s *Struct) streamSubsystemLogs(pipe io.ReadCloser) {
-	defer pipe.Close()
-	scanner := bufio.NewScanner(pipe)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		trimmedLine := strings.TrimSpace(line)
-		if trimmedLine == "" {
-			continue
-		}
-		logger.Debug(Name, trimmedLine)
-	}
-
-	if err := scanner.Err(); err != nil {
-		logger.Error(Name, "Log scanning utility loop encountered an underlying stream parsing error", err)
-	}
+	s.sState = systeminterface.STARTED
+	logger.DebugEnd(Name, "[DONE]")
+	return nil
 }
 
 func (s *Struct) Stop() {
-	if s.cmd == nil || s.cmd.Process == nil {
-		return
+	if s.cmd != nil && s.cmd.Process != nil {
+		logger.DebugContinue(Name, "Stopping NetBIOS daemon threads...")
+
+		if err := s.cmd.Process.Signal(syscall.SIGTERM); err != nil {
+			_ = s.cmd.Process.Kill()
+		}
+
+		_ = s.cmd.Wait()
+		logger.DebugAppend(Name, "[CMD Stop]")
 	}
-	logger.Debug(Name, "Initiating graceful termination sequence on NetBIOS beacon threads...")
-	if err := s.cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		s.cmd.Process.Kill()
-		return
+
+	if s.logWriter != nil {
+		_ = s.logWriter.Close()
+		logger.DebugAppend(Name, "[STDOUT->LOG STOP]")
 	}
-	_ = s.cmd.Wait()
+	logger.DebugEnd(Name, "[DONE]")
 	s.sState = systeminterface.STOPPED
 }
 

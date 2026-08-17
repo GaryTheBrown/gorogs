@@ -1,18 +1,15 @@
 package rpcbind
 
 import (
-	"bufio"
 	"fmt"
-	"io"
-	"net"
 	"os"
 	"os/exec"
-	"strings"
 	"syscall"
 	"time"
 
 	"gorogs/config"
 	"gorogs/logger"
+	"gorogs/systems/helpers"
 	"gorogs/systems/systeminterface"
 )
 
@@ -24,9 +21,11 @@ const (
 )
 
 type Struct struct {
-	sState   systeminterface.SysStateEnum
-	cmd      *exec.Cmd
-	statdCmd *exec.Cmd
+	sState      systeminterface.SysStateEnum
+	rpcCmd      *exec.Cmd
+	statdCmd    *exec.Cmd
+	rpcWriter   *helpers.SubsystemWriter
+	statdWriter *helpers.SubsystemWriter
 }
 
 func (_ *Struct) Name() string                                 { return Name }
@@ -75,48 +74,31 @@ func (s *Struct) Start() error {
 		rpcArgs = append(rpcArgs, "-h", containerIPStr)
 	}
 
-	s.cmd = exec.Command("/usr/sbin/rpcbind", rpcArgs...)
-	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	s.rpcCmd = exec.Command("/usr/sbin/rpcbind", rpcArgs...)
+	s.rpcCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	rpcStdout, err := s.cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to link RPC stdout pipe: %w", err)
-	}
-	rpcStderr, err := s.cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to link RPC stderr pipe: %w", err)
+	if logger.IsDebugActive(s.Name()) {
+		s.rpcWriter = helpers.NewSubsystemWriter(s.Name(), nil, nil, nil)
+		s.rpcCmd.Stdout = s.rpcWriter
+		s.rpcCmd.Stderr = s.rpcWriter
 	}
 
-	if err := s.cmd.Start(); err != nil {
+	if err := s.rpcCmd.Start(); err != nil {
+		if s.rpcWriter != nil {
+			_ = s.rpcWriter.Close()
+		}
 		return fmt.Errorf("failed to execute local rpcbind utility loop: %w", err)
 	}
-	go s.streamRpcbindLogs(rpcStdout)
-	go s.streamRpcbindLogs(rpcStderr)
 
-	dialTarget := "127.0.0.1:111"
 	logger.Info(s.Name(), "Verifying portmapper socket readiness on loopback channel...")
 
-	rpcReady := false
-	for i := 0; i < 10; i++ {
-
-		if s.cmd.ProcessState != nil && s.cmd.ProcessState.Exited() {
-			return fmt.Errorf("rpcbind daemon process terminated prematurely with exit code status")
+	if !helpers.WaitForSocket("tcp", "127.0.0.1:111", 5*time.Second) {
+		if s.rpcWriter != nil {
+			_ = s.rpcWriter.Close()
 		}
-
-		conn, err := net.DialTimeout("tcp", dialTarget, 200*time.Millisecond)
-		if err == nil {
-			conn.Close()
-			rpcReady = true
-			logger.Info(s.Name(), "RPC portmapper socket successfully initialized and synchronized.")
-			break
-		}
-
-		time.Sleep(500 * time.Millisecond)
+		return fmt.Errorf("timeout waiting for rpcbind process to open port 111 or process exited early")
 	}
-
-	if !rpcReady {
-		return fmt.Errorf("timeout waiting for rpcbind process to open port 111")
-	}
+	logger.Info(s.Name(), "RPC portmapper socket successfully initialized and synchronized.")
 
 	logger.Info(s.Name(), "Spawning background NFSv3 status monitor daemon (rpc.statd)...")
 
@@ -126,69 +108,57 @@ func (s *Struct) Start() error {
 	s.statdCmd = exec.Command("/usr/sbin/rpc.statd", "-F")
 	s.statdCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	statdStdout, _ := s.statdCmd.StdoutPipe()
-	statdStderr, _ := s.statdCmd.StderrPipe()
+	if logger.IsDebugActive(s.Name()) {
+		s.statdWriter = helpers.NewSubsystemWriter(s.Name(), nil, nil, nil)
+		s.statdCmd.Stdout = s.statdWriter
+		s.statdCmd.Stderr = s.statdWriter
+	}
 
 	if err := s.statdCmd.Start(); err != nil {
 		logger.Error(s.Name(), "Failed to launch network status monitor process tree", err)
+		if s.statdWriter != nil {
+			_ = s.statdWriter.Close()
+		}
 	} else {
-		go s.streamRpcbindLogs(statdStdout)
-		go s.streamRpcbindLogs(statdStderr)
 		logger.InfoF(s.Name(), "NFSv3 statd tool active under process ID: %d", s.statdCmd.Process.Pid)
 	}
 
-	logger.InfoF(s.Name(), "RPC portmapper tracking loop active and listening under process ID: %d", s.cmd.Process.Pid)
+	logger.InfoF(s.Name(), "RPC portmapper tracking loop active and listening under process ID: %d", s.rpcCmd.Process.Pid)
 	s.sState = systeminterface.STARTED
 	return nil
-}
-
-func (s *Struct) streamRpcbindLogs(pipe io.ReadCloser) {
-	defer pipe.Close()
-	scanner := bufio.NewScanner(pipe)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		trimmedLine := strings.TrimSpace(line)
-		if trimmedLine == "" {
-			continue
-		}
-
-		if logger.IsDebugActive(s.Name()) {
-			logger.Debug(s.Name(), trimmedLine)
-		} else {
-			logger.Info(s.Name(), trimmedLine)
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		logger.Error(s.Name(), "Log scanning utility loop encountered an underlying stream parsing error", err)
-	}
 }
 
 func (s *Struct) Stop() {
 	if s.statdCmd != nil && s.statdCmd.Process != nil {
 		logger.Info(s.Name(), "Conveying termination signal to system statd threads...")
-		_ = s.statdCmd.Process.Signal(syscall.SIGTERM)
+		if err := s.statdCmd.Process.Signal(syscall.SIGTERM); err != nil {
+			_ = s.statdCmd.Process.Kill()
+		}
 		_ = s.statdCmd.Wait()
 	}
 
-	if s.cmd == nil || s.cmd.Process == nil {
-		return
+	if s.statdWriter != nil {
+		_ = s.statdWriter.Close()
 	}
 
-	logger.Info(s.Name(), "Conveying termination signal to system RPC daemon threads...")
-	if err := s.cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		s.cmd.Process.Kill()
-		return
+	if s.rpcCmd != nil && s.rpcCmd.Process != nil {
+		logger.Info(s.Name(), "Conveying termination signal to system RPC daemon threads...")
+		if err := s.rpcCmd.Process.Signal(syscall.SIGTERM); err != nil {
+			_ = s.rpcCmd.Process.Kill()
+		}
+		_ = s.rpcCmd.Wait()
 	}
 
-	_ = s.cmd.Wait()
+	if s.rpcWriter != nil {
+		_ = s.rpcWriter.Close()
+	}
+
 	s.sState = systeminterface.STOPPED
 }
 
 func (s *Struct) Healthcheck() error {
-	if s.cmd == nil || s.cmd.Process == nil {
+	if s.rpcCmd == nil || s.rpcCmd.Process == nil {
 		return fmt.Errorf("rpcbind background daemon execution instance is uninitialized")
 	}
-	return s.cmd.Process.Signal(syscall.Signal(0))
+	return s.rpcCmd.Process.Signal(syscall.Signal(0))
 }

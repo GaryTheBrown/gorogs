@@ -1,17 +1,15 @@
 package nfs
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
-	"strings"
 	"syscall"
 	"time"
 
 	"gorogs/config"
 	"gorogs/logger"
+	"gorogs/systems/helpers"
 	"gorogs/systems/systeminterface"
 )
 
@@ -25,6 +23,7 @@ const (
 type Struct struct {
 	sState     systeminterface.SysStateEnum
 	ganeshaCmd *exec.Cmd
+	logWriter  *helpers.SubsystemWriter
 	readyChan  chan struct{}
 }
 
@@ -87,80 +86,30 @@ func (s *Struct) writeGaneshaConfig() error {
 func (s *Struct) Start() error {
 	logger.Info(s.Name(), "Spawning containerised user-space NFS-Ganesha storage engine...")
 
-	s.readyChan = make(chan struct{})
-
 	ganeshaArgs := []string{"-F", "-L", "/dev/stdout", "-f", "/etc/ganesha/ganesha.conf"}
 	if logger.IsDebugActive(s.Name()) {
 		ganeshaArgs = append(ganeshaArgs, "-N", "NIV_FULL_DEBUG")
+		s.logWriter = helpers.NewSubsystemWriter(s.Name(), nil, nil, nil)
+		s.ganeshaCmd.Stdout = s.logWriter
+		s.ganeshaCmd.Stderr = s.logWriter
 	}
 
 	s.ganeshaCmd = exec.Command("/usr/bin/ganesha.nfsd", ganeshaArgs...)
 	s.ganeshaCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	ganeshaPipe, err := s.ganeshaCmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to link Ganesha stdout processing pipeline: %w", err)
-	}
-	s.ganeshaCmd.Stderr = s.ganeshaCmd.Stdout
-
 	if err := s.ganeshaCmd.Start(); err != nil {
-		return fmt.Errorf("failed to initialize background ganesha.nfsd execution loop: %w", err)
+		return fmt.Errorf("failed to initialize background ganesha.nfsd: %w", err)
 	}
 
-	go s.streamSubsystemLogs(ganeshaPipe)
+	logger.InfoF(s.Name(), "NFS-Ganesha active (PID: %d). Probing port 2049...", s.ganeshaCmd.Process.Pid)
 
-	logger.InfoF(s.Name(), "NFS-Ganesha binary actively supervised under Process ID: %d. Waiting for socket readiness...", s.ganeshaCmd.Process.Pid)
-
-	select {
-	case <-s.readyChan:
-		logger.Info(s.Name(), "NFS-Ganesha successfully initialized sockets and is accepting connections.")
-		s.sState = systeminterface.STARTED
-		return nil
-	case <-time.After(5 * time.Second):
-		return fmt.Errorf("timeout waiting for NFS-Ganesha to declare readiness state milestone")
-	}
-}
-
-func (s *Struct) streamSubsystemLogs(pipe io.ReadCloser) {
-	defer pipe.Close()
-	scanner := bufio.NewScanner(pipe)
-
-	hasSignaledReady := false
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if !hasSignaledReady && (strings.Contains(line, "NFS SERVER INITIALIZED") ||
-			strings.Contains(line, "General fridge was started successfully")) {
-
-			close(s.readyChan)
-			hasSignaledReady = true
-		}
-
-		idx := strings.Index(line, "[")
-		if idx != -1 {
-			line = line[idx:]
-		}
-
-		trimmedLine := strings.TrimSpace(line)
-		if trimmedLine == "" {
-			continue
-		}
-
-		if logger.IsDebugActive(s.Name()) {
-			logger.Debug(s.Name(), trimmedLine)
-		} else {
-			logger.Info(s.Name(), trimmedLine)
-		}
+	if !helpers.WaitForSocket("tcp", "127.0.0.1:2049", 5*time.Second) {
+		return fmt.Errorf("timeout waiting for NFS-Ganesha to bind port 2049")
 	}
 
-	if !hasSignaledReady {
-		close(s.readyChan)
-	}
-
-	if err := scanner.Err(); err != nil {
-		logger.Error(s.Name(), "Log scanning utility loop encountered an underlying stream parsing error", err)
-	}
+	logger.Info(s.Name(), "NFS-Ganesha successfully initialized sockets and is accepting connections.")
+	s.sState = systeminterface.STARTED
+	return nil
 }
 
 func (s *Struct) Stop() {
