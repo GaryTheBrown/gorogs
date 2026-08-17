@@ -87,7 +87,6 @@ func (s *Struct) Healthcheck() error {
 	}
 	return nil
 }
-
 func (s *Struct) listenForQueries() {
 	localHostTarget := fmt.Sprintf("%s.local.", config.Hostname)
 	fqdnHostTarget := fmt.Sprintf("%s.%s.", config.Hostname, config.DomainName)
@@ -129,48 +128,56 @@ func (s *Struct) listenForQueries() {
 						A:   config.SystemIP,
 					})
 
-					if !config.IsDisabled("nfs") && !config.IsDisabled("zeroconf_nfs") && (q.Name == servicesMetaRecord || q.Name == "_nfs._tcp.local.") {
+					// Handle DNS-SD Service Enumeration (Browsing for available service types)
+					if q.Name == servicesMetaRecord {
+						if !config.IsDisabled("nfs") && !config.IsDisabled("zeroconf_nfs") {
+							resp.Answer = append(resp.Answer, &dns.PTR{
+								Hdr: dns.RR_Header{Name: servicesMetaRecord, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 120},
+								Ptr: "_nfs._tcp.local.",
+							})
+						}
+						if !config.IsDisabled("samba") && !config.IsDisabled("zeroconf_samba") {
+							resp.Answer = append(resp.Answer, &dns.PTR{
+								Hdr: dns.RR_Header{Name: servicesMetaRecord, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 120},
+								Ptr: "_smb._tcp.local.",
+							})
+						}
+					}
+
+					if !config.IsDisabled("nfs") && !config.IsDisabled("zeroconf_nfs") && q.Name == "_nfs._tcp.local." {
 						ptrName := "_nfs._tcp.local."
 						instanceName := fmt.Sprintf("%s.%s", config.Hostname, ptrName)
 
 						resp.Answer = append(resp.Answer, &dns.PTR{
-							Hdr: dns.RR_Header{Name: servicesMetaRecord, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 120},
-							Ptr: ptrName,
-						})
-						resp.Answer = append(resp.Answer, &dns.PTR{
 							Hdr: dns.RR_Header{Name: ptrName, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 120},
 							Ptr: instanceName,
 						})
-						resp.Answer = append(resp.Answer, &dns.SRV{
+						resp.Extra = append(resp.Extra, &dns.SRV{
 							Hdr:      dns.RR_Header{Name: instanceName, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: 120},
 							Priority: 0, Weight: 0, Port: 2049, Target: fqdnHostTarget,
 						})
 						for _, txt := range txtRecords {
-							resp.Answer = append(resp.Answer, &dns.TXT{
+							resp.Extra = append(resp.Extra, &dns.TXT{
 								Hdr: dns.RR_Header{Name: instanceName, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 120},
 								Txt: []string{txt},
 							})
 						}
 					}
 
-					if !config.IsDisabled("samba") && !config.IsDisabled("zeroconf_samba") && (q.Name == servicesMetaRecord || q.Name == "_smb._tcp.local.") {
+					if !config.IsDisabled("samba") && !config.IsDisabled("zeroconf_samba") && q.Name == "_smb._tcp.local." {
 						ptrName := "_smb._tcp.local."
 						instanceName := fmt.Sprintf("%s.%s", config.Hostname, ptrName)
 
 						resp.Answer = append(resp.Answer, &dns.PTR{
-							Hdr: dns.RR_Header{Name: servicesMetaRecord, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 120},
-							Ptr: ptrName,
-						})
-						resp.Answer = append(resp.Answer, &dns.PTR{
 							Hdr: dns.RR_Header{Name: ptrName, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 120},
 							Ptr: instanceName,
 						})
-						resp.Answer = append(resp.Answer, &dns.SRV{
+						resp.Extra = append(resp.Extra, &dns.SRV{
 							Hdr:      dns.RR_Header{Name: instanceName, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: 120},
 							Priority: 0, Weight: 0, Port: 445, Target: fqdnHostTarget,
 						})
 						for _, txt := range txtRecords {
-							resp.Answer = append(resp.Answer, &dns.TXT{
+							resp.Extra = append(resp.Extra, &dns.TXT{
 								Hdr: dns.RR_Header{Name: instanceName, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 120},
 								Txt: []string{txt},
 							})
@@ -227,13 +234,14 @@ func (s *Struct) broadcastAnnouncement(ttl uint32) {
 			Hdr: dns.RR_Header{Name: ptrName, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
 			Ptr: instanceName,
 		})
-		msg.Answer = append(msg.Answer, &dns.SRV{
+
+		msg.Extra = append(msg.Extra, &dns.SRV{
 			Hdr:      dns.RR_Header{Name: instanceName, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: ttl},
 			Priority: 0, Weight: 0, Port: 2049, Target: fqdnHostTarget,
 		})
 
 		for _, txt := range txtRecords {
-			msg.Answer = append(msg.Answer, &dns.TXT{
+			msg.Extra = append(msg.Extra, &dns.TXT{
 				Hdr: dns.RR_Header{Name: instanceName, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: ttl},
 				Txt: []string{txt},
 			})
@@ -252,13 +260,14 @@ func (s *Struct) broadcastAnnouncement(ttl uint32) {
 			Hdr: dns.RR_Header{Name: ptrName, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
 			Ptr: instanceName,
 		})
-		msg.Answer = append(msg.Answer, &dns.SRV{
+
+		msg.Extra = append(msg.Extra, &dns.SRV{
 			Hdr:      dns.RR_Header{Name: instanceName, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: ttl},
 			Priority: 0, Weight: 0, Port: 445, Target: fqdnHostTarget,
 		})
 
 		for _, txt := range txtRecords {
-			msg.Answer = append(msg.Answer, &dns.TXT{
+			msg.Extra = append(msg.Extra, &dns.TXT{
 				Hdr: dns.RR_Header{Name: instanceName, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: ttl},
 				Txt: []string{txt},
 			})
@@ -267,7 +276,8 @@ func (s *Struct) broadcastAnnouncement(ttl uint32) {
 
 	out, err := msg.Pack()
 	if err == nil {
-		logger.DebugF(s.Name(), "Broadcasting Proactive Announcement Packet (Records: %d, TTL: %d)", len(msg.Answer), ttl)
+		logger.DebugF(s.Name(), "Broadcasting Proactive Announcement Packet (Answers: %d, Extras: %d, TTL: %d)", len(msg.Answer), len(msg.Extra), ttl)
+
 		_, _ = s.conn.WriteToUDP(out, multicastAddr)
 		time.Sleep(100 * time.Millisecond)
 		_, _ = s.conn.WriteToUDP(out, multicastAddr)
