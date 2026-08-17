@@ -56,7 +56,7 @@ func (s *Struct) writeGaneshaConfig() error {
 
 	logFileTarget := "/dev/null"
 	if logger.IsDebugActive(Name) {
-		logFileTarget = "/dev/dev/stderr"
+		logFileTarget = "/dev/stderr"
 	}
 
 	configContent := "NFS_CORE_PARAM {\n" +
