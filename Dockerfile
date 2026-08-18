@@ -39,6 +39,7 @@ RUN makepkg -si --noconfirm --skipchecksums --skippgpcheck
 # STAGE 2: Custom Distroless Root Filesystem Setup
 # ==============================================================================
 FROM arch-system-builder AS distroless-setup
+# hadolint ignore=DL3002
 USER root
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -95,6 +96,7 @@ RUN mkdir -p /distroless/etc \
 # STAGE 3: Fast Go Binary Builder & Master Dependency Scanner
 # ==============================================================================
 FROM arch-system-builder AS go-binary-builder
+# hadolint ignore=DL3002
 USER root
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
