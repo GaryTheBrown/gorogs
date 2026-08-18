@@ -4,30 +4,30 @@ import (
 	"fmt"
 )
 
-func InfoF(subsystem, format string, args ...any) {
-	Info(subsystem, fmt.Sprintf(format, args...))
+func InfoF(subSystem, format string, args ...any) {
+	Info(subSystem, fmt.Sprintf(format, args...))
 }
 
-func Info(subsystem, message string) {
-	prefix := formatPrefix(subsystem, "INFO")
+func Info(subSystem, message string) {
+	prefix := formatPrefix(subSystem, "INFO")
 	logChan <- logMessage{kind: typeStandard, text: prefix + message + "\n"}
 }
 
-func InfoContinueF(subsystem, format string, args ...any) {
-	InfoContinue(subsystem, fmt.Sprintf(format, args...))
+func InfoContinueF(subSystem, format string, args ...any) {
+	InfoContinue(subSystem, fmt.Sprintf(format, args...))
 }
 
-func InfoContinue(subsystem, message string) {
-	prefix := formatPrefix(subsystem, "INFO")
-	logChan <- logMessage{kind: typeStart, text: prefix + message, subSystem: subsystem}
+func InfoContinue(subSystem, message string) {
+	prefix := formatPrefix(subSystem, "INFO")
+	logChan <- logMessage{kind: typeStart, text: prefix + message, subSystem: subSystem}
 }
 
-func InfoAppendF(subsystem, format string, a ...any) {
-	InfoAppend(subsystem, fmt.Sprintf(format, a...))
+func InfoAppendF(subSystem, format string, a ...any) {
+	InfoAppend(subSystem, fmt.Sprintf(format, a...))
 }
 
-func InfoAppend(subsystem, message string) {
-	logChan <- logMessage{kind: typeAppend, text: message, subSystem: subsystem}
+func InfoAppend(subSystem, message string) {
+	logChan <- logMessage{kind: typeAppend, text: message, subSystem: subSystem}
 }
 
 func InfoEndF(subSystem, format string, a ...any) {

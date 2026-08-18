@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func FatalF(subsystem, format string, err error, args ...any) {
+func FatalF(subSystem, format string, err error, args ...any) {
 
 	callerInfo := "Unknown Location"
 	if _, file, line, ok := runtime.Caller(1); ok {
@@ -18,10 +18,10 @@ func FatalF(subsystem, format string, err error, args ...any) {
 		callerInfo = fmt.Sprintf("%s:%d", shortFile, line)
 	}
 
-	fatalWithCaller(subsystem, fmt.Sprintf(format, args...), err, callerInfo)
+	fatalWithCaller(subSystem, fmt.Sprintf(format, args...), err, callerInfo)
 }
 
-func Fatal(subsystem, message string, err error) {
+func Fatal(subSystem, message string, err error) {
 	callerInfo := "Unknown Location"
 	if _, file, line, ok := runtime.Caller(1); ok {
 		shortFile := file
@@ -31,11 +31,11 @@ func Fatal(subsystem, message string, err error) {
 		callerInfo = fmt.Sprintf("%s:%d", shortFile, line)
 	}
 
-	fatalWithCaller(subsystem, message, err, callerInfo)
+	fatalWithCaller(subSystem, message, err, callerInfo)
 }
 
-func fatalWithCaller(subsystem, message string, err error, callerInfo string) {
-	prefix := formatPrefix(subsystem, "FATAL CRASH")
+func fatalWithCaller(subSystem, message string, err error, callerInfo string) {
+	prefix := formatPrefix(subSystem, "FATAL CRASH")
 
 	pid := os.Getpid()
 	goVersion := runtime.Version()
