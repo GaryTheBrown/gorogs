@@ -27,7 +27,6 @@ func Start() error {
 			logger.InfoF(logName, "Starting: %s", sys.Name())
 			if err := sys.Start(); err != nil {
 				logger.Fatal(logName, "SOMETHING FAILED", err)
-				//Problem Starting system
 			}
 			if !healthcheck.AddTracker(sys) {
 				//problem with adding to tracker
