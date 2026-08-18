@@ -25,6 +25,12 @@ const (
 	AutoStart  = true
 )
 
+var (
+	programPath      = "/bin/smbd"
+	masterConfigPath = "/etc/smbd.conf"
+	shareConfigPath  = "/dev/shm/smb-shares.conf"
+)
+
 type Struct struct {
 	sState      systeminterface.SysStateEnum
 	cmd         *exec.Cmd
@@ -56,7 +62,6 @@ func (s *Struct) Setup() {
 }
 
 func (s *Struct) writeMasterSambaConfig(serverName string) error {
-	masterConfigPath := "/etc/samba/smbd.conf"
 
 	masterContent := "[global]\n" +
 		"    netbios name = " + serverName + "\n" +
@@ -71,13 +76,12 @@ func (s *Struct) writeMasterSambaConfig(serverName string) error {
 		"    dns proxy = no\n" +
 		"    hostname lookups = no\n" +
 		"\n" +
-		"    include = /dev/shm/smb-shares.conf\n"
+		"    include = " + shareConfigPath + "\n"
 
 	return os.WriteFile(masterConfigPath, []byte(masterContent), 0644)
 }
 
 func (s *Struct) writeDynamicSharesConfig() error {
-	shareConfigPath := "/dev/shm/smb-shares.conf"
 	file, err := os.Create(shareConfigPath)
 	if err != nil {
 		return err
@@ -127,9 +131,9 @@ func (s *Struct) Start() error {
 	if logger.IsDebugActive(s.Name()) {
 		args = append(args, "--debug-stdout")
 	}
-	args = append(args, "-s", "/etc/samba/smbd.conf")
+	args = append(args, "-s", masterConfigPath)
 
-	s.cmd = exec.Command("/usr/sbin/smbd", args...)
+	s.cmd = exec.Command(programPath, args...)
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	if logger.IsDebugActive(s.Name()) {

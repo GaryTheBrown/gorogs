@@ -20,6 +20,11 @@ const (
 	AutoStart  = true
 )
 
+var (
+	programPath = "/bin/rpcbind"
+	statdPath   = "/bin/rpc.statd"
+)
+
 type Struct struct {
 	sState      systeminterface.SysStateEnum
 	rpcCmd      *exec.Cmd
@@ -74,7 +79,7 @@ func (s *Struct) Start() error {
 		rpcArgs = append(rpcArgs, "-h", containerIPStr)
 	}
 
-	s.rpcCmd = exec.Command("/usr/sbin/rpcbind", rpcArgs...)
+	s.rpcCmd = exec.Command(programPath, rpcArgs...)
 	s.rpcCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	if logger.IsDebugActive(s.Name()) {
@@ -105,7 +110,7 @@ func (s *Struct) Start() error {
 	_ = os.MkdirAll("/var/lib/nfs/sm", 0755)
 	_ = os.MkdirAll("/var/lib/nfs/sm.bak", 0755)
 
-	s.statdCmd = exec.Command("/usr/sbin/rpc.statd", "-F")
+	s.statdCmd = exec.Command(statdPath, "-F")
 	s.statdCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	if logger.IsDebugActive(s.Name()) {

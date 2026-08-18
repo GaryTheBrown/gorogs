@@ -20,6 +20,11 @@ const (
 	AutoStart  = true
 )
 
+var (
+	programPath = "/bin/ganesha.nfsd"
+	ganeshaConf = "/etc/ganesha.conf"
+)
+
 type Struct struct {
 	sState     systeminterface.SysStateEnum
 	ganeshaCmd *exec.Cmd
@@ -51,27 +56,43 @@ func (s *Struct) Setup() {
 }
 
 func (s *Struct) writeGaneshaConfig() error {
-	configPath := "/etc/ganesha/ganesha.conf"
+	configPath := "/etc/ganesha.conf"
 	logger.Info(s.Name(), "Compiling unified ganesha.conf layout definition parameters...")
 
-	logFileTarget := "/dev/null"
+	// Extract physical ownership metrics dynamically from the target path directory metadata
+	uid := uint32(1000)
+	gid := uint32(1000)
+	fi, err := os.Stat(config.ShareRoot)
+	if err != nil {
+		logger.Warn(s.Name(), fmt.Sprintf("Unable to stat ShareRoot path '%s', defaulting anonymous UID/GID mapping to 1000: %v", config.ShareRoot, err))
+	} else {
+		if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
+			uid = stat.Uid
+			gid = stat.Gid
+		}
+	}
+
+	gLogLevel := "EVENT"
 	if logger.IsDebugActive(Name) {
-		logFileTarget = "/dev/stderr"
+		gLogLevel = "DEBUG"
 	}
 
 	configContent := "NFS_CORE_PARAM {\n" +
-		"    Protocols = 3, 4;\n" +
+		"    NFS_Protocols = 3, 4;\n" +
 		"    mount_path_pseudo = true;\n" +
-		"    Enable_UDP = false;\n" +
 		"    NFS_Port = 2049;\n" +
-		"    MNT_Port = 892;\n" +
-		"    NLM_Port = 4045;\n" +
+		"    MNT_Port = 20048;\n" +
+		"    NLM_Port = 32803;\n" +
 		"    Rquota_Port = 875;\n" +
-		"    Log_File= \"" + logFileTarget + "\"\n" +
+		"}\n\n" +
+		"LOG {\n" +
+		"    Default_Log_Level = " + gLogLevel + ";\n" +
 		"}\n\n" +
 		"NFSV4 {\n" +
 		"    Graceless = true;\n" +
+		"    DomainName = \"" + config.DomainName + "\";\n" +
 		"}\n\n" +
+
 		"EXPORT {\n" +
 		"    Export_Id = 1;\n" +
 		"    Path = " + config.ShareRoot + ";\n" +
@@ -79,6 +100,9 @@ func (s *Struct) writeGaneshaConfig() error {
 		"    Access_Type = RO;\n" +
 		"    Protocols = 3, 4;\n" +
 		"    SecType = \"sys\";\n" +
+		"    Squash = All_Squash;\n" +
+		fmt.Sprintf("    Anonymous_Uid = %d;\n", uid) +
+		fmt.Sprintf("    Anonymous_Gid = %d;\n", gid) +
 		"    FSAL {\n" +
 		"        Name = VFS;\n" +
 		"    }\n" +
@@ -91,8 +115,7 @@ func (s *Struct) Start() error {
 	logger.Info(s.Name(), "Spawning containerised user-space NFS-Ganesha storage engine...")
 
 	s.readyChan = make(chan struct{})
-
-	ganeshaArgs := []string{"-F", "-f", "/etc/ganesha/ganesha.conf"}
+	ganeshaArgs := []string{"-F", "-f", ganeshaConf}
 
 	if logger.IsDebugActive(s.Name()) {
 		ganeshaArgs = append(ganeshaArgs, "-L", "/dev/stdout", "-N", "NIV_FULL_DEBUG")
@@ -104,6 +127,10 @@ func (s *Struct) Start() error {
 	if logger.IsDebugActive(s.Name()) {
 		phrases := []string{"NFS SERVER INITIALIZED", "General fridge was started successfully"}
 		s.logWriter = helpers.NewSubsystemWriter(s.Name(), s.readyChan, phrases, nil)
+		s.ganeshaCmd.Stdout = s.logWriter
+		s.ganeshaCmd.Stderr = s.logWriter
+	} else {
+		s.logWriter = helpers.NewSubsystemWriter(s.Name(), nil, nil, nil)
 		s.ganeshaCmd.Stdout = s.logWriter
 		s.ganeshaCmd.Stderr = s.logWriter
 	}
@@ -132,6 +159,9 @@ func (s *Struct) Start() error {
 		}
 	} else {
 		if !helpers.WaitForSocket("tcp", "127.0.0.1:2049", 10*time.Second) {
+			if s.logWriter != nil {
+				_ = s.logWriter.Close()
+			}
 			return fmt.Errorf("timeout waiting for production NFS-Ganesha daemon to bind port 2049")
 		}
 		logger.Info(s.Name(), "NFS-Ganesha network port 2049 successfully bound and listening.")

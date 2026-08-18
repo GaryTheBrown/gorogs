@@ -19,6 +19,11 @@ const (
 	AutoStart  = false
 )
 
+var (
+	programPath      = "/bin/nmbd"
+	masterConfigPath = "/etc/nmbd.conf"
+)
+
 type Struct struct {
 	sState    systeminterface.SysStateEnum
 	cmd       *exec.Cmd
@@ -50,7 +55,6 @@ func (s *Struct) Setup() {
 }
 
 func (s *Struct) writeMasterNmbdConfig(serverName string) error {
-	masterConfigPath := "/etc/samba/nmbd.conf"
 
 	masterContent := "[global]\n" +
 		"    netbios name = " + serverName + "\n" +
@@ -69,7 +73,7 @@ func (s *Struct) writeMasterNmbdConfig(serverName string) error {
 func (s *Struct) Start() error {
 	logger.DebugContinue(Name, "System Starting...")
 
-	s.cmd = exec.Command("/usr/sbin/nmbd", "--foreground", "--no-process-group", "--debug-stdout", "-s", "/etc/samba/nmbd.conf")
+	s.cmd = exec.Command(programPath, "--foreground", "--no-process-group", "--debug-stdout", "-s", masterConfigPath)
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.DebugAppend(Name, "[CMD SETUP]")
 
