@@ -21,7 +21,7 @@ const (
 )
 
 var (
-	programPath = "/bin/ganesha.nfsd"
+	programPath = "/usr/bin/ganesha.nfsd"
 	ganeshaConf = "/etc/ganesha.conf"
 )
 
@@ -77,36 +77,40 @@ func (s *Struct) writeGaneshaConfig() error {
 		gLogLevel = "DEBUG"
 	}
 
-	configContent := "NFS_CORE_PARAM {\n" +
-		"    NFS_Protocols = 3, 4;\n" +
-		"    mount_path_pseudo = true;\n" +
-		"    NFS_Port = 2049;\n" +
-		"    MNT_Port = 20048;\n" +
-		"    NLM_Port = 32803;\n" +
-		"    Rquota_Port = 875;\n" +
-		"}\n\n" +
-		"LOG {\n" +
-		"    Default_Log_Level = " + gLogLevel + ";\n" +
-		"}\n\n" +
-		"NFSV4 {\n" +
-		"    Graceless = true;\n" +
-		"    DomainName = \"" + config.DomainName + "\";\n" +
-		"}\n\n" +
+	configContent := fmt.Sprintf(`NFS_CORE_PARAM {
+    NFS_Protocols = 3, 4;
+    mount_path_pseudo = true;
+    NFS_Port = 2049;
+    MNT_Port = 20048;
+    NLM_Port = 32803;
+    Rquota_Port = 875;
+}
 
-		"EXPORT {\n" +
-		"    Export_Id = 1;\n" +
-		"    Path = " + config.ShareRoot + ";\n" +
-		"    Pseudo = /;\n" +
-		"    Access_Type = RO;\n" +
-		"    Protocols = 3, 4;\n" +
-		"    SecType = \"sys\";\n" +
-		"    Squash = All_Squash;\n" +
-		fmt.Sprintf("    Anonymous_Uid = %d;\n", uid) +
-		fmt.Sprintf("    Anonymous_Gid = %d;\n", gid) +
-		"    FSAL {\n" +
-		"        Name = VFS;\n" +
-		"    }\n" +
-		"}\n"
+LOG {
+    Default_Log_Level = %s;
+}
+
+NFSV4 {
+    Graceless = true;
+    DomainName = "%s";
+}
+
+EXPORT {
+    Export_Id = 1;
+    Path = %s;
+    Pseudo = /;
+    Access_Type = RO;
+    Protocols = 3, 4;
+    SecType = "sys";
+    Squash = All_Squash;
+    Anonymous_Uid = %d;
+    Anonymous_Gid = %d;
+    FSAL {
+        Name = VFS;
+        # Prevents client "Stale File Handles" if gorogs rewrites or reloads configs
+        Filesystem_Id = 1.1;
+    }
+}`, gLogLevel, config.DomainName, config.ShareRoot, uid, gid)
 
 	return os.WriteFile(configPath, []byte(configContent), 0644)
 }

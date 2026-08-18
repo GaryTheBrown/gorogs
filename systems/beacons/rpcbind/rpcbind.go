@@ -21,8 +21,8 @@ const (
 )
 
 var (
-	programPath = "/bin/rpcbind"
-	statdPath   = "/bin/rpc.statd"
+	programPath = "/usr/bin/rpcbind"
+	statdPath   = "/usr/bin/rpc.statd"
 )
 
 type Struct struct {

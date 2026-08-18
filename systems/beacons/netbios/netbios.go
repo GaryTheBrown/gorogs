@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	programPath      = "/bin/nmbd"
+	programPath      = "/usr/bin/nmbd"
 	masterConfigPath = "/etc/nmbd.conf"
 )
 

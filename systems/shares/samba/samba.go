@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	programPath      = "/bin/smbd"
+	programPath      = "/usr/bin/smbd"
 	masterConfigPath = "/etc/smbd.conf"
 	shareConfigPath  = "/dev/shm/smb-shares.conf"
 )
