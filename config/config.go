@@ -14,13 +14,13 @@ var (
 )
 
 func IsDisabled(service string) bool {
-	_, ok := disabled[strings.ToLower(service)]
-	return ok
+	_, exists := disabled[strings.ToLower(service)]
+	return exists
 }
 
 func IsEnabled(service string) bool {
-	_, notOK := disabled[strings.ToLower(service)]
-	return !notOK
+	_, exists := disabled[strings.ToLower(service)]
+	return exists
 }
 
 func GetServiceConfig(service string) map[string]any {
