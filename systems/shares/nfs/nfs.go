@@ -60,8 +60,8 @@ func (s *Struct) writeGaneshaConfig() error {
 	logger.Info(s.Name(), "Compiling unified ganesha.conf layout definition parameters...")
 
 	// Extract physical ownership metrics dynamically from the target path directory metadata
-	uid := uint32(1000)
-	gid := uint32(1000)
+	uid := uint32(65534)
+	gid := uint32(65534)
 	fi, err := os.Stat(config.ShareRoot)
 	if err != nil {
 		logger.Warn(s.Name(), fmt.Sprintf("Unable to stat ShareRoot path '%s', defaulting anonymous UID/GID mapping to 1000: %v", config.ShareRoot, err))
