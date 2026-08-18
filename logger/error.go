@@ -9,5 +9,5 @@ func ErrorF(subsystem, format string, err error, args ...any) {
 }
 func Error(subsystem, message string, err error) {
 	prefix := formatPrefix(subsystem, "ERROR")
-	logChan <- logMessage{kind: typeStandard, text: prefix + message, subSystem: subsystem}
+	logChan <- logMessage{kind: typeStandard, text: prefix + message + "\n"}
 }
