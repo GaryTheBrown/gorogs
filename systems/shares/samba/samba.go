@@ -52,7 +52,6 @@ func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState
 func (s *Struct) Setup() {
 	logger.Info(s.Name(), "Commencing high-speed RAM-backed storage appliance pre-flight validation...")
 
-	// 1. KERNEL RAM-DISK MOUNT PASS
 	if err := os.MkdirAll(sambaBaseLibDir, 0755); err != nil {
 		logger.Fatal(s.Name(), "Failed to pre-stage native library tracking folder directory", err)
 	}
@@ -60,22 +59,18 @@ func (s *Struct) Setup() {
 		logger.Fatal(s.Name(), "KERNEL MOUNT PANIC: Failed to allocate high-speed RAM layer", err)
 	}
 
-	// 2. RAM INTERNALS INITIALIZATION
 	if err := os.MkdirAll(internalDBPath, 0755); err != nil {
 		logger.Fatal(s.Name(), "Failed to configure nested runtime state pools inside mounted RAM namespace", err)
 	}
 
-	// First, write the master configuration text template file so sub-utilities have a valid context
 	if err := s.writeMasterSambaConfig(); err != nil {
 		logger.Fatal(s.Name(), "failed to execute master config write utility", err)
 	}
 
-	// 3. SECURE SYSTEM STATE TRACKING DATABASES
 	logger.Info(s.Name(), "Initializing structured local user policy tracking databases...")
 	_ = os.WriteFile(filepath.Join(sambaBaseLibDir, "account_policy.tdb"), []byte{}, 0600)
 	_ = os.WriteFile(filepath.Join(sambaBaseLibDir, "winbindd_idmap.tdb"), []byte{}, 0600)
 
-	// Build passdb schema structures securely using the valid text file context
 	cmdPasswd := exec.Command(smbpasswdPath, "-L", "-c", masterConfigPath, "-a", "nobody", "-n")
 	if output, err := cmdPasswd.CombinedOutput(); err != nil {
 		logger.ErrorF(s.Name(), "User database initialization failed: %s ERROR: %v", err, strings.TrimSpace(string(output)), err.Error())
@@ -89,7 +84,6 @@ func (s *Struct) Setup() {
 		logger.ErrorF(s.Name(), "Failed to register machine identity tokens: %s ERROR: %v", err, strings.TrimSpace(string(output)), err.Error())
 	}
 
-	// Compile and inject your entire registry configuration blocks straight to disk
 	logger.Info(s.Name(), "Pre-seeding global parameters and movie share blocks into RAM database...")
 	s.injectAllSharesToRegistry()
 
@@ -101,20 +95,14 @@ func (s *Struct) Start() error {
 	logger.Info(s.Name(), "Spawning primary Samba smbd background engine...")
 
 	args := []string{"--foreground", "--no-process-group", "-s", masterConfigPath, "--debug-stdout"}
-	var binaryPath string
 
 	if logger.IsDebugActive(s.Name()) {
-		binaryPath = "/usr/bin/strace"
-		// -f traces child forks; -e trace limits output to file-system/socket tracking
-		args = []string{"-f", "-e", "trace=openat,stat,connect,socket", programPath, "--foreground", "--no-process-group", "-s", masterConfigPath, "--debug-stdout", "-d", "3"}
-
-		// args = append(args, "-d", "3")
+		args = append(args, "-d", "3")
 	} else {
 		args = append(args, "-d", "0")
 	}
 
-	// s.cmd = exec.Command(programPath, args...)
-	s.cmd = exec.Command(binaryPath, args...)
+	s.cmd = exec.Command(programPath, args...)
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	if logger.IsDebugActive(s.Name()) {

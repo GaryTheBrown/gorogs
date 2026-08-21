@@ -2,6 +2,7 @@ package samba
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"gorogs/config"
 	"gorogs/logger"
@@ -14,7 +15,7 @@ import (
 )
 
 func (s *Struct) injectAllSharesToRegistry() {
-	s.injectGlobalSettingsToRegistry()
+	logger.Info(s.Name(), "Scanning media source root to build bulk share staging transcript...")
 
 	entries, err := os.ReadDir(config.ShareRoot)
 	if err != nil {
@@ -22,6 +23,7 @@ func (s *Struct) injectAllSharesToRegistry() {
 		return
 	}
 
+	var buffer bytes.Buffer
 	validShareName := regexp.MustCompile(`^[a-zA-Z0-9_\-\.\s()]+$`)
 	count := 0
 
@@ -34,18 +36,59 @@ func (s *Struct) injectAllSharesToRegistry() {
 		}
 
 		fullPath := filepath.Join(config.ShareRoot, entry.Name())
+		commentPath := filepath.Join(fullPath, ".comment")
+		shareComment := "Read-only Media Stream"
 
-		if err := s.executeRegistryAdd(entry.Name(), fullPath); err == nil {
-			count++
+		if f, err := os.Open(commentPath); err == nil {
+			limitedReader := io.LimitReader(f, 60)
+			scanner := bufio.NewScanner(limitedReader)
+			if scanner.Scan() {
+				firstLine := strings.TrimSpace(scanner.Text())
+				if len(firstLine) > 0 {
+					if len(firstLine) >= 60 {
+						shareComment = firstLine[:57] + "..."
+					} else {
+						shareComment = firstLine
+					}
+				}
+			}
+			f.Close()
 		}
+
+		fmt.Fprintf(&buffer, "[%s]\n", entry.Name())
+		fmt.Fprintf(&buffer, "\tpath = %s\n", fullPath)
+		fmt.Fprintf(&buffer, "\tcomment = %s\n", shareComment)
+		buffer.WriteString("\twriteable = no\n")
+		buffer.WriteString("\tguest ok = yes\n")
+		buffer.WriteString("\tbrowseable = yes\n\n")
+		count++
 	}
 
-	logger.InfoF(s.Name(), "Successfully synchronized global configuration blocks and [%d] dynamic shares directly into local registry.", count)
+	sharesStagingPath := filepath.Join(sambaBaseLibDir, "shares_import.txt")
+	if err := os.WriteFile(sharesStagingPath, buffer.Bytes(), 0644); err != nil {
+		logger.ErrorF(s.Name(), "Failed to write shares staging import script to memory: %v", err, err.Error())
+		return
+	}
+
+	logger.InfoF(s.Name(), "Executing atomic import on [%d] discovered media shares via net conf import...", count)
+	cmdImport := exec.Command(netPath, "conf", "import", sharesStagingPath, "-s", masterConfigPath)
+	output, err := cmdImport.CombinedOutput()
+	if err != nil {
+		logger.ErrorF(s.Name(), "Atomic shares registry bulk import failed: %s ERROR: %v", err, strings.TrimSpace(string(output)), err.Error())
+		return
+	}
+
+	logger.InfoF(s.Name(), "Successfully synchronized [%d] dynamic media shares directly into local registry.", count)
 
 	s.dumpRegistryConfigurationToLog()
 }
 
 func (s *Struct) injectGlobalSettingsToRegistry() {
+	logger.Info(s.Name(), "Compiling global storage registry parameters into bulk staging buffer...")
+
+	var buffer bytes.Buffer
+	buffer.WriteString("[global]\n")
+
 	globals := map[string]string{
 		"workgroup":              "WORKGROUP",
 		"server string":          "Read only Share",
@@ -59,7 +102,6 @@ func (s *Struct) injectGlobalSettingsToRegistry() {
 		"max log size":           "0",
 		"log level":              "0",
 		"veto files":             "/.*/",
-		"guest account":          "smbguest",
 	}
 
 	if config.IsEnabled("netbios") {
@@ -67,17 +109,24 @@ func (s *Struct) injectGlobalSettingsToRegistry() {
 		globals["hostname lookups"] = "no"
 	}
 
-	for parameter, val := range globals {
-		cmdGlobal := exec.Command(netPath, "conf", "setparm", "global", parameter, val, "-s", masterConfigPath)
-		output, err := cmdGlobal.CombinedOutput()
-		if err != nil {
-			logger.ErrorF(s.Name(), "Failed to write local global parameter [%s]: %s ERROR: %v", err, parameter, strings.TrimSpace(string(output)), err.Error())
-		}
-		logger.DebugF(s.Name(), "[NET]initialize global parameter [%s]: %s", parameter, strings.TrimSpace(string(output)))
+	for key, val := range globals {
+		buffer.WriteString(fmt.Sprintf("\t%s = %s\n", key, val))
 	}
 
-	cmdDelVFS := exec.Command(netPath, "conf", "delparm", "global", "vfs objects", "-s", masterConfigPath)
-	_ = cmdDelVFS.Run()
+	globalStagingPath := filepath.Join(sambaBaseLibDir, "global_import.txt")
+	if err := os.WriteFile(globalStagingPath, buffer.Bytes(), 0644); err != nil {
+		logger.ErrorF(s.Name(), "Failed to write global staging import script to memory: %v", err, err.Error())
+		return
+	}
+
+	cmdImport := exec.Command(netPath, "conf", "import", globalStagingPath, "-s", masterConfigPath)
+	output, err := cmdImport.CombinedOutput()
+	if err != nil {
+		logger.ErrorF(s.Name(), "Atomic global registry bulk import failed: %s ERROR: %v", err, strings.TrimSpace(string(output)), err.Error())
+		return
+	}
+
+	logger.Info(s.Name(), "Global registry configuration blocks successfully synchronized in a single operation.")
 }
 
 func (s *Struct) dumpRegistryConfigurationToLog() {
