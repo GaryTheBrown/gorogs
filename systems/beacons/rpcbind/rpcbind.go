@@ -136,9 +136,13 @@ func (s *Struct) Start() error {
 func (s *Struct) Stop() {
 	if s.statdCmd != nil && s.statdCmd.Process != nil {
 		logger.Info(s.Name(), "Conveying termination signal to system statd threads...")
-		if err := s.statdCmd.Process.Signal(syscall.SIGTERM); err != nil {
-			_ = s.statdCmd.Process.Kill()
-		}
+		_ = s.statdCmd.Process.Signal(syscall.SIGTERM)
+		go func(p *os.Process) {
+			time.Sleep(100 * time.Millisecond)
+			if err := p.Signal(syscall.Signal(0)); err == nil {
+				_ = p.Kill()
+			}
+		}(s.statdCmd.Process)
 		_ = s.statdCmd.Wait()
 	}
 
@@ -148,9 +152,13 @@ func (s *Struct) Stop() {
 
 	if s.rpcCmd != nil && s.rpcCmd.Process != nil {
 		logger.Info(s.Name(), "Conveying termination signal to system RPC daemon threads...")
-		if err := s.rpcCmd.Process.Signal(syscall.SIGTERM); err != nil {
-			_ = s.rpcCmd.Process.Kill()
-		}
+		_ = s.rpcCmd.Process.Signal(syscall.SIGTERM)
+		go func(p *os.Process) {
+			time.Sleep(100 * time.Millisecond)
+			if err := p.Signal(syscall.Signal(0)); err == nil {
+				_ = p.Kill()
+			}
+		}(s.rpcCmd.Process)
 		_ = s.rpcCmd.Wait()
 	}
 

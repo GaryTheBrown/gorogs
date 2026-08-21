@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 )
 
 const logName = "main"
@@ -44,6 +43,8 @@ func main() {
 	healthcheck.Stop()
 	logger.Info(logName, "Healthcheck Stopped")
 
-	time.Sleep(500 * time.Millisecond)
 	logger.Info(logName, "All background worker threads reaped cleanly. Shutdown Clean.")
+	logger.Close()
+
+	syscall.Exit(0)
 }

@@ -11,6 +11,7 @@ var (
 	SystemIP   net.IP
 
 	ShareRoot = "/srv"
+	Workgroup = "WORKGROUP"
 )
 
 func IsDisabled(service string) bool {

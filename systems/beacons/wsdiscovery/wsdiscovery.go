@@ -10,6 +10,7 @@ import (
 	"gorogs/systems/beacons/wsdiscovery/incoming"
 	"gorogs/systems/beacons/wsdiscovery/templates"
 	"gorogs/systems/systeminterface"
+	"time"
 )
 
 type Struct struct {
@@ -79,8 +80,20 @@ func (s *Struct) Stop() {
 
 	logger.Info("WSDiscovery", "Shutdown execution requested. Safely draining network workers...")
 	s.cancel()
-	s.engine.Stop()
-	logger.Info("WSDiscovery", "Subsystem completely closed down. Multicast groups detached cleanly.")
+
+	done := make(chan struct{})
+	go func() {
+		s.engine.Stop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		logger.Info("WSDiscovery", "Subsystem completely closed down. Multicast groups detached cleanly.")
+	case <-time.After(200 * time.Millisecond):
+		logger.Warn("WSDiscovery", "Network flush timed out during packet drain. Forcing immediate subsystem release.")
+	}
+
 	s.sState = systeminterface.STOPPED
 }
 

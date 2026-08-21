@@ -177,9 +177,17 @@ func (s *Struct) Start() error {
 func (s *Struct) Stop() {
 	if s.ganeshaCmd != nil && s.ganeshaCmd.Process != nil {
 		logger.Info(s.Name(), "Initiating graceful termination sequence on NFS-Ganesha process tree...")
-		if err := s.ganeshaCmd.Process.Signal(syscall.SIGTERM); err != nil {
-			_ = s.ganeshaCmd.Process.Kill()
-		}
+
+		_ = s.ganeshaCmd.Process.Signal(syscall.SIGTERM)
+
+		go func(p *os.Process) {
+			time.Sleep(150 * time.Millisecond)
+			if err := p.Signal(syscall.Signal(0)); err == nil {
+				logger.Debug(s.Name(), "NFS daemon socket locked. Enforcing asynchronous SIGKILL override pass.")
+				_ = p.Kill()
+			}
+		}(s.ganeshaCmd.Process)
+
 		_ = s.ganeshaCmd.Wait()
 	}
 

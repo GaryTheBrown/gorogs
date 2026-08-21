@@ -65,7 +65,7 @@ func PreCompileTemplates() {
 
 			bakeCtx := StaticBakingContext{
 				ServerName:         config.Hostname,
-				Workgroup:          "WORKGROUP",
+				Workgroup:          config.Workgroup,
 				HostIP:             config.SystemIP.String(),
 				DomainSuffix:       config.DomainName,
 				InstanceID:         currentInstanceID,

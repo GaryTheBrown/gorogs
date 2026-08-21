@@ -39,7 +39,6 @@ func Close() {
 
 func fatalScript(lineIsOpen bool, fatalText string) {
 	if lineIsOpen {
-
 		fmt.Fprintln(os.Stdout)
 	}
 
@@ -52,6 +51,7 @@ func fatalScript(lineIsOpen bool, fatalText string) {
 func logWorker() {
 	defer close(workerDone)
 	lineIsOpen := false
+	var overflowBuffer []logMessage
 
 	for {
 		select {
@@ -71,6 +71,7 @@ func logWorker() {
 				fmt.Fprint(os.Stdout, msg.text)
 				_ = os.Stdout.Sync()
 				lineIsOpen = true
+
 			Lockdown:
 				for {
 					select {
@@ -78,7 +79,12 @@ func logWorker() {
 						fatalScript(lineIsOpen, fatalText)
 						return
 
-					case innerMsg := <-logChan:
+					case innerMsg, ok := <-logChan:
+						if !ok {
+							lineIsOpen = false
+							break Lockdown
+						}
+
 						if innerMsg.subSystem == msg.subSystem {
 							if innerMsg.kind == typeAppend {
 								fmt.Fprint(os.Stdout, innerMsg.text)
@@ -89,9 +95,18 @@ func logWorker() {
 								break Lockdown
 							}
 						} else {
-							logChan <- innerMsg
+							overflowBuffer = append(overflowBuffer, innerMsg)
 						}
 					}
+				}
+
+				if len(overflowBuffer) > 0 {
+					for _, bufferedMsg := range overflowBuffer {
+						if bufferedMsg.kind == typeStandard || bufferedMsg.kind == typeStart {
+							fmt.Fprint(os.Stdout, bufferedMsg.text)
+						}
+					}
+					overflowBuffer = overflowBuffer[:0]
 				}
 			}
 		}

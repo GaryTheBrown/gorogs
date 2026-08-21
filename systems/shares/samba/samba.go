@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
@@ -14,8 +14,6 @@ import (
 	"gorogs/logger"
 	"gorogs/systems/helpers"
 	"gorogs/systems/systeminterface"
-
-	"github.com/fsnotify/fsnotify"
 )
 
 const (
@@ -27,8 +25,13 @@ const (
 
 var (
 	programPath      = "/usr/bin/smbd"
-	masterConfigPath = "/etc/smbd.conf"
-	shareConfigPath  = "/dev/shm/smb-shares.conf"
+	masterConfigPath = "/etc/samba/smb.conf"
+	netPath          = "/usr/bin/net"
+	smbpasswdPath    = "/usr/bin/smbpasswd"
+	sambaBaseLibDir  = "/var/lib/samba"
+	internalDBPath   = sambaBaseLibDir + "/private"
+	internalDBFile   = sambaBaseLibDir + "/registry.tdb"
+	registryTxtPath  = sambaBaseLibDir + "/registry_import.txt"
 )
 
 type Struct struct {
@@ -47,93 +50,71 @@ func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
 func (s *Struct) Setup() {
-	logger.Info(s.Name(), "Commencing pre-flight checks and configuration layout parsing...")
+	logger.Info(s.Name(), "Commencing high-speed RAM-backed storage appliance pre-flight validation...")
 
-	if err := s.writeMasterSambaConfig(config.Hostname); err != nil {
+	// 1. KERNEL RAM-DISK MOUNT PASS
+	if err := os.MkdirAll(sambaBaseLibDir, 0755); err != nil {
+		logger.Fatal(s.Name(), "Failed to pre-stage native library tracking folder directory", err)
+	}
+	if err := syscall.Mount("tmpfs", sambaBaseLibDir, "tmpfs", 0, "size=256M,mode=1777"); err != nil {
+		logger.Fatal(s.Name(), "KERNEL MOUNT PANIC: Failed to allocate high-speed RAM layer", err)
+	}
+
+	// 2. RAM INTERNALS INITIALIZATION
+	if err := os.MkdirAll(internalDBPath, 0755); err != nil {
+		logger.Fatal(s.Name(), "Failed to configure nested runtime state pools inside mounted RAM namespace", err)
+	}
+
+	// First, write the master configuration text template file so sub-utilities have a valid context
+	if err := s.writeMasterSambaConfig(); err != nil {
 		logger.Fatal(s.Name(), "failed to execute master config write utility", err)
 	}
 
-	if err := s.writeDynamicSharesConfig(); err != nil {
-		logger.Fatal(s.Name(), "failed to execute dynamic shares configuration layout write utility", err)
+	// 3. SECURE SYSTEM STATE TRACKING DATABASES
+	logger.Info(s.Name(), "Initializing structured local user policy tracking databases...")
+	_ = os.WriteFile(filepath.Join(sambaBaseLibDir, "account_policy.tdb"), []byte{}, 0600)
+	_ = os.WriteFile(filepath.Join(sambaBaseLibDir, "winbindd_idmap.tdb"), []byte{}, 0600)
+
+	// Build passdb schema structures securely using the valid text file context
+	cmdPasswd := exec.Command(smbpasswdPath, "-L", "-c", masterConfigPath, "-a", "nobody", "-n")
+	if output, err := cmdPasswd.CombinedOutput(); err != nil {
+		logger.ErrorF(s.Name(), "User database initialization failed: %s ERROR: %v", err, strings.TrimSpace(string(output)), err.Error())
+	} else {
+		logger.Info(s.Name(), "Local user policy tracking database successfully pre-seeded.")
 	}
 
-	logger.Info(s.Name(), "Configuration pre-flight generation phase successfully completed.")
+	logger.Info(s.Name(), "Generating independent machine security identifier tokens...")
+	cmdSID := exec.Command(netPath, "setlocalsid", "S-1-5-21-1111111111-2222222222-3333333333", "-s", masterConfigPath)
+	if output, err := cmdSID.CombinedOutput(); err != nil {
+		logger.ErrorF(s.Name(), "Failed to register machine identity tokens: %s ERROR: %v", err, strings.TrimSpace(string(output)), err.Error())
+	}
+
+	// Compile and inject your entire registry configuration blocks straight to disk
+	logger.Info(s.Name(), "Pre-seeding global parameters and movie share blocks into RAM database...")
+	s.injectAllSharesToRegistry()
+
+	logger.Info(s.Name(), "Samba configuration pre-flight generation phase successfully completed.")
 	s.sState = systeminterface.SETUP
-}
-
-func (s *Struct) writeMasterSambaConfig(serverName string) error {
-
-	masterContent := "[global]\n" +
-		"    netbios name = " + serverName + "\n" +
-		"    server string = Read only Share\n" +
-		"    log file = /var/log/samba/log.%%m\n" +
-		"    max log size = 1000\n" +
-		"    logging = file\n" +
-		"    server role = standalone server\n" +
-		"    map to guest = bad user\n" +
-		"    usershare allow guests = yes\n" +
-		"    usershare max shares = 0\n" +
-		"    dns proxy = no\n" +
-		"    hostname lookups = no\n" +
-		"\n" +
-		"    include = " + shareConfigPath + "\n"
-
-	return os.WriteFile(masterConfigPath, []byte(masterContent), 0644)
-}
-
-func (s *Struct) writeDynamicSharesConfig() error {
-	file, err := os.Create(shareConfigPath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	entries, err := os.ReadDir(config.ShareRoot)
-	if err != nil {
-		return err
-	}
-
-	validShareName := regexp.MustCompile(`^[a-zA-Z0-9_\-\.\s()]+$`)
-
-	for _, entry := range entries {
-		if entry.IsDir() && entry.Name() != "." && entry.Name() != ".." {
-			if !validShareName.MatchString(entry.Name()) {
-				logger.ErrorF(s.Name(), "Validation Error: Share directory name [%s] contains illegal characters and was dropped.", nil, entry.Name())
-				continue
-			}
-
-			if entry.Name() == "nfs" || entry.Name() == "ganesha" {
-				if logger.DebugActive {
-					logger.DebugF(s.Name(), "Bypassing reserved sub-directory name from Samba compilation: %s", entry.Name())
-				}
-				continue
-			}
-
-			fullPath := filepath.Join(config.ShareRoot, entry.Name())
-			if logger.DebugActive {
-				logger.Debug(s.Name(), fmt.Sprintf("Compiling export allocation: [%s] mapping to physical path %s", entry.Name(), fullPath))
-			}
-
-			fmt.Fprintf(file, "\n[%s]\n", entry.Name())
-			fmt.Fprintf(file, "    path = %s\n", fullPath)
-			fmt.Fprintf(file, "    browseable = yes\n")
-			fmt.Fprintf(file, "    read only = yes\n")
-			fmt.Fprintf(file, "    guest ok = yes\n")
-		}
-	}
-	return nil
 }
 
 func (s *Struct) Start() error {
 	logger.Info(s.Name(), "Spawning primary Samba smbd background engine...")
 
-	args := []string{"--foreground", "--no-process-group"}
-	if logger.IsDebugActive(s.Name()) {
-		args = append(args, "--debug-stdout")
-	}
-	args = append(args, "-s", masterConfigPath)
+	args := []string{"--foreground", "--no-process-group", "-s", masterConfigPath, "--debug-stdout"}
+	var binaryPath string
 
-	s.cmd = exec.Command(programPath, args...)
+	if logger.IsDebugActive(s.Name()) {
+		binaryPath = "/usr/bin/strace"
+		// -f traces child forks; -e trace limits output to file-system/socket tracking
+		args = []string{"-f", "-e", "trace=openat,stat,connect,socket", programPath, "--foreground", "--no-process-group", "-s", masterConfigPath, "--debug-stdout", "-d", "3"}
+
+		// args = append(args, "-d", "3")
+	} else {
+		args = append(args, "-d", "0")
+	}
+
+	// s.cmd = exec.Command(programPath, args...)
+	s.cmd = exec.Command(binaryPath, args...)
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	if logger.IsDebugActive(s.Name()) {
@@ -148,14 +129,41 @@ func (s *Struct) Start() error {
 
 	logger.InfoF(s.Name(), "Samba active (PID: %d). Probing port 445...", s.cmd.Process.Pid)
 
-	if !helpers.WaitForSocket("tcp", "127.0.0.1:445", 5*time.Second) {
+	portBound := false
+	maxWait := 20 * time.Second
+	currentTick := 100 * time.Millisecond
+	startTime := time.Now()
+	probeAttempts := 0
+
+	for time.Since(startTime) < maxWait {
+		probeAttempts++
+		if err := s.cmd.Process.Signal(syscall.Signal(0)); err != nil {
+			if s.logWriter != nil {
+				s.logWriter.Close()
+			}
+			return fmt.Errorf("samba smbd daemon process terminated unexpectedly during boot")
+		}
+		if helpers.WaitForSocket("tcp", "127.0.0.1:445", 50*time.Millisecond) {
+			portBound = true
+			break
+		}
+		if probeAttempts > 10 {
+			currentTick = time.Duration(float64(currentTick) * 1.5)
+			if currentTick > 2*time.Second {
+				currentTick = 2 * time.Second
+			}
+		}
+		time.Sleep(currentTick)
+	}
+
+	if !portBound {
 		if s.logWriter != nil {
 			s.logWriter.Close()
 		}
-		return fmt.Errorf("timeout waiting for Samba daemon to bind port 445")
+		return fmt.Errorf("timeout reached waiting for Samba daemon to bind network port 445")
 	}
 
-	logger.Info(s.Name(), "Samba successfully bound network ports and is accepting incoming client requests.")
+	logger.Info(s.Name(), "Samba successfully bound network ports")
 
 	if !config.IsDisabled("livechanges") {
 		watchCtx, cancel := context.WithCancel(context.Background())
@@ -180,76 +188,19 @@ func (s *Struct) Stop() {
 		}
 
 		_ = s.cmd.Wait()
+		logger.Info(s.Name(), "Samba primary background daemon thread terminated cleanly.")
 	}
 
 	if s.logWriter != nil {
 		_ = s.logWriter.Close()
 	}
 
+	logger.InfoF(s.Name(), "Unmounting memory partition allocation layer cleanly: %s", sambaBaseLibDir)
+	if err := syscall.Unmount(sambaBaseLibDir, 0); err != nil {
+		logger.ErrorF(s.Name(), "Failed to unmount memory partition layer cleanly from layout ERROR: %v", err, err.Error())
+	}
+
 	s.sState = systeminterface.STOPPED
-}
-
-func (s *Struct) startFSEventDirectoryWatcher(ctx context.Context) {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		logger.Error(s.Name(), "Failed to initialize fsnotify monitor subsystem hook", err)
-		return
-	}
-	defer watcher.Close()
-
-	if err := watcher.Add(config.ShareRoot); err != nil {
-		logger.ErrorF(s.Name(), "Failed to register directory target inside fsnotify monitor tracking path: %s", err, config.ShareRoot)
-		return
-	}
-
-	logger.InfoF(s.Name(), "Live FS event-driven tracking loop successfully online monitoring path: %s", config.ShareRoot)
-
-	var debounceTimer *time.Timer
-	const debounceDuration = 250 * time.Millisecond
-
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Debug(s.Name(), "Live share tracking event loop terminated cleanly.")
-			return
-
-		case event, ok := <-watcher.Events:
-			if !ok {
-				return
-			}
-
-			if event.Has(fsnotify.Create) || event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
-				logger.DebugF(s.Name(), "FS Event intercepted -> Action: %s on Path: %s", event.Op.String(), event.Name)
-
-				if debounceTimer != nil {
-					debounceTimer.Stop()
-				}
-
-				debounceTimer = time.AfterFunc(debounceDuration, func() {
-					logger.Info(s.Name(), "FSEvent stabilization window cleared. Recompiling dynamic shares...")
-
-					if err := s.writeDynamicSharesConfig(); err != nil {
-						logger.Error(s.Name(), "Failed to compile updated share text block modifications to memory configuration space", err)
-						return
-					}
-
-					if s.cmd != nil && s.cmd.Process != nil {
-						if err := s.cmd.Process.Signal(syscall.SIGHUP); err != nil {
-							logger.Error(s.Name(), "Failed to transmit SIGHUP configuration hot-reload trigger command to smbd process", err)
-						} else {
-							logger.Info(s.Name(), "Samba hot-reload signal executed successfully. Share changes are live with zero client downtime.")
-						}
-					}
-				})
-			}
-
-		case err, ok := <-watcher.Errors:
-			if !ok {
-				return
-			}
-			logger.Error(s.Name(), "Inbound filesystem monitor tracking pipeline encountered an asynchronous operation fault", err)
-		}
-	}
 }
 
 func (s *Struct) Healthcheck() error {
