@@ -75,8 +75,10 @@ RUN mkdir -p \
     /distroless/var/cache/samba \
     /distroless/run/samba \
     /distroless/run/samba/ncalrpc/np \
-    /distroless/run/rpcbind && \
-    /distroless/run/sendsigs.omit.d && \
+    /distroless/run/rpcbind \
+    /distroless/run/sendsigs.omit.d \
+    /distroless/var/lib/nfs/sm \
+    /distroless/var/lib/nfs/sm.bak &&\
     chmod 1777 /distroless/tmp && \
     chmod 0755 /distroless/var/lock/samba && \
     chmod 0755 /distroless/var/cache/samba && \
@@ -85,6 +87,8 @@ RUN mkdir -p \
     chmod 0700 /distroless/run/samba/ncalrpc/np && \
     chmod 0775 /distroless/run/rpcbind && \
     chmod 0755 /distroless/run/sendsigs.omit.d && \
+    chmod 0755 /distroless/var/lib/nfs/sm && \
+    chmod 0755 /distroless/var/lib/nfs/sm.bak && \
     ln -s usr/bin /distroless/bin && \
     ln -s usr/bin /distroless/sbin && \
     ln -s bin /distroless/usr/sbin && \

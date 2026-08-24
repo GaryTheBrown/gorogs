@@ -5,9 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
-	"time"
 
-	"gorogs/config"
 	"gorogs/logger"
 	"gorogs/systems/helpers"
 	"gorogs/systems/systeminterface"
@@ -41,123 +39,42 @@ func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
 func (s *Struct) Setup() {
-	logger.Info(s.Name(), "Evaluating protocol dependencies and pre-flight requirements...")
+	logger.DebugContinue(Name, "System Setup...")
 
 	servicesPath := "/etc/services"
 	if _, err := os.Stat(servicesPath); os.IsNotExist(err) {
-		logger.Info(s.Name(), "Notice: System /etc/services layout missing. Compiling fallback rules...")
+		logger.Warn(Name, "Notice: System /etc/services layout missing. Compiling fallback rules...")
 		fallbackServices := "sunrpc          111/tcp         portmapper rpcbind\n" +
 			"sunrpc          111/udp         portmapper rpcbind\n"
 		_ = os.WriteFile(servicesPath, []byte(fallbackServices), 0644)
 	}
 
-	logger.Info(s.Name(), "Subsystem validation check successful. Component ready for boot.")
 	s.sState = systeminterface.SETUP
+	logger.DebugEnd(Name, "[DONE]")
 }
 
 func (s *Struct) Start() error {
-	logger.Info(s.Name(), "Spawning background system RPC portmapper daemon...")
-
-	rpcArgs := []string{"-w", "-f"}
-	if logger.IsDebugActive(s.Name()) {
-		rpcArgs = append(rpcArgs, "-d")
+	logger.DebugContinue(Name, "System Starting...")
+	if err := s.startRPCBind(); err != nil {
+		return err
 	}
-
-	containerIPStr := config.SystemIP.String()
-
-	if config.IsDisabled(s.Name()) {
-		logger.Info(s.Name(), "RPCBind flag set to disabled. Binding portmapper explicitly to container IP layout.")
-		rpcArgs = append(rpcArgs, "-h", containerIPStr)
+	logger.DebugAppend(Name, "[RPCBIND:DONE][RPC.STATD:STARTING]")
+	if err := s.startRPCStatd(); err != nil {
+		return err
 	}
-
-	s.rpcCmd = exec.Command(programPath, rpcArgs...)
-	s.rpcCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-	if logger.IsDebugActive(s.Name()) {
-		s.rpcWriter = helpers.NewSubsystemWriter(s.Name(), nil, nil, nil)
-		s.rpcCmd.Stdout = s.rpcWriter
-		s.rpcCmd.Stderr = s.rpcWriter
-	}
-
-	if err := s.rpcCmd.Start(); err != nil {
-		if s.rpcWriter != nil {
-			_ = s.rpcWriter.Close()
-		}
-		return fmt.Errorf("failed to execute local rpcbind utility loop: %w", err)
-	}
-
-	logger.Info(s.Name(), "Verifying portmapper socket readiness on loopback channel...")
-
-	if !helpers.WaitForSocket("tcp", "127.0.0.1:111", 5*time.Second) {
-		if s.rpcWriter != nil {
-			_ = s.rpcWriter.Close()
-		}
-		return fmt.Errorf("timeout waiting for rpcbind process to open port 111 or process exited early")
-	}
-	logger.Info(s.Name(), "RPC portmapper socket successfully initialized and synchronized.")
-
-	logger.Info(s.Name(), "Spawning background NFSv3 status monitor daemon (rpc.statd)...")
-
-	_ = os.MkdirAll("/var/lib/nfs/sm", 0755)
-	_ = os.MkdirAll("/var/lib/nfs/sm.bak", 0755)
-
-	s.statdCmd = exec.Command(statdPath, "-F")
-	s.statdCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-	if logger.IsDebugActive(s.Name()) {
-		s.statdWriter = helpers.NewSubsystemWriter(s.Name(), nil, nil, nil)
-		s.statdCmd.Stdout = s.statdWriter
-		s.statdCmd.Stderr = s.statdWriter
-	}
-
-	if err := s.statdCmd.Start(); err != nil {
-		logger.Error(s.Name(), "Failed to launch network status monitor process tree", err)
-		if s.statdWriter != nil {
-			_ = s.statdWriter.Close()
-		}
-	} else {
-		logger.InfoF(s.Name(), "NFSv3 statd tool active under process ID: %d", s.statdCmd.Process.Pid)
-	}
-
-	logger.InfoF(s.Name(), "RPC portmapper tracking loop active and listening under process ID: %d", s.rpcCmd.Process.Pid)
 	s.sState = systeminterface.STARTED
+	logger.DebugEnd(Name, "[RPC.STATD:DONE][DONE]")
 	return nil
 }
 
 func (s *Struct) Stop() {
-	if s.statdCmd != nil && s.statdCmd.Process != nil {
-		logger.Info(s.Name(), "Conveying termination signal to system statd threads...")
-		_ = s.statdCmd.Process.Signal(syscall.SIGTERM)
-		go func(p *os.Process) {
-			time.Sleep(100 * time.Millisecond)
-			if err := p.Signal(syscall.Signal(0)); err == nil {
-				_ = p.Kill()
-			}
-		}(s.statdCmd.Process)
-		_ = s.statdCmd.Wait()
-	}
+	logger.DebugContinue(Name, "Stopping RPCBind daemon threads...")
 
-	if s.statdWriter != nil {
-		_ = s.statdWriter.Close()
-	}
-
-	if s.rpcCmd != nil && s.rpcCmd.Process != nil {
-		logger.Info(s.Name(), "Conveying termination signal to system RPC daemon threads...")
-		_ = s.rpcCmd.Process.Signal(syscall.SIGTERM)
-		go func(p *os.Process) {
-			time.Sleep(100 * time.Millisecond)
-			if err := p.Signal(syscall.Signal(0)); err == nil {
-				_ = p.Kill()
-			}
-		}(s.rpcCmd.Process)
-		_ = s.rpcCmd.Wait()
-	}
-
-	if s.rpcWriter != nil {
-		_ = s.rpcWriter.Close()
-	}
+	s.startRPCStatd()
+	s.stopRPCBind()
 
 	s.sState = systeminterface.STOPPED
+	logger.DebugEnd(Name, "[DONE]")
 }
 
 func (s *Struct) Healthcheck() error {
