@@ -116,8 +116,8 @@ func (s *Struct) Stop() {
 		_ = s.logWriter.Close()
 		logger.DebugAppend(Name, "[STDOUT->LOG STOP]")
 	}
-	logger.DebugEnd(Name, "[DONE]")
 	s.sState = systeminterface.STOPPED
+	logger.DebugEnd(Name, "[DONE]")
 }
 
 func (s *Struct) Healthcheck() error {
