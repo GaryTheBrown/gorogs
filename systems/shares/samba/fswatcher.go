@@ -20,7 +20,7 @@ func (s *Struct) startFSEventDirectoryWatcher(ctx context.Context) {
 	}
 	defer watcher.Close()
 
-	//Use the /srv folder as the overlay from zerospace can stop this working as it should
+	// Use the /srv folder as the overlay from zerospace can stop this working as it should
 	if err := watcher.Add(config.ConstOriginalShareRoot); err != nil {
 		logger.ErrorF(s.Name(), "Failed to register directory target inside fsnotify monitor tracking path: %w", err)
 		return
@@ -44,14 +44,19 @@ func (s *Struct) startFSEventDirectoryWatcher(ctx context.Context) {
 			}
 			if event.Has(fsnotify.Create) {
 				if info, err := os.Stat(virtualSharePath); err == nil && info.IsDir() {
-					if err := s.sys.NotifyCreate(shareName, virtualSharePath); err != nil {
-
+					if err := s.sys.NotifyCreate(shareName, virtualSharePath); err == nil {
+						if s.commentWatcher != nil {
+							_ = s.commentWatcher.Add(event.Name)
+						}
 					}
 				}
 			}
 			if event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
 				if err := s.sys.NotifyRemove(shareName); err != nil {
 
+				}
+				if s.commentWatcher != nil {
+					_ = s.commentWatcher.Remove(event.Name)
 				}
 			}
 

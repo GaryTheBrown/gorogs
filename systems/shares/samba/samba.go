@@ -13,6 +13,8 @@ import (
 	"gorogs/systems/shares/samba/structs"
 	"gorogs/systems/shares/samba/vars"
 	"gorogs/systems/systeminterface"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 const (
@@ -25,11 +27,12 @@ const (
 type Struct struct {
 	sState systeminterface.SysStateEnum
 
-	logWriter   *helpers.SubsystemWriter
-	readyChan   chan struct{}
-	cancelWatch context.CancelFunc
-	sys         modes.System
-	shares      structs.ShareMap
+	logWriter      *helpers.SubsystemWriter
+	readyChan      chan struct{}
+	cancelWatch    context.CancelFunc
+	sys            modes.System
+	shares         structs.ShareMap
+	commentWatcher *fsnotify.Watcher
 }
 
 func (_ *Struct) Name() string                                 { return Name }
@@ -78,6 +81,7 @@ func (s *Struct) Start() error {
 		watchCtx, cancel := context.WithCancel(context.Background())
 		s.cancelWatch = cancel
 		go s.startFSEventDirectoryWatcher(watchCtx)
+		go s.startFSEventCommentWatcher(watchCtx)
 		logger.DebugAppend(Name, "[TRACKING]")
 	}
 

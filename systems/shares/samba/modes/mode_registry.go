@@ -40,7 +40,7 @@ func (m *ModeRegistry) Setup() error {
 }
 
 func (m *ModeRegistry) NotifyCreate(shareName string, path string) error {
-	m.SharesMap[shareName] = structs.NewShare(path, vars.DefaultShareComment)
+	m.SharesMap[shareName] = structs.NewShare(path)
 	return m.SharesMap[shareName].RegistryShareAdd(shareName)
 }
 
@@ -50,6 +50,15 @@ func (m *ModeRegistry) NotifyRemove(shareName string) error {
 		return m.SharesMap.RegistryShareDelete(shareName)
 	}
 	return fmt.Errorf("Share Not Found in List to Remove: %s", shareName)
+}
+
+func (m *ModeRegistry) NotifyCommentUpdate(shareName, comment string) error {
+	if share, exists := m.SharesMap[shareName]; exists {
+		share.Comment = comment
+		m.SharesMap[shareName] = share
+		return share.RegistryShareUpdate(shareName, "comment", comment)
+	}
+	return fmt.Errorf("Share Not Found in List to Update Comment: %s", shareName)
 }
 
 func (m *ModeRegistry) injectAllToRegistryBatch() error {

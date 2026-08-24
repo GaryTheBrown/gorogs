@@ -21,7 +21,15 @@ type Share struct {
 	Comment string
 }
 
-func NewShare(path, comment string) Share {
+func NewShare(path string) Share {
+	return Share{
+		Path:    path,
+		Comment: ReadCommentFile(path),
+	}
+}
+
+func ReadCommentFile(path string) string {
+	comment := vars.DefaultShareComment
 	commentPath := filepath.Join(path, ".comment")
 
 	if f, err := os.Open(commentPath); err == nil {
@@ -39,11 +47,7 @@ func NewShare(path, comment string) Share {
 		}
 		f.Close()
 	}
-
-	return Share{
-		Path:    path,
-		Comment: comment,
-	}
+	return comment
 }
 
 var globalSettings = map[string]string{
@@ -64,18 +68,24 @@ func (s Share) ToINI(io io.Writer) {
 
 }
 
-func (share Share) RegistryShareAdd(shareName string) error {
-	cmdAdd := exec.Command(vars.NetPath, "conf", "addshare", shareName, share.Path, "writeable=no", "guest_ok=yes", share.Comment, "-s", vars.MasterConfigFile)
+func (s Share) RegistryShareAdd(shareName string) error {
+	cmdAdd := exec.Command(vars.NetPath, "conf", "addshare", shareName, s.Path, "writeable=no", "guest_ok=yes", s.Comment, "-s", vars.MasterConfigFile)
 	if _, err := cmdAdd.CombinedOutput(); err != nil {
 		return err
 	}
-	for key, value := range globalSettings {
-		cmdBrowse := exec.Command(vars.NetPath, "conf", "setparm", shareName, key, value, "-s", vars.MasterConfigFile)
-		if _, err := cmdBrowse.CombinedOutput(); err != nil {
+	for param, value := range globalSettings {
+		cmdSet := exec.Command(vars.NetPath, "conf", "setparm", shareName, param, value, "-s", vars.MasterConfigFile)
+		if _, err := cmdSet.CombinedOutput(); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (s Share) RegistryShareUpdate(shareName, param, value string) error {
+	cmd := exec.Command(vars.NetPath, "conf", "setparm", shareName, param, value, "-s", vars.MasterConfigFile)
+	_, err := cmd.CombinedOutput()
+	return err
 }
 
 type ShareMap map[string]Share
@@ -107,7 +117,7 @@ func (s ShareMap) FirstFill() error {
 		if !validShareName.MatchString(entry.Name()) {
 			continue
 		}
-		s[entry.Name()] = NewShare(filepath.Join(config.ShareRoot, entry.Name()), "")
+		s[entry.Name()] = NewShare(filepath.Join(config.ShareRoot, entry.Name()))
 	}
 
 	return nil
