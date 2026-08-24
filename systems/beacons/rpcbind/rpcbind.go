@@ -2,7 +2,6 @@ package rpcbind
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"syscall"
 
@@ -40,15 +39,6 @@ func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState
 
 func (s *Struct) Setup() {
 	logger.DebugContinue(Name, "System Setup...")
-
-	servicesPath := "/etc/services"
-	if _, err := os.Stat(servicesPath); os.IsNotExist(err) {
-		logger.Warn(Name, "Notice: System /etc/services layout missing. Compiling fallback rules...")
-		fallbackServices := "sunrpc          111/tcp         portmapper rpcbind\n" +
-			"sunrpc          111/udp         portmapper rpcbind\n"
-		_ = os.WriteFile(servicesPath, []byte(fallbackServices), 0644)
-	}
-
 	s.sState = systeminterface.SETUP
 	logger.DebugEnd(Name, "[DONE]")
 }
