@@ -24,12 +24,12 @@ func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
 func (s *Struct) Setup() {
-	logger.InfoContinue(s.Name(), "Setting Up Zero Space Overlay...")
+	logger.DebugContinue(s.Name(), "Setting Up Zero Space Overlay...")
 	err := s.setupOverlay()
 	if err != nil {
 		logger.Fatal(s.Name(), "", err)
 	}
-	logger.InfoEnd(s.Name(), "[DONE]")
+	logger.DebugEnd(s.Name(), "[DONE]")
 	s.sState = systeminterface.FINISHED
 
 }

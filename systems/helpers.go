@@ -2,7 +2,6 @@ package systems
 
 import (
 	"gorogs/config"
-	"gorogs/logger"
 )
 
 func ShouldItStart(e SystemNameEnum) bool {
@@ -11,9 +10,6 @@ func ShouldItStart(e SystemNameEnum) bool {
 	autoStart := systemList[e].AutoStart()
 	isDisabled := config.IsDisabled(systemName)
 	isEnabled := config.IsEnabled(systemName)
-
-	logger.InfoF(logName, "Evaluating service [%s] -> AutoStart: %t, Explicitly Disabled: %t, Explicitly Enabled: %t",
-		systemName, autoStart, isDisabled, isEnabled)
 
 	if autoStart {
 		return !isDisabled

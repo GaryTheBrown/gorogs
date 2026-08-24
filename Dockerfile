@@ -3,7 +3,7 @@
 # ==============================================================================
 ARG GANESHA_AUR_URL="https://aur.archlinux.org/nfs-ganesha.git"
 ARG ENABLE_DEBUG=true
-ARG CGO_ENABLED=1
+ARG CGO_ENABLED=0
 ARG GOOS=linux
 ARG GOARCH=amd64
 
@@ -25,6 +25,8 @@ RUN sed -i 's/^#ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf 
     libcups \
     rpcbind \
     nfs-utils \
+    ca-certificates \
+    # THIS IS LEFT IN ONLY FOR IF WE NEED TO TRACK DOWN MISSING FILES.
     strace \
     && pacman -Scc --noconfirm
 
@@ -47,10 +49,11 @@ RUN gpasswd -d aur-builder wheel && \
 FROM system-builder AS distroless-setup
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-ARG CACHE_BUST=1 
+ARG CACHE_STAGE2=1 
 
 RUN mkdir -p \
     /distroless/etc \
+    /distroless/etc/ssl/certs \
     /distroless/usr \
     /distroless/usr/bin \
     /distroless/usr/lib \
@@ -85,18 +88,17 @@ RUN mkdir -p \
     ln -s usr/lib /distroless/lib && \
     ln -s usr/lib /distroless/lib64 && \
     grep -E '^root:|^nobody:|^rpc:' /etc/passwd > /distroless/etc/passwd && \
-    echo "smbguest:x:65533:65533:Samba Guest Account:/:/usr/bin/nologin" >> /distroless/etc/passwd && \
     grep -E '^root:|^nobody:|^rpc:|^wheel:' /etc/group > /distroless/etc/group && \
-    echo "smbguest:x:65533:" >> /distroless/etc/group && \
     cp -a /etc/protocols /etc/services /etc/netconfig /distroless/etc/ && \
     if [ -f /etc/idmapd.conf ]; then cp -a /etc/idmapd.conf /distroless/etc/; fi && \
+    if [ -f /etc/ssl/certs/ca-certificates.crt ]; then cp -a /etc/ssl/certs/ca-certificates.crt /distroless/etc/ssl/certs/; fi && \
     echo "hosts: files dns" > /distroless/etc/nsswitch.conf && \
     cp /usr/bin/ganesha.nfsd /distroless/usr/bin/ && \
     cp /usr/bin/smbd /distroless/usr/bin/ && \
     cp /usr/bin/net /distroless/usr/bin/ && \
     cp /usr/bin/tdbtool /distroless/usr/bin/ && \
+    cp /usr/bin/dbwrap_tool /distroless/usr/bin/ && \
     cp /usr/bin/smbpasswd /distroless/usr/bin/ && \
-    cp /usr/bin/strace /distroless/usr/bin/ && \
     cp /usr/lib/samba/samba/samba-dcerpcd /distroless/usr/bin/ && \
     cp /usr/bin/nmbd /distroless/usr/bin/ && \
     cp /usr/bin/rpcbind /distroless/usr/bin/ && \
@@ -107,7 +109,21 @@ RUN mkdir -p \
     cp -vnP /usr/lib/libnss_dns* /distroless/usr/lib/ && \
     cp -vnP /usr/lib/libnfsidmap.so* /distroless/usr/lib/ && \
     cp -vnP /usr/lib/libcups.so* /distroless/usr/lib/ && \
-    cp -a /usr/lib/libnfsidmap/* /distroless/usr/lib/libnfsidmap/
+    cp -a /usr/lib/libnfsidmap/* /distroless/usr/lib/libnfsidmap/ && \
+    # THIS IS LEFT IN ONLY FOR IF WE NEED TO TRACK DOWN MISSING FILES.
+    cp /usr/bin/strace /distroless/usr/bin/ 
+
+RUN for bin in /distroless/usr/bin/* \
+    /distroless/usr/lib/samba/*.so \
+    /distroless/usr/lib/samba/vfs/*.so \
+    /distroless/usr/lib/samba/pdb/*.so \
+    /distroless/usr/lib/ganesha/*.so \
+    /distroless/usr/lib/libnfsidmap/*.so; do \
+    [ -f "$bin" ] || continue; \
+    ldd "$bin" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+    cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
+    done; \
+    done
 
 # ==============================================================================
 # STAGE 3: Fast Go Binary Builder & Master Dependency Scanner
@@ -124,30 +140,26 @@ ARG GOARCH
 
 COPY --from=distroless-setup /distroless /distroless
 
+ARG CACHE_STAGE3=1 
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 
-RUN if [ "$ENABLE_DEBUG" = "true" ] ; then \
-    CGO_ENABLED=${CGO_ENABLED} GOOS=${GOOS} GOARCH=${GOARCH} go build -a -v -tags=debug -ldflags="-s -w" -o /gorogs main.go; \
-    else \
-    CGO_ENABLED=${CGO_ENABLED} GOOS=${GOOS} GOARCH=${GOARCH} go build -a -v -ldflags="-s -w" -o /gorogs main.go; \
-    fi
+RUN TAG_LIST="" && BUILD_ARG="" && \
+    if [ "$ENABLE_DEBUG" = "true" ]; then TAG_LIST="${TAG_LIST:+$TAG_LIST,}debug"; fi && \
+    if [ -n "$TAG_LIST" ]; then BUILD_ARG="-tags=${TAG_LIST}"; fi && \
+    CGO_ENABLED=${CGO_ENABLED} GOOS=${GOOS} GOARCH=${GOARCH} \
+    go build -a -v ${BUILD_ARG:+"$BUILD_ARG"} -ldflags="-s -w" -o /gorogs main.go
+
 
 RUN cp /gorogs /distroless/usr/bin/gorogs && chmod +x /distroless/usr/bin/gorogs
 
-RUN for bin in /distroless/usr/bin/* \
-    /distroless/usr/lib/samba/*.so \
-    /distroless/usr/lib/samba/vfs/*.so \
-    /distroless/usr/lib/samba/pdb/*.so \
-    /distroless/usr/lib/ganesha/*.so \
-    /distroless/usr/lib/libnfsidmap/*.so; do \
-    [ -f "$bin" ] || continue; \
-    ldd "$bin" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+RUN if [ "$CGO_ENABLED" = "1" ] ; then \
+    ldd /distroless/usr/bin/gorogs 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
-    done; \
-    done
+    done\
+    fi
 
 # ==============================================================================
 # STAGE 4: Final Distroless Runtime Assembly

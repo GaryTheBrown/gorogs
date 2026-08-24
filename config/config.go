@@ -5,12 +5,16 @@ import (
 	"strings"
 )
 
+const (
+	ConstOriginalShareRoot = "/srv"
+)
+
 var (
 	Hostname   string
 	DomainName string
 	SystemIP   net.IP
 
-	ShareRoot = "/srv"
+	ShareRoot = ConstOriginalShareRoot
 	Workgroup = "WORKGROUP"
 )
 

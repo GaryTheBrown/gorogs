@@ -9,5 +9,6 @@ func ErrorF(subSystem, format string, err error, args ...any) {
 }
 func Error(subSystem, message string, err error) {
 	prefix := formatPrefix(subSystem, "ERROR")
-	logChan <- logMessage{kind: typeStandard, text: prefix + message + "\n"}
+	fullMessage := fmt.Sprintf("%s%s: %v", prefix, message, err.Error())
+	logChan <- logMessage{kind: typeStandard, text: fullMessage + "\n"}
 }

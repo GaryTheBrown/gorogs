@@ -91,7 +91,7 @@ func (s *Struct) Stop() {
 	case <-done:
 		logger.Info("WSDiscovery", "Subsystem completely closed down. Multicast groups detached cleanly.")
 	case <-time.After(200 * time.Millisecond):
-		logger.Warn("WSDiscovery", "Network flush timed out during packet drain. Forcing immediate subsystem release.")
+		logger.Info("WSDiscovery", "Network flush timed out during packet drain. Forcing immediate subsystem release.")
 	}
 
 	s.sState = systeminterface.STOPPED

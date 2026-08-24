@@ -4,8 +4,10 @@ import (
 	"context"
 	"gorogs/config"
 	"gorogs/logger"
+	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -13,52 +15,43 @@ import (
 func (s *Struct) startFSEventDirectoryWatcher(ctx context.Context) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		logger.Error(s.Name(), "Failed to initialize fsnotify monitor subsystem hook", err)
+		logger.ErrorF(s.Name(), "Failed to initialize fsnotify monitor subsystem hook: %w", err)
 		return
 	}
 	defer watcher.Close()
 
-	if err := watcher.Add(config.ShareRoot); err != nil {
-		logger.ErrorF(s.Name(), "Failed to register directory target inside fsnotify monitor tracking path: %s", err, config.ShareRoot)
+	//Use the /srv folder as the overlay from zerospace can stop this working as it should
+	if err := watcher.Add(config.ConstOriginalShareRoot); err != nil {
+		logger.ErrorF(s.Name(), "Failed to register directory target inside fsnotify monitor tracking path: %w", err)
 		return
 	}
-
-	logger.InfoF(s.Name(), "Live FS event-driven tracking loop successfully online monitoring path: %s", config.ShareRoot)
 
 	validShareName := regexp.MustCompile(`^[a-zA-Z0-9_\-\.\s()]+$`)
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Debug(s.Name(), "Live share tracking event loop terminated cleanly.")
 			return
 
 		case event, ok := <-watcher.Events:
 			if !ok {
 				return
 			}
-
 			shareName := filepath.Base(event.Name)
-
-			if !validShareName.MatchString(shareName) || shareName == "nfs" || shareName == "ganesha" {
+			virtualSharePath := strings.Replace(event.Name, config.ConstOriginalShareRoot, config.ShareRoot, 1)
+			if !validShareName.MatchString(shareName) {
 				continue
 			}
-
 			if event.Has(fsnotify.Create) {
-				logger.InfoF(s.Name(), "Detected NEW folder creation: [%s]. Injecting live registry transaction...", shareName)
-				if err := s.executeRegistryAdd(shareName, event.Name); err != nil {
-					logger.ErrorF(s.Name(), "Dynamic registry hot injection transaction failed: %v", err, err.Error())
-				} else {
-					logger.InfoF(s.Name(), "Share [%s] is now live instantly with zero downtime.", shareName)
+				if info, err := os.Stat(virtualSharePath); err == nil && info.IsDir() {
+					if err := s.sys.NotifyCreate(shareName, virtualSharePath); err != nil {
+
+					}
 				}
 			}
-
 			if event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
-				logger.InfoF(s.Name(), "Detected folder extraction or relocation: [%s]. Removing memory key allocation...", shareName)
-				if err := s.executeRegistryDelete(shareName); err != nil {
-					logger.ErrorF(s.Name(), "Dynamic memory deletion transaction failed: %v", err, err.Error())
-				} else {
-					logger.InfoF(s.Name(), "Share [%s] successfully purged from live allocation grid.", shareName)
+				if err := s.sys.NotifyRemove(shareName); err != nil {
+
 				}
 			}
 

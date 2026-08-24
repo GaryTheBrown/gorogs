@@ -1,0 +1,156 @@
+# ==============================================================================
+# GLOBAL RUNTIME BUILD ARGUMENTS
+# Change these pins to instantly grab and compile any version from GitHub!
+# ==============================================================================
+ARG SAMBA_VERSION_PIN="4.24"       # Leave blank for latest stable
+ARG GANESHA_VERSION_PIN="15.1"     # Matches GitHub Tag precisely
+ARG NTIRPC_VERSION_PIN="15.1"      # Must match your Ganesha major version
+ARG RPCBIND_VERSION_PIN="1.2"      # Leave blank for latest stable
+ARG GO_VERSION_PIN="1.27"          # Leave blank for latest stable
+
+ARG ENABLE_DEBUG=true
+ARG CGO_ENABLED=1
+ARG GOOS=linux
+ARG GOARCH=amd64
+
+# ==============================================================================
+# STAGE 1: IMMUTABLE C & COMPILER BASE
+# ==============================================================================
+# hadolint ignore=DL3007
+FROM gentoo/stage3:latest AS gentoo-immutable-base
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ARG SAMBA_VERSION_PIN
+ARG GANESHA_VERSION_PIN
+ARG RPCBIND_VERSION_PIN
+ARG GO_VERSION_PIN
+
+# 1. GLOBAL USE FLAGS & COMPILER OPTIMIZATIONS
+ENV USE="static-libs static -cups -ads -pam -ldap -systemd -dbus -readline"
+ENV FEATURES="nodoc noman noinfo -ipc-sandbox -network-sandbox"
+ENV MAKEOPTS="-j4"
+ENV EXTRA_ECONF="--prefix=/ --bindir=/bin --sbindir=/bin --libdir=/lib --sysconfdir=/etc --with-configdir=/etc"
+
+# 2. SYNC PORTAGE AND PREPARE BUILD DEPENDENCIES
+RUN emerge-webrsync && \
+    mkdir -p /etc/portage/package.accept_keywords \
+    /distroless/etc /distroless/bin /distroless/lib /distroless/tmp \
+    /distroless/var/lib/samba/private /distroless/var/lock/samba \
+    /distroless/var/cache/samba /distroless/run/samba /distroless/run/rpcbind && \
+    \
+    # Install structural build tools required to compile Ganesha manually
+    echo "dev-build/cmake ~amd64" >> /etc/portage/package.accept_keywords/cmake && \
+    emerge --oneshot dev-build/cmake dev-vcs/git net-libs/libtirpc dev-libs/bison dev-util/gperf app-alternatives/yacc
+
+# 3. DYNAMICALLY COMPILE NTIRPC FROM GITHUB SOURCE
+RUN mkdir -p /tmp/build
+WORKDIR /tmp/build
+RUN wget --progress=dot:giga "https://github.com/nfs-ganesha/ntirpc/archive/refs/tags/${NTIRPC_VERSION_PIN}.tar.gz" && \
+    tar -xzf "${NTIRPC_VERSION_PIN}.tar.gz"
+WORKDIR /tmp/build/ntirpc-${NTIRPC_VERSION_PIN}
+RUN mkdir build
+WORKDIR  /tmp/build/ntirpc-${NTIRPC_VERSION_PIN}/build
+RUN cmake -DCMAKE_INSTALL_PREFIX=/distroless -DALLOCATOR=libc .. && \
+    make ${MAKEOPTS} && make install
+
+# 4. DYNAMICALLY COMPILE NFS-GANESHA FROM GITHUB SOURCE
+# Uses FSAL_VFS backend by default; installs directly into the /distroless root
+WORKDIR /tmp/build
+
+RUN wget --progress=dot:giga "https://github.com/nfs-ganesha/nfs-ganesha/archive/refs/tags/${GANESHA_VERSION_PIN}.tar.gz" && \
+    tar -xzf "${GANESHA_VERSION_PIN}.tar.gz"
+WORKDIR /tmp/build/nfs-ganesha-${GANESHA_VERSION_PIN}
+RUN mkdir src/build
+WORKDIR /tmp/build/nfs-ganesha-${GANESHA_VERSION_PIN}/src/build
+RUN cmake -DCMAKE_INSTALL_PREFIX=/distroless \
+    -DCONFIG_DIR=/etc/ganesha \
+    -DUSE_DBUS=OFF \
+    -DUSE_FSAL_CEPH=OFF \
+    -DUSE_FSAL_GLUSTER=OFF \
+    -DUSE_FSAL_RGW=OFF \
+    -DUSE_FSAL_VFS=ON \
+    -DUSE_GSS=OFF \
+    -DNTIRPC_INCLUDE_DIR=/distroless/include/ntirpc \
+    -DNTIRPC_LIBRARY=/distroless/lib/libntirpc.so \
+    .. && \
+    make ${MAKEOPTS} && make install
+
+# 5. COMPILE STANDARD PORTAGE DAEMONS (SAMBA, RPCBIND, GO)
+RUN SAMBA_TARGET="net-fs/samba" && \
+    if [ -n "${SAMBA_VERSION_PIN}" ]; then SAMBA_TARGET="=net-fs/samba-${SAMBA_VERSION_PIN}*"; fi && \
+    \
+    RPCBIND_TARGET="net-nds/rpcbind" && \
+    if [ -n "${RPCBIND_VERSION_PIN}" ]; then RPCBIND_TARGET="=net-nds/rpcbind-${RPCBIND_VERSION_PIN}*"; fi && \
+    \
+    GO_TARGET="dev-lang/go" && \
+    if [ -n "${GO_VERSION_PIN}" ]; then GO_TARGET="=dev-lang/go-${GO_VERSION_PIN}*"; fi && \
+    \
+    ROOT=/distroless emerge --oneshot --nodeps "${SAMBA_TARGET}" "${RPCBIND_TARGET}" && \
+    emerge --oneshot --nodeps "${GO_TARGET}" && \
+    \
+    # Build core user account files inside the target system layout
+    echo "root:x:0:0::/root:/bin/sh" > /distroless/etc/passwd && \
+    echo "nobody:x:65534:65534:Kernel Overflow User:/:/bin/sh" >> /distroless/etc/passwd && \
+    echo "rpc:x:32:32:Rpcbind Daemon:/var/lib/rpcbind:/bin/sh" >> /distroless/etc/passwd && \
+    echo "root:x:0:root" > /distroless/etc/group && \
+    echo "nobody:x:65534:" >> /distroless/etc/group && \
+    echo "rpc:x:32:" >> /distroless/etc/group && \
+    \
+    echo "hosts: files dns" > /distroless/etc/nsswitch.conf && \
+    chmod 1777 /distroless/tmp && \
+    chmod 0755 /distroless/var/lock/samba && \
+    chmod 0755 /distroless/var/cache/samba && \
+    chmod 0755 /distroless/run/samba
+
+# ==============================================================================
+# RECURSIVE DEPENDENCY SWEEP ISOLATED TO BASE ENGINE STAGE 1
+# ==============================================================================
+RUN for bin in /distroless/bin/* \
+    /distroless/lib/samba/vfs/*.so \
+    /distroless/lib/samba/pdb/*.so \
+    /distroless/lib/ganesha/*.so \
+    /distroless/lib/libnfsidmap/*.so; do \
+    [ -f "$bin" ] || continue; \
+    ldd "$bin" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+    cp -vnL "$lib" "/distroless/lib/$(basename "$lib")"; \
+    done; \
+    done
+
+# ==============================================================================
+# STAGE 2: DYNAMIC GO APPLICATION BUILDER
+# ==============================================================================
+FROM gentoo-immutable-base AS go-binary-builder
+ARG CACHE_BUST=1 
+ARG ENABLE_DEBUG
+ARG CGO_ENABLED
+ARG GOOS
+ARG GOARCH
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+
+RUN if [ "$ENABLE_DEBUG" = "true" ] ; then \
+    CGO_ENABLED=${CGO_ENABLED} GOOS=${GOOS} GOARCH=${GOARCH} go build -a -v -tags=debug \
+    -ldflags="-s -w -linkmode external -extldflags '-static'" -o /gorogs main.go; \
+    else \
+    CGO_ENABLED=${CGO_ENABLED} GOOS=${GOOS} GOARCH=${GOARCH} go build -a -v \
+    -ldflags="-s -w -linkmode external -extldflags '-static'" -o /gorogs main.go; \
+    fi && \
+    cp /gorogs /distroless/bin/gorogs && chmod +x /distroless/bin/gorogs
+
+# ==============================================================================
+# STAGE 3: FINAL CLEAN STATELESS APPLIANCE ASSEMBLY
+# ==============================================================================
+FROM scratch AS final
+WORKDIR /
+COPY --from=go-binary-builder /distroless/. /
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD ["/bin/gorogs", "--check-health"]
+
+EXPOSE 135/tcp 137/udp 138/udp 139/tcp 445/tcp 3702/udp 5357/tcp \
+    111/tcp 111/udp 2049/tcp 2049/udp 20048/tcp 20048/udp 32803/tcp 875/tcp
+
+ENTRYPOINT ["/bin/gorogs"]

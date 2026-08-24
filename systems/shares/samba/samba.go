@@ -3,16 +3,16 @@ package samba
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
 	"gorogs/config"
 	"gorogs/logger"
 	"gorogs/systems/helpers"
+	"gorogs/systems/shares/samba/modes"
+	"gorogs/systems/shares/samba/structs"
+	"gorogs/systems/shares/samba/vars"
 	"gorogs/systems/systeminterface"
 )
 
@@ -23,23 +23,14 @@ const (
 	AutoStart  = true
 )
 
-var (
-	programPath      = "/usr/bin/smbd"
-	masterConfigPath = "/etc/samba/smb.conf"
-	netPath          = "/usr/bin/net"
-	smbpasswdPath    = "/usr/bin/smbpasswd"
-	sambaBaseLibDir  = "/var/lib/samba"
-	internalDBPath   = sambaBaseLibDir + "/private"
-	internalDBFile   = sambaBaseLibDir + "/registry.tdb"
-	registryTxtPath  = sambaBaseLibDir + "/registry_import.txt"
-)
-
 type Struct struct {
-	sState      systeminterface.SysStateEnum
-	cmd         *exec.Cmd
+	sState systeminterface.SysStateEnum
+
 	logWriter   *helpers.SubsystemWriter
 	readyChan   chan struct{}
 	cancelWatch context.CancelFunc
+	sys         modes.System
+	shares      structs.ShareMap
 }
 
 func (_ *Struct) Name() string                                 { return Name }
@@ -49,83 +40,90 @@ func (_ *Struct) AutoStart() bool                              { return AutoStar
 func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
+// DEFAULT CONFIG VARS TO EVENTUALLY BE LOADED IN FORM A map[string]any
+var (
+	systemMode = structs.ModeRegistry
+)
+
 func (s *Struct) Setup() {
-	logger.Info(s.Name(), "Commencing high-speed RAM-backed storage appliance pre-flight validation...")
+	logger.DebugContinue(Name, "System Setup...")
 
-	if err := os.MkdirAll(sambaBaseLibDir, 0755); err != nil {
-		logger.Fatal(s.Name(), "Failed to pre-stage native library tracking folder directory", err)
-	}
-	if err := syscall.Mount("tmpfs", sambaBaseLibDir, "tmpfs", 0, "size=256M,mode=1777"); err != nil {
-		logger.Fatal(s.Name(), "KERNEL MOUNT PANIC: Failed to allocate high-speed RAM layer", err)
-	}
-
-	if err := os.MkdirAll(internalDBPath, 0755); err != nil {
-		logger.Fatal(s.Name(), "Failed to configure nested runtime state pools inside mounted RAM namespace", err)
+	if vars.LibBaseDirOverlay {
+		if err := s.setupOverlay(); err != nil {
+			logger.Fatal(Name, "failed to execute master config write utility", err)
+		}
 	}
 
-	if err := s.writeMasterSambaConfig(); err != nil {
-		logger.Fatal(s.Name(), "failed to execute master config write utility", err)
+	modeStr := structs.ModeToString(systemMode)
+	logger.DebugAppendF(Name, "[MODE:%s]", modeStr)
+	cm := modes.SharedConfigFile(systemMode)
+	sm := structs.NewShareMap()
+	logger.DebugAppendF(Name, "[SHARES: Count(%d)]", sm.Count())
+	switch systemMode {
+	case structs.ModeFile:
+		s.sys = &modes.ModeFile{
+			ConfigMap: cm,
+			SharesMap: sm,
+		}
+	case structs.ModeMixed:
+		s.sys = &modes.ModeMixed{
+			ConfigMap: cm,
+			SharesMap: sm,
+		}
+	case structs.ModeRegistry:
+		s.sys = &modes.ModeRegistry{
+			ConfigMap: cm,
+			SharesMap: sm,
+		}
+	default:
+		logger.FatalF(Name, "failed to get Sambas system mode. Got Int %d", nil, int(systemMode))
 	}
 
-	logger.Info(s.Name(), "Initializing structured local user policy tracking databases...")
-	_ = os.WriteFile(filepath.Join(sambaBaseLibDir, "account_policy.tdb"), []byte{}, 0600)
-	_ = os.WriteFile(filepath.Join(sambaBaseLibDir, "winbindd_idmap.tdb"), []byte{}, 0600)
-
-	cmdPasswd := exec.Command(smbpasswdPath, "-L", "-c", masterConfigPath, "-a", "nobody", "-n")
-	if output, err := cmdPasswd.CombinedOutput(); err != nil {
-		logger.ErrorF(s.Name(), "User database initialization failed: %s ERROR: %v", err, strings.TrimSpace(string(output)), err.Error())
-	} else {
-		logger.Info(s.Name(), "Local user policy tracking database successfully pre-seeded.")
+	logger.DebugAppendF(Name, "[MODE %s SETUP]", modeStr)
+	if err := s.sys.Setup(); err != nil {
+		logger.FatalF(Name, "failed to Setup the Mode [%s]", err, modeStr)
 	}
 
-	logger.Info(s.Name(), "Generating independent machine security identifier tokens...")
-	cmdSID := exec.Command(netPath, "setlocalsid", "S-1-5-21-1111111111-2222222222-3333333333", "-s", masterConfigPath)
-	if output, err := cmdSID.CombinedOutput(); err != nil {
-		logger.ErrorF(s.Name(), "Failed to register machine identity tokens: %s ERROR: %v", err, strings.TrimSpace(string(output)), err.Error())
-	}
-
-	logger.Info(s.Name(), "Pre-seeding global parameters and movie share blocks into RAM database...")
-	s.injectAllSharesToRegistry()
-
-	logger.Info(s.Name(), "Samba configuration pre-flight generation phase successfully completed.")
 	s.sState = systeminterface.SETUP
+	logger.DebugEnd(Name, "[DONE]")
 }
 
 func (s *Struct) Start() error {
-	logger.Info(s.Name(), "Spawning primary Samba smbd background engine...")
+	logger.DebugContinue(Name, "System Starting...")
 
-	args := []string{"--foreground", "--no-process-group", "-s", masterConfigPath, "--debug-stdout"}
+	args := []string{"--foreground", "--no-process-group", "-s", vars.MasterConfigFile, "--debug-stdout"}
 
-	if logger.IsDebugActive(s.Name()) {
+	if logger.IsDebugActive(Name) {
 		args = append(args, "-d", "3")
 	} else {
 		args = append(args, "-d", "0")
 	}
+	vars.Cmd = exec.Command(vars.ProgramPath, args...)
+	vars.Cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	logger.DebugAppend(Name, "[COMMAND ARGS]")
 
-	s.cmd = exec.Command(programPath, args...)
-	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-	if logger.IsDebugActive(s.Name()) {
-		s.logWriter = helpers.NewSubsystemWriter(s.Name(), nil, nil, nil)
-		s.cmd.Stdout = s.logWriter
-		s.cmd.Stderr = s.logWriter
+	if logger.IsDebugActive(Name) {
+		s.logWriter = helpers.NewSubsystemWriter(Name, nil, nil, nil)
+		vars.Cmd.Stdout = s.logWriter
+		vars.Cmd.Stderr = s.logWriter
+		logger.DebugAppend(Name, "[ATTACHING LOGS]")
 	}
 
-	if err := s.cmd.Start(); err != nil {
+	if err := vars.Cmd.Start(); err != nil {
 		return fmt.Errorf("failed to initialize background smbd process: %w", err)
 	}
-
-	logger.InfoF(s.Name(), "Samba active (PID: %d). Probing port 445...", s.cmd.Process.Pid)
+	logger.DebugAppend(Name, "[CMD START]")
 
 	portBound := false
 	maxWait := 20 * time.Second
 	currentTick := 100 * time.Millisecond
 	startTime := time.Now()
 	probeAttempts := 0
-
+	logger.DebugAppend(Name, "[WAIT")
 	for time.Since(startTime) < maxWait {
 		probeAttempts++
-		if err := s.cmd.Process.Signal(syscall.Signal(0)); err != nil {
+		logger.DebugAppend(Name, ".")
+		if err := vars.Cmd.Process.Signal(syscall.Signal(0)); err != nil {
 			if s.logWriter != nil {
 				s.logWriter.Close()
 			}
@@ -136,13 +134,11 @@ func (s *Struct) Start() error {
 			break
 		}
 		if probeAttempts > 10 {
-			currentTick = time.Duration(float64(currentTick) * 1.5)
-			if currentTick > 2*time.Second {
-				currentTick = 2 * time.Second
-			}
+			currentTick = min(time.Duration(float64(currentTick)*1.5), 2*time.Second)
 		}
 		time.Sleep(currentTick)
 	}
+	logger.DebugAppend(Name, "DONE]")
 
 	if !portBound {
 		if s.logWriter != nil {
@@ -150,50 +146,56 @@ func (s *Struct) Start() error {
 		}
 		return fmt.Errorf("timeout reached waiting for Samba daemon to bind network port 445")
 	}
-
-	logger.Info(s.Name(), "Samba successfully bound network ports")
+	logger.DebugAppend(Name, "[READY]")
 
 	if !config.IsDisabled("livechanges") {
 		watchCtx, cancel := context.WithCancel(context.Background())
 		s.cancelWatch = cancel
 		go s.startFSEventDirectoryWatcher(watchCtx)
+		logger.DebugAppend(Name, "[TRACKING]")
 	}
 
 	s.sState = systeminterface.STARTED
+	logger.DebugEnd(Name, "[DONE]")
 	return nil
 }
 
 func (s *Struct) Stop() {
+	logger.DebugContinue(Name, "Stopping NetBIOS daemon threads...")
 	if s.cancelWatch != nil {
 		s.cancelWatch()
+		logger.DebugAppend(Name, "[CANCEL WATCH]")
 	}
 
-	if s.cmd != nil && s.cmd.Process != nil {
-		logger.Info(s.Name(), "Initiating graceful termination sequence on Samba daemon threads...")
+	if vars.Cmd != nil && vars.Cmd.Process != nil {
 
-		if err := s.cmd.Process.Signal(syscall.SIGTERM); err != nil {
-			_ = s.cmd.Process.Kill()
+		if err := vars.Cmd.Process.Signal(syscall.SIGTERM); err != nil {
+			_ = vars.Cmd.Process.Kill()
 		}
-
-		_ = s.cmd.Wait()
-		logger.Info(s.Name(), "Samba primary background daemon thread terminated cleanly.")
+		logger.DebugAppend(Name, "[KILL SENT]")
+		_ = vars.Cmd.Wait()
+		logger.DebugAppend(Name, "[STOPPED]")
 	}
 
 	if s.logWriter != nil {
 		_ = s.logWriter.Close()
+		logger.DebugAppend(Name, "[DETACH LOGS]")
 	}
 
-	logger.InfoF(s.Name(), "Unmounting memory partition allocation layer cleanly: %s", sambaBaseLibDir)
-	if err := syscall.Unmount(sambaBaseLibDir, 0); err != nil {
-		logger.ErrorF(s.Name(), "Failed to unmount memory partition layer cleanly from layout ERROR: %v", err, err.Error())
+	if vars.LibBaseDirOverlay {
+		if err := syscall.Unmount(vars.SambaBaseLibDir, 0); err != nil {
+			logger.ErrorF(Name, "Failed to unmount memory partition layer cleanly from layout ERROR: %v", err, err.Error())
+		}
+		logger.DebugAppend(Name, "[REMOVE OVERLAY]")
 	}
 
 	s.sState = systeminterface.STOPPED
+	logger.DebugEnd(Name, "[DONE]")
 }
 
 func (s *Struct) Healthcheck() error {
-	if s.cmd == nil || s.cmd.Process == nil {
+	if vars.Cmd == nil || vars.Cmd.Process == nil {
 		return fmt.Errorf("samba background system execution tracking instance is not initialized")
 	}
-	return s.cmd.Process.Signal(syscall.Signal(0))
+	return vars.Cmd.Process.Signal(syscall.Signal(0))
 }

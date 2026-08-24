@@ -2,7 +2,6 @@ package helpers
 
 import (
 	"bytes"
-	"gorogs/logger"
 	"strings"
 	"sync"
 )
@@ -60,25 +59,12 @@ func (w *SubsystemWriter) processLine(line string) {
 		}
 	}
 
-	if !logger.IsDebugActive(w.loggerName) {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			logger.Info(w.loggerName, trimmed)
-		}
-		return
-	}
-
 	if w.stripFunc != nil {
 		var keep bool
 		line, keep = w.stripFunc(line)
 		if !keep {
 			return
 		}
-	}
-
-	trimmed := strings.TrimSpace(line)
-	if trimmed != "" {
-		logger.Debug(w.loggerName, trimmed)
 	}
 }
 
