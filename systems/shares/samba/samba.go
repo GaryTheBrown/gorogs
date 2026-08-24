@@ -121,7 +121,7 @@ func (s *Struct) Stop() {
 
 func (s *Struct) Healthcheck() error {
 	if vars.Cmd == nil || vars.Cmd.Process == nil {
-		return fmt.Errorf("samba background system execution tracking instance is not initialized")
+		return fmt.Errorf("SAMBA SHARE is not initialized")
 	}
 	return vars.Cmd.Process.Signal(syscall.Signal(0))
 }

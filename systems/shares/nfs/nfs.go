@@ -200,7 +200,7 @@ func (s *Struct) Stop() {
 
 func (s *Struct) Healthcheck() error {
 	if s.ganeshaCmd == nil || s.ganeshaCmd.Process == nil {
-		return fmt.Errorf("nfs background system execution tracking instance is not initialized")
+		return fmt.Errorf("NFS SHARE is not initialized")
 	}
 	return s.ganeshaCmd.Process.Signal(syscall.Signal(0))
 }

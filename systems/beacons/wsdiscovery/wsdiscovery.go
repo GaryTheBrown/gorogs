@@ -99,9 +99,7 @@ func (s *Struct) Stop() {
 
 func (s *Struct) Healthcheck() error {
 	if s.ctx != nil && s.ctx.Err() != nil {
-		logger.Error("WSDiscovery", "Healthcheck failed: execution context is dropped", s.ctx.Err())
-		return fmt.Errorf("WSDiscovery system operational context has dropped: %w", s.ctx.Err())
+		return fmt.Errorf("WSDiscovery is not initialized")
 	}
-	logger.Debug("WSDiscovery", "Healthcheck verified successfully. Context is uncorrupted.")
 	return nil
 }

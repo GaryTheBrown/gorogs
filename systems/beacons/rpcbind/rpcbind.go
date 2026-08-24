@@ -69,7 +69,7 @@ func (s *Struct) Stop() {
 
 func (s *Struct) Healthcheck() error {
 	if s.rpcCmd == nil || s.rpcCmd.Process == nil {
-		return fmt.Errorf("rpcbind background daemon execution instance is uninitialized")
+		return fmt.Errorf("RPCBind is not initialized")
 	}
 	return s.rpcCmd.Process.Signal(syscall.Signal(0))
 }

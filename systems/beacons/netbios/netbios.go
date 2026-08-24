@@ -122,7 +122,7 @@ func (s *Struct) Stop() {
 
 func (s *Struct) Healthcheck() error {
 	if s.cmd == nil || s.cmd.Process == nil {
-		return fmt.Errorf("netbios background system execution tracking instance is not initialized")
+		return fmt.Errorf("netbios is not initialized")
 	}
 	return s.cmd.Process.Signal(syscall.Signal(0))
 }
