@@ -40,11 +40,6 @@ func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState
 func (s *Struct) Setup() {
 	logger.DebugContinue(Name, "System Setup...")
 
-	if err := os.MkdirAll("/var/log/samba", 0755); err != nil {
-		logger.Fatal(Name, "failed to provision local samba logging directories", err)
-	}
-	logger.DebugAppend(Name, "[mkdir]")
-
 	if err := s.writeMasterNmbdConfig(config.Hostname); err != nil {
 		logger.FatalF(Name, "failed to write %s config file", err, Name)
 	}

@@ -82,6 +82,7 @@ RUN mkdir -p \
     chmod 1777 /distroless/tmp && \
     chmod 0755 /distroless/var/lock/samba && \
     chmod 0755 /distroless/var/cache/samba && \
+    chmod 0755 /distroless/var/log/samba && \
     chmod 0755 /distroless/run/samba && \
     chmod 0700 /distroless/run/samba/ncalrpc && \
     chmod 0700 /distroless/run/samba/ncalrpc/np && \
