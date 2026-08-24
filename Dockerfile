@@ -76,12 +76,15 @@ RUN mkdir -p \
     /distroless/run/samba \
     /distroless/run/samba/ncalrpc/np \
     /distroless/run/rpcbind && \
+    /distroless/run/sendsigs.omit.d && \
     chmod 1777 /distroless/tmp && \
     chmod 0755 /distroless/var/lock/samba && \
     chmod 0755 /distroless/var/cache/samba && \
     chmod 0755 /distroless/run/samba && \
     chmod 0700 /distroless/run/samba/ncalrpc && \
     chmod 0700 /distroless/run/samba/ncalrpc/np && \
+    chmod 0775 /distroless/run/rpcbind && \
+    chmod 0755 /distroless/run/sendsigs.omit.d && \
     ln -s usr/bin /distroless/bin && \
     ln -s usr/bin /distroless/sbin && \
     ln -s bin /distroless/usr/sbin && \

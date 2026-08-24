@@ -42,15 +42,6 @@ func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState
 
 func (s *Struct) Setup() {
 	logger.Info(s.Name(), "Evaluating protocol dependencies and pre-flight requirements...")
-	rpcPath := "/run/sendsigs.omit.d"
-	if err := os.MkdirAll(rpcPath, 0755); err != nil {
-		logger.FatalF(s.Name(), "failed to construct mandatory rpcbind system tracking directory %s: %w", err, rpcPath)
-	}
-
-	runRpcbindPath := "/run/rpcbind"
-	if err := os.MkdirAll(runRpcbindPath, 0755); err != nil {
-		logger.FatalF(s.Name(), "failed to construct essential runtime socket directory %s: %w", err, runRpcbindPath)
-	}
 
 	servicesPath := "/etc/services"
 	if _, err := os.Stat(servicesPath); os.IsNotExist(err) {
