@@ -28,12 +28,12 @@ func (s *Struct) Config() {
 }
 
 func (s *Struct) Setup() {
-	logger.DebugContinue(s.Name(), "Setting Up Zero Space Overlay...")
+	logger.DebugContinue(Name, "Setting Up Zero Space Overlay...")
 	err := s.setupOverlay()
 	if err != nil {
-		logger.Fatal(s.Name(), "", err)
+		logger.Fatal(Name, "", err)
 	}
-	logger.DebugEnd(s.Name(), "[DONE]")
+	logger.DebugEnd(Name, "[DONE]")
 	s.sState = systeminterface.FINISHED
 
 }

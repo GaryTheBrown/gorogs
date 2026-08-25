@@ -15,14 +15,14 @@ import (
 func (s *Struct) startFSEventDirectoryWatcher(ctx context.Context) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		logger.ErrorF(s.Name(), "Failed to initialize fsnotify monitor subsystem hook: %w", err)
+		logger.ErrorF(Name, "Failed to initialize fsnotify monitor subsystem hook: %w", err)
 		return
 	}
 	defer watcher.Close()
 
 	// Use the /srv folder as the overlay from zerospace can stop this working as it should
 	if err := watcher.Add(config.ConstOriginalShareRoot); err != nil {
-		logger.ErrorF(s.Name(), "Failed to register directory target inside fsnotify monitor tracking path: %w", err)
+		logger.ErrorF(Name, "Failed to register directory target inside fsnotify monitor tracking path: %w", err)
 		return
 	}
 
@@ -64,7 +64,7 @@ func (s *Struct) startFSEventDirectoryWatcher(ctx context.Context) {
 			if !ok {
 				return
 			}
-			logger.Error(s.Name(), "Inbound filesystem monitor tracking pipeline encountered an asynchronous operation fault", err)
+			logger.Error(Name, "Inbound filesystem monitor tracking pipeline encountered an asynchronous operation fault", err)
 		}
 	}
 }

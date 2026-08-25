@@ -50,16 +50,17 @@ func (s *Struct) Config() {
 	cm := config.GetServiceConfig(Name)
 	mode := cm.Get("mode", "Registry")
 	systemMode = structs.StringToMode(mode)
-	vars.LibBaseDirOverlay = cm.Get("libbasediroverlay", true)
+	vars.BaseDirOverlay = cm.Get("basediroverlay", true)
 	vars.BatchInjection = cm.Get("batchinjection", true)
 	vars.VetoFiles = cm.Get("vetofiles", "/*.~tmp/")
 	vars.DefaultShareComment = cm.Get("defaultcomment", "")
+	vars.ServerComment = cm.Get("servercomment", "GO Read Only Guest Share")
 }
 
 func (s *Struct) Setup() {
 	logger.DebugContinue(Name, "System Setup...")
 
-	if vars.LibBaseDirOverlay {
+	if vars.BaseDirOverlay {
 		if err := s.setupOverlay(); err != nil {
 			logger.Fatal(Name, "failed to execute master config write utility", err)
 		}
@@ -107,13 +108,14 @@ func (s *Struct) Stop() {
 	}
 
 	if vars.Cmd != nil && vars.Cmd.Process != nil {
-
 		if err := vars.Cmd.Process.Signal(syscall.SIGTERM); err != nil {
 			_ = vars.Cmd.Process.Kill()
 		}
-		logger.DebugAppend(Name, "[KILL SENT]")
+		logger.DebugAppend(Name, "[SIGTERM SENT]")
+
+		// Ensure the parent daemon tracker releases its process hooks completely
 		_ = vars.Cmd.Wait()
-		logger.DebugAppend(Name, "[STOPPED]")
+		logger.DebugAppend(Name, "[PROCESS TERMINATED]")
 	}
 
 	if s.logWriter != nil {
@@ -121,11 +123,12 @@ func (s *Struct) Stop() {
 		logger.DebugAppend(Name, "[DETACH LOGS]")
 	}
 
-	if vars.LibBaseDirOverlay {
-		if err := syscall.Unmount(vars.SambaBaseLibDir, 0); err != nil {
+	if vars.BaseDirOverlay {
+		if err := syscall.Unmount(vars.SambaBaseLibDir, syscall.MNT_DETACH); err != nil {
 			logger.ErrorF(Name, "Failed to unmount memory partition layer cleanly from layout ERROR: %v", err, err.Error())
+		} else {
+			logger.DebugAppend(Name, "[REMOVE OVERLAY CLEAN]")
 		}
-		logger.DebugAppend(Name, "[REMOVE OVERLAY]")
 	}
 
 	s.sState = systeminterface.STOPPED

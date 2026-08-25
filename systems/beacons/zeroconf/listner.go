@@ -7,7 +7,6 @@ import (
 )
 
 func (s *Struct) listenForQueries() {
-
 	buf := make([]byte, 1500)
 	for {
 		select {
@@ -32,11 +31,11 @@ func (s *Struct) listenForQueries() {
 					resp.Authoritative = true
 
 					if q.Name == localHostTarget || q.Name == fqdnHostTarget {
-						appendDNSAToAnswer(msg, localHostTarget, 120)
-						appendDNSAToAnswer(msg, fqdnHostTarget, 120)
+						appendDNSAToAnswer(resp, localHostTarget, 120)
+						appendDNSAToAnswer(resp, fqdnHostTarget, 120)
 					} else {
-						appendDNSAToExtra(msg, localHostTarget, 120)
-						appendDNSAToExtra(msg, fqdnHostTarget, 120)
+						appendDNSAToExtra(resp, localHostTarget, 120)
+						appendDNSAToExtra(resp, fqdnHostTarget, 120)
 					}
 
 					if q.Name == servicesMetaRecord {

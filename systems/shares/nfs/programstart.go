@@ -12,7 +12,7 @@ import (
 func (s *Struct) StartProgram() error {
 	s.readyChan = make(chan struct{})
 	ganeshaArgs := []string{"-F", "-f", ganeshaConf}
-	if logger.IsDebugActive(s.Name()) {
+	if logger.IsDebugActive(Name) {
 		ganeshaArgs = append(ganeshaArgs, "-L", "/dev/stdout", "-N", "NIV_FULL_DEBUG")
 	}
 
@@ -20,11 +20,11 @@ func (s *Struct) StartProgram() error {
 	s.ganeshaCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.DebugAppend(Name, "[CMD SETUP]")
 
-	if logger.IsDebugActive(s.Name()) {
+	if logger.IsDebugActive(Name) {
 		phrases := []string{"NFS SERVER INITIALIZED", "General fridge was started successfully"}
-		s.logWriter = helpers.NewSubsystemWriter(s.Name(), s.readyChan, phrases, nil)
+		s.logWriter = helpers.NewSubsystemWriter(Name, s.readyChan, phrases, nil)
 	} else {
-		s.logWriter = helpers.NewSubsystemWriter(s.Name(), nil, nil, nil)
+		s.logWriter = helpers.NewSubsystemWriter(Name, nil, nil, nil)
 	}
 	s.ganeshaCmd.Stdout = s.logWriter
 	s.ganeshaCmd.Stderr = s.logWriter

@@ -17,10 +17,11 @@ const (
 )
 
 var (
-	LibBaseDirOverlay   bool
+	BaseDirOverlay      bool
 	BatchInjection      bool
 	VetoFiles           string
 	DefaultShareComment string
+	ServerComment       string
 )
 
 var (

@@ -17,7 +17,7 @@ const (
 	Name       = "WSDiscovery"
 	Type       = systeminterface.Beacon
 	IsCritical = false
-	AutoStart  = false
+	AutoStart  = true
 )
 
 func init() {

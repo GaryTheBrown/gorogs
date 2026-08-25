@@ -16,7 +16,7 @@ import (
 func (s *Struct) startFSEventCommentWatcher(ctx context.Context) {
 	cWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		logger.ErrorF(s.Name(), "Failed to initialize metadata file comment watcher context: %w", err)
+		logger.ErrorF(Name, "Failed to initialize metadata file comment watcher context: %w", err)
 		return
 	}
 	s.commentWatcher = cWatcher
@@ -60,7 +60,7 @@ func (s *Struct) startFSEventCommentWatcher(ctx context.Context) {
 			if !ok {
 				return
 			}
-			logger.Error(s.Name(), "Metadata comment tracker pipe encountered an asynchronous operation fault", err)
+			logger.Error(Name, "Metadata comment tracker pipe encountered an asynchronous operation fault", err)
 		}
 	}
 }

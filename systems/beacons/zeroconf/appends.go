@@ -2,6 +2,7 @@ package zeroconf
 
 import (
 	"fmt"
+	"strings"
 
 	"gorogs/config"
 
@@ -30,7 +31,8 @@ func appendServiceMetaRecord(resp *dns.Msg, name string, ttl uint32) {
 }
 
 func appendServiceData(resp *dns.Msg, name string, port uint16, ttl uint32) {
-	instanceName := fmt.Sprintf("%s.%s", config.Hostname, name)
+	instanceName := fmt.Sprintf("%s.%s", strings.ToUpper(config.Hostname), name)
+
 	resp.Answer = append(resp.Answer, &dns.PTR{
 		Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl},
 		Ptr: instanceName,

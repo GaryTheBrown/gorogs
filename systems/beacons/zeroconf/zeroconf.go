@@ -3,6 +3,7 @@ package zeroconf
 import (
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"gorogs/config"
@@ -18,8 +19,8 @@ const (
 )
 
 var (
-	localHostTarget    = fmt.Sprintf("%s.local.", config.Hostname)
-	fqdnHostTarget     = fmt.Sprintf("%s.%s.", config.Hostname, config.DomainName)
+	localHostTarget    = fmt.Sprintf("%s.local.", strings.ToLower(config.Hostname))
+	fqdnHostTarget     = fmt.Sprintf("%s.%s.", strings.ToLower(config.Hostname), strings.ToLower(config.DomainName))
 	servicesMetaRecord = "_services._dns-sd._udp.local."
 	txtRecords         = []string{"path=/", fmt.Sprintf("host=%s", fqdnHostTarget)}
 	nfsAddr            = "_nfs._tcp.local."

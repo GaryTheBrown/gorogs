@@ -47,7 +47,7 @@ func (s *Struct) Setup() {
 	logger.DebugContinue(Name, "System Setup...")
 
 	if err := s.writeGaneshaConfig(); err != nil {
-		logger.Fatal(s.Name(), "failed to execute master ganesha config file write utility", err)
+		logger.Fatal(Name, "failed to execute master ganesha config file write utility", err)
 	}
 	logger.DebugAppend(Name, "[write config]")
 
@@ -93,7 +93,6 @@ EXPORT {
     Anonymous_Gid = 65534;
     FSAL {
         Name = VFS;
-        # Prevents client "Stale File Handles" if gorogs rewrites or reloads configs
         Filesystem_Id = 1.1;
     }
 }`, gLogLevel, config.DomainName, config.ShareRoot)
@@ -123,7 +122,7 @@ func (s *Struct) Stop() {
 		go func(p *os.Process) {
 			time.Sleep(150 * time.Millisecond)
 			if err := p.Signal(syscall.Signal(0)); err == nil {
-				logger.Debug(s.Name(), "NFS daemon socket locked. Enforcing asynchronous SIGKILL override pass.")
+				logger.Debug(Name, "NFS daemon socket locked. Enforcing asynchronous SIGKILL override pass.")
 				_ = p.Kill()
 			}
 		}(s.ganeshaCmd.Process)

@@ -40,7 +40,7 @@ type WSMessage struct {
 	Sender           net.Addr
 	SchemaVersion    string
 	UseTCPTransport  bool
-	HTTPResponsePipe chan interface{}
+	HTTPResponsePipe chan any
 
 	Header struct {
 		To          string

@@ -58,7 +58,7 @@ func HandleIncomingHTTPTransfer(w http.ResponseWriter, r *http.Request, outputCh
 		return
 	}
 
-	responsePipe := make(chan interface{})
+	responsePipe := make(chan any)
 
 	msg.Sender = clientAddr
 	msg.HTTPResponsePipe = responsePipe

@@ -29,7 +29,7 @@ var (
 		"printcap name":           "/dev/null",
 		"security":                "user",
 		"server role":             "standalone",
-		"server string":           "Read only Share",
+		"server string":           vars.ServerComment,
 		"smb encrypt":             "off",
 		"strict locking":          "no",
 		"usershare allow guests":  "yes",

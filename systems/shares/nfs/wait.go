@@ -9,7 +9,7 @@ import (
 )
 
 func (s *Struct) Wait() error {
-	if logger.IsDebugActive(s.Name()) {
+	if logger.IsDebugActive(Name) {
 		select {
 		case <-s.readyChan:
 			return nil

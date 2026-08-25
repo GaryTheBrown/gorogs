@@ -40,8 +40,7 @@ func PreCompileTemplates() {
 		}
 		name := strings.ToLower(entry.Name())
 
-		if strings.HasPrefix(name, "body") {
-			token := strings.TrimPrefix(name, "body")
+		if token, ok := strings.CutPrefix(name, "body"); ok {
 			if idx := strings.Index(token, "."); idx != -1 {
 				token = token[:idx]
 			}
