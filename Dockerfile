@@ -2,7 +2,7 @@
 # GLOBAL RUNTIME BUILD ARGUMENTS
 # ==============================================================================
 ARG GANESHA_AUR_URL="https://aur.archlinux.org/nfs-ganesha.git"
-ARG ENABLE_DEBUG=true
+ARG ENABLE_DEBUG=false
 ARG CGO_ENABLED=0
 ARG GOOS=linux
 ARG GOARCH=amd64
@@ -52,7 +52,6 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG CACHE_STAGE2=1 
 
 RUN mkdir -p \
-    /distroless/config \
     /distroless/etc \
     /distroless/etc/ssl/certs \
     /distroless/usr \
@@ -81,7 +80,6 @@ RUN mkdir -p \
     /distroless/var/lib/nfs/sm \
     /distroless/var/lib/nfs/sm.bak &&\
     chmod 1777 /distroless/tmp && \
-    chmod 0755 /distroless/config && \
     chmod 0755 /distroless/var/lock/samba && \
     chmod 0755 /distroless/var/cache/samba && \
     chmod 0755 /distroless/var/log/samba && \
