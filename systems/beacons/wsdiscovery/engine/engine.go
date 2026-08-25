@@ -14,14 +14,14 @@ type Engine struct {
 	DiscoveryQueue chan incoming.WSMessage
 	ListenerDone   <-chan struct{}
 	ServiceDone    chan struct{}
-	FlushDone      chan struct{} // 👑 Capitalized to make it visible to the parent package
+	FlushDone      chan struct{}
 }
 
 func NewEngineState() *Engine {
 	return &Engine{
 		DiscoveryQueue: make(chan incoming.WSMessage, 100),
 		ServiceDone:    make(chan struct{}),
-		FlushDone:      make(chan struct{}), // Initialize the synchronization channel
+		FlushDone:      make(chan struct{}),
 	}
 }
 

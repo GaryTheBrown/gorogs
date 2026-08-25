@@ -2,8 +2,9 @@ package versions
 
 import (
 	"errors"
-	"gorogs/logger"
 )
+
+var Name string
 
 var ErrVersionNotFound = errors.New("Version not found")
 var ErrActionNotFound = errors.New("Action not found")
@@ -93,7 +94,6 @@ func (at ActionTypeEnum) String() string {
 func StringToActionType(str string) (ActionTypeEnum, error) {
 	action, found := stringToActionMap[str]
 	if !found {
-		logger.ErrorF("WSDiscovery", "Action translation failure: target text command string '%s' does not exist in protocol vocabulary maps", ErrActionNotFound, str)
 		return MaxActionType, ErrActionNotFound
 	}
 	return action, nil
@@ -106,7 +106,6 @@ func (sla SchemaListArray) Action(action ActionTypeEnum) (fullSchemaURL string, 
 	case GetMetadata, GetMetadataResponse:
 		return sla[Mex] + "/" + action.String(), nil
 	default:
-		logger.ErrorF("WSDiscovery", "Action schema resolution failure: target enum index id '%d' falls outside parsing matrix parameters", ErrActionNotFound, action)
 		return "", ErrActionNotFound
 	}
 }
@@ -128,7 +127,6 @@ func (sl SchemaListMap) CheckDiscoveryVersion(i string) (schemaVersion string, e
 			return k, nil
 		}
 	}
-	logger.ErrorF("WSDiscovery", "Discovery schema check failure: incoming target namespace URL path context '%s' does not match any registered specification configuration release tier", ErrVersionNotFound, i)
 	return "", ErrVersionNotFound
 }
 

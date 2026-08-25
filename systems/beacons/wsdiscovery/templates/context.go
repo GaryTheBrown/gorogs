@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+var Name string
+
 var CombinedTemplateCache = make(map[string]map[string]*template.Template)
 
 type StaticBakingContext struct {
@@ -33,7 +35,7 @@ type RuntimeContext struct {
 	MessageID      string
 	RelatesTo      string
 	MessageNumber  uint64
-	ReplyToAddress string // 🚀 NEW: Maps context out to your precompiled header template block
+	ReplyToAddress string
 }
 
 var schemaIndexMap map[string]int

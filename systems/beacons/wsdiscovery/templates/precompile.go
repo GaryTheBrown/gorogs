@@ -25,12 +25,12 @@ func PreCompileTemplates() {
 
 	rawHeader, err := LoadTemplate("header")
 	if err != nil {
-		logger.Fatal("WSDiscovery", "Fatal initialization break: Missing core envelope header asset template", err)
+		logger.Fatal(Name, "Fatal initialization break: Missing core envelope header asset template", err)
 	}
 
 	entries, err := fs.ReadDir(xmlFS, "xml")
 	if err != nil {
-		logger.Fatal("WSDiscovery", "Failed to scan dynamic template tokens from embedFS storage layer", err)
+		logger.Fatal(Name, "Failed to scan dynamic template tokens from embedFS storage layer", err)
 	}
 
 	var templateFiles []string
@@ -98,33 +98,33 @@ func PreCompileTemplates() {
 				displayToken = "GetResponse"
 			default:
 
-				displayToken = strings.Title(token)
+				displayToken = strings.ToTitle(token)
 			}
 			bakeCtx.ActionType = actionURLBase + "/" + displayToken
 
 			bodyPreTmpl, err := template.New("body_pre_" + bodyFilename).Funcs(preFuncMap).Parse(rawBody)
 			if err != nil {
-				logger.FatalF("WSDiscovery", "[%s|%s] Body pass-1 syntax parsing error", err, schemaVersion, displayToken)
+				logger.FatalF(Name, "[%s|%s] Body pass-1 syntax parsing error", err, schemaVersion, displayToken)
 			}
 			var bodyBuf bytes.Buffer
 			if err := bodyPreTmpl.Execute(&bodyBuf, &bakeCtx); err != nil {
-				logger.FatalF("WSDiscovery", "[%s|%s] Body pass-1 execution failure", err, schemaVersion, displayToken)
+				logger.FatalF(Name, "[%s|%s] Body pass-1 execution failure", err, schemaVersion, displayToken)
 			}
 
 			bakeCtx.BodyPayload = bodyBuf.String()
 
 			headerPreTmpl, err := template.New("header_pre_" + bodyFilename).Funcs(preFuncMap).Parse(rawHeader)
 			if err != nil {
-				logger.FatalF("WSDiscovery", "[%s|%s] Header pass-2 syntax parsing error", err, schemaVersion, displayToken)
+				logger.FatalF(Name, "[%s|%s] Header pass-2 syntax parsing error", err, schemaVersion, displayToken)
 			}
 			var mergedBuffer bytes.Buffer
 			if err := headerPreTmpl.Execute(&mergedBuffer, &bakeCtx); err != nil {
-				logger.FatalF("WSDiscovery", "[%s|%s] Header pass-2 execution failure", err, schemaVersion, displayToken)
+				logger.FatalF(Name, "[%s|%s] Header pass-2 execution failure", err, schemaVersion, displayToken)
 			}
 
 			finalTmpl, err := template.New(schemaVersion + "|" + displayToken).Funcs(runtimeFuncMap).Parse(mergedBuffer.String())
 			if err != nil {
-				logger.FatalF("WSDiscovery", "[%s|%s] Final compilation generation matrix error", err, schemaVersion, displayToken)
+				logger.FatalF(Name, "[%s|%s] Final compilation generation matrix error", err, schemaVersion, displayToken)
 			}
 
 			CombinedTemplateCache[schemaVersion][displayToken] = finalTmpl

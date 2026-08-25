@@ -9,6 +9,7 @@ import (
 	"gorogs/systems/beacons/wsdiscovery/engine"
 	"gorogs/systems/beacons/wsdiscovery/incoming"
 	"gorogs/systems/beacons/wsdiscovery/templates"
+	"gorogs/systems/beacons/wsdiscovery/versions"
 	"gorogs/systems/systeminterface"
 	"time"
 )
@@ -24,6 +25,8 @@ func init() {
 	connection.Name = Name
 	engine.Name = Name
 	incoming.Name = Name
+	versions.Name = Name
+	templates.Name = Name
 }
 
 type Struct struct {
