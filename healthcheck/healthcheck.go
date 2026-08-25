@@ -125,7 +125,7 @@ func Stop() {
 
 }
 
-func AddTracker(sys systeminterface.System) bool {
+func AddTracker(sys systeminterface.System) error {
 	logger.DebugContinueF(logName, "Adding Tracker for %s...", sys.Name())
 	lName := strings.ToLower(sys.Name())
 	switch sys.Type() {
@@ -140,10 +140,10 @@ func AddTracker(sys systeminterface.System) bool {
 		logger.DebugAppend(logName, "[TYPE UTILITY]")
 	default:
 		logger.DebugEnd(logName, "[TYPE UNKNOWN]")
-		return false
+		return fmt.Errorf("Unknown System Type Cannot Add")
 	}
 	logger.DebugEnd(logName, "[DONE]")
-	return true
+	return nil
 }
 
 func socketListner() {
