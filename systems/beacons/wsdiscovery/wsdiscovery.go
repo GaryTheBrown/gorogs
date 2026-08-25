@@ -79,22 +79,32 @@ func (s *Struct) Start() error {
 
 func (s *Struct) Stop() {
 	logger.DebugContinue(Name, "Stopping WSDiscovery daemon threads...")
-	if s.cancel != nil {
-		s.cancel()
 
+	if s.engine != nil {
 		done := make(chan struct{})
+
 		go func() {
 			s.engine.Stop()
 			close(done)
 		}()
-		logger.DebugAppend(Name, "[CMD Stop]")
+
+		logger.DebugAppend(Name, "[CMD Stop Initiated]")
+
 		select {
 		case <-done:
-			logger.DebugAppend(Name, "[CLEAN SHUTDOWN]")
-		case <-time.After(200 * time.Millisecond):
-			logger.DebugAppend(Name, "[TIMEOUT]")
+			logger.DebugAppend(Name, "[ENGINE INTERNAL FLUSH CLEAN]")
+		case <-s.engine.FlushDone:
+			logger.DebugAppend(Name, "[BROADCAST BYE COUPLING CONFIRMED]")
+		case <-time.After(300 * time.Millisecond):
+			logger.DebugAppend(Name, "[TIMEOUT PROTECTION TRIGGERED]")
 		}
 	}
+
+	if s.cancel != nil {
+		s.cancel()
+		logger.DebugAppend(Name, "[CONTEXT CANCEL CLEAN]")
+	}
+
 	s.sState = systeminterface.STOPPED
 	logger.DebugEnd(Name, "[DONE]")
 }

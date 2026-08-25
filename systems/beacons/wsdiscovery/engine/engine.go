@@ -8,20 +8,20 @@ import (
 	"gorogs/systems/beacons/wsdiscovery/templates"
 )
 
-var (
-	Name string
-)
+var Name string
 
 type Engine struct {
 	DiscoveryQueue chan incoming.WSMessage
 	ListenerDone   <-chan struct{}
 	ServiceDone    chan struct{}
+	FlushDone      chan struct{} // 👑 Capitalized to make it visible to the parent package
 }
 
 func NewEngineState() *Engine {
 	return &Engine{
 		DiscoveryQueue: make(chan incoming.WSMessage, 100),
 		ServiceDone:    make(chan struct{}),
+		FlushDone:      make(chan struct{}), // Initialize the synchronization channel
 	}
 }
 

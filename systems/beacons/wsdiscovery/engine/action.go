@@ -5,19 +5,19 @@ import (
 	"gorogs/systems/beacons/wsdiscovery/versions"
 )
 
-func (s *Engine) ActionDispatcher(ctx context.Context) {
-	defer close(s.ServiceDone)
-	for msg := range s.DiscoveryQueue {
+func (e *Engine) ActionDispatcher(ctx context.Context) {
+	defer close(e.ServiceDone)
+	for msg := range e.DiscoveryQueue {
 		switch msg.Header.ActionType {
 		case versions.Probe:
-			s.ExecuteProbeAction(msg)
+			e.ExecuteProbeAction(msg)
 		case versions.Resolve:
-			s.ExecuteResolveAction(msg)
+			e.ExecuteResolveAction(msg)
 		case versions.Get:
-			s.ExecuteGetAction(msg)
+			e.ExecuteGetAction(msg)
 		default:
 		}
 	}
 
-	<-s.ListenerDone
+	<-e.ListenerDone
 }

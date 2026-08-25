@@ -8,7 +8,7 @@ import (
 	"gorogs/systems/beacons/wsdiscovery/versions"
 )
 
-func (s *Engine) ExecuteProbeAction(msg incoming.WSMessage) {
+func (e *Engine) ExecuteProbeAction(msg incoming.WSMessage) {
 	senderString := msg.Sender.String()
 
 	payloadBytes, err := templates.GenerateXMLResponse(
@@ -40,7 +40,7 @@ func (s *Engine) ExecuteProbeAction(msg incoming.WSMessage) {
 	}
 }
 
-func (s *Engine) ExecuteResolveAction(msg incoming.WSMessage) {
+func (e *Engine) ExecuteResolveAction(msg incoming.WSMessage) {
 	senderString := msg.Sender.String()
 
 	payloadBytes, err := templates.GenerateXMLResponse(
@@ -72,7 +72,7 @@ func (s *Engine) ExecuteResolveAction(msg incoming.WSMessage) {
 	}
 }
 
-func (s *Engine) ExecuteGetAction(msg incoming.WSMessage) {
+func (e *Engine) ExecuteGetAction(msg incoming.WSMessage) {
 	if msg.HTTPResponsePipe == nil {
 		logger.Error(Name, "ExecuteGetAction dropped execution pass: missing transaction channel reference", nil)
 		return
