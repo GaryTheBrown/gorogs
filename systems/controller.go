@@ -38,9 +38,7 @@ func Start() error {
 			if err := sys.Start(); err != nil {
 				logger.Fatal(logName, "SOMETHING FAILED", err)
 			}
-			if err := healthcheck.AddTracker(sys); err != nil && sys.IsCritical() {
-				logger.FatalF(logName, "Health Checker Failed to Add %s", err, sys.Name())
-			}
+			healthcheck.AddTracker(sys)
 		}
 	}
 	return nil

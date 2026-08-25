@@ -8,21 +8,20 @@ import (
 	"gorogs/logger"
 	"gorogs/systems/shares/nfs"
 	"gorogs/systems/shares/samba"
+	"gorogs/systems/systeminterface"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
+	logger.DebugF(logName, "Executing active evaluation loop under strategy level code: %d", healthMode)
 	isHealthy := true
 	failureMessage := ""
-
-	logger.DebugF(logName, "Executing active evaluation loop under strategy level code: %d", healthMode)
-
 	if healthMode == Disabled {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "OK")
 		return
 	}
 
-	for name, share := range trackedShares {
+	for name, share := range tracked {
 		if healthMode == Nfs && name != strings.ToLower(nfs.Name) {
 			continue
 		}
@@ -34,37 +33,24 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			shouldFail := false
 			switch healthMode {
-			case Full, Shares, Nfs, Samba:
+			case Full:
 				shouldFail = true
-			case Critical, Default:
+			case Critical:
 				shouldFail = share.IsCritical()
+			case Shares:
+				shouldFail = (systeminterface.Share == share.Type())
+			case Nfs:
+				shouldFail = (name == strings.ToLower(nfs.Name))
+			case Samba:
+				shouldFail = (name == strings.ToLower(samba.Name))
+			case Default:
+				shouldFail = (systeminterface.Share == share.Type())
 			}
 
 			if shouldFail {
 				isHealthy = false
 				logger.ErrorF(logName, "Critical storage share error on component [%s]", err, name)
 				break
-			}
-		}
-	}
-
-	if isHealthy && healthMode != Shares && healthMode != Nfs && healthMode != Samba {
-		for name, beacon := range trackedBeacons {
-			err := beacon.Healthcheck()
-			if err != nil {
-				shouldFail := false
-				switch healthMode {
-				case Full:
-					shouldFail = true
-				case Critical:
-					shouldFail = beacon.IsCritical()
-				}
-
-				if shouldFail {
-					isHealthy = false
-					logger.ErrorF(logName, "Critical advertisement beacon error on component [%s]", err, name)
-					break
-				}
 			}
 		}
 	}

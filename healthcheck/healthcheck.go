@@ -31,21 +31,15 @@ const (
 )
 
 var (
-	healthMode       Level
-	trackedBeacons   map[string]systeminterface.System
-	trackedShares    map[string]systeminterface.System
-	trackedUtilities map[string]systeminterface.System
-	server           *http.Server
-	listener         net.Listener
+	healthMode Level
+	tracked    map[string]systeminterface.System
+	server     *http.Server
+	listener   net.Listener
 )
 
 func Setup() {
 	logger.DebugContinue(logName, "System Setup...")
-	trackedBeacons = make(map[string]systeminterface.System)
-	logger.DebugAppend(logName, "[make map]")
-	trackedShares = make(map[string]systeminterface.System)
-	logger.DebugAppend(logName, "[make map]")
-	trackedUtilities = make(map[string]systeminterface.System)
+	tracked = make(map[string]systeminterface.System)
 	logger.DebugAppend(logName, "[make map]")
 
 	hEnv := strings.ToLower(config.Get(logName, "default"))
@@ -125,25 +119,11 @@ func Stop() {
 
 }
 
-func AddTracker(sys systeminterface.System) error {
+func AddTracker(sys systeminterface.System) {
 	logger.DebugContinueF(logName, "Adding Tracker for %s...", sys.Name())
 	lName := strings.ToLower(sys.Name())
-	switch sys.Type() {
-	case systeminterface.Beacon:
-		trackedBeacons[lName] = sys
-		logger.DebugAppend(logName, "[TYPE BEACON]")
-	case systeminterface.Share:
-		trackedShares[lName] = sys
-		logger.DebugAppend(logName, "[TYPE SHARE]")
-	case systeminterface.Utility:
-		trackedUtilities[lName] = sys
-		logger.DebugAppend(logName, "[TYPE UTILITY]")
-	default:
-		logger.DebugEnd(logName, "[TYPE UNKNOWN]")
-		return fmt.Errorf("Unknown System Type Cannot Add")
-	}
+	tracked[lName] = sys
 	logger.DebugEnd(logName, "[DONE]")
-	return nil
 }
 
 func socketListner() {
