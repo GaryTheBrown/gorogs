@@ -88,6 +88,7 @@ RUN mkdir -p \
     chmod 0700 /distroless/run/samba/ncalrpc/np && \
     chmod 0775 /distroless/run/rpcbind && \
     chmod 0755 /distroless/run/sendsigs.omit.d && \
+    chmod 0755 /distroless/var/run/ganesha && \
     chmod 0755 /distroless/var/lib/nfs/sm && \
     chmod 0755 /distroless/var/lib/nfs/sm.bak && \
     ln -s usr/bin /distroless/bin && \
