@@ -28,48 +28,32 @@ func IsEnabled(service string) bool {
 	return exists
 }
 
-func GetServiceConfig(service string) map[string]any {
-	if gotValue, exists := massConfigMap[service]; exists {
-		if subMap, typeRight := gotValue.(map[string]any); typeRight {
-			return subMap
-		}
+type ConfigMap map[string]any
+
+func (cm ConfigMap) GetSubSection(subSection string) ConfigMap {
+	if gotValue, exists := cm[strings.ToLower(subSection)].(ConfigMap); exists {
+		return gotValue
 	}
 	return nil
 }
 
-func GetSingleServiceConfig(service string) any {
-	if gotValue, exists := massConfigMap[service]; exists {
-		if _, isMap := gotValue.(map[string]any); !isMap {
-			return gotValue
-		}
+func (cm ConfigMap) Get[T any](key string, defaultValue T) T {
+	if gotValue, exists := cm[strings.ToLower(key)].(T); exists {
+		return gotValue
+	}
+	return defaultValue
+}
+
+func GetServiceConfig(key string) ConfigMap {
+	if gotValue, exists := massConfigMap[strings.ToLower(key)].(ConfigMap); exists {
+		return gotValue
 	}
 	return nil
 }
 
-func GetSingleServiceConfigString(service string, defaultString string) string {
-	if gotValue, exists := massConfigMap[service].(string); exists {
+func Get[T any](key string, defaultValue T) T {
+	if gotValue, exists := massConfigMap[strings.ToLower(key)].(T); exists {
 		return gotValue
 	}
-	return defaultString
-}
-
-func GetSingleServiceConfigBool(service string, defaultBool bool) bool {
-	if gotValue, exists := massConfigMap[service].(bool); exists {
-		return gotValue
-	}
-	return defaultBool
-}
-
-func GetSingleServiceConfigInt(service string, defaultInt int) int {
-	if gotValue, exists := massConfigMap[service].(int); exists {
-		return gotValue
-	}
-	return defaultInt
-}
-
-func GetSingleServiceConfigFloat(service string, defaultFloat float64) float64 {
-	if gotValue, exists := massConfigMap[service].(float64); exists {
-		return gotValue
-	}
-	return defaultFloat
+	return defaultValue
 }

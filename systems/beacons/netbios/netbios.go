@@ -37,10 +37,14 @@ func (_ *Struct) AutoStart() bool                              { return AutoStar
 func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
+func (s *Struct) Config() {
+	//NOTHING TO CONFIGURE IN HERE
+}
+
 func (s *Struct) Setup() {
 	logger.DebugContinue(Name, "System Setup...")
 
-	if err := s.writeMasterNmbdConfig(config.Hostname); err != nil {
+	if err := s.writeMasterNmbdConfig(); err != nil {
 		logger.FatalF(Name, "failed to write %s config file", err, Name)
 	}
 	logger.DebugAppend(Name, "[write config]")
@@ -49,19 +53,17 @@ func (s *Struct) Setup() {
 	logger.DebugEnd(Name, "[DONE]")
 }
 
-func (s *Struct) writeMasterNmbdConfig(serverName string) error {
+func (s *Struct) writeMasterNmbdConfig() error {
 
-	masterContent := "[global]\n" +
-		"    netbios name = " + serverName + "\n" +
-		"    workgroup = WORKGROUP\n" +
-		"    server string = Network Discovery Beacon\n" +
-		"    log file = /var/log/samba/log.nmbd\n" +
-		"    max log size = 1000\n" +
-		"    logging = file\n" +
-		"    local master = no\n" +
-		"    preferred master = no\n" +
-		"    domain master = no\n"
-
+	masterContent := fmt.Sprintf(`[global]
+	netbios name = %s
+	workgroup = %s
+	server string = Network Discovery Beacon
+	log file = /dev/null
+	local master = no
+	preferred master = no
+	domain master = no
+`, config.Hostname, config.Workgroup)
 	return os.WriteFile(masterConfigPath, []byte(masterContent), 0644)
 }
 

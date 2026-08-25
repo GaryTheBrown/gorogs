@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"gorogs/config"
 	"gorogs/logger"
 	"gorogs/systems/beacons/wsdiscovery/connection"
 	"gorogs/systems/beacons/wsdiscovery/incoming"
@@ -27,7 +26,7 @@ func NewEngineState() *Engine {
 }
 
 func (s *Engine) Start(ctx context.Context, configDir string) error {
-	templates.LoadOrCreatePersistentUUID(configDir, config.Hostname)
+	templates.LoadOrCreatePersistentUUID()
 
 	if err := connection.InitUDPSocket(); err != nil {
 		logger.Error(Name, "Fatal break: Central WS-Discovery UDP socket failed to bind", err)

@@ -42,10 +42,19 @@ func (_ *Struct) AutoStart() bool                              { return AutoStar
 func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
-// DEFAULT CONFIG VARS TO EVENTUALLY BE LOADED IN FORM A map[string]any
 var (
 	systemMode = structs.ModeRegistry
 )
+
+func (s *Struct) Config() {
+	cm := config.GetServiceConfig(Name)
+	mode := cm.Get("mode", "Registry")
+	systemMode = structs.StringToMode(mode)
+	vars.LibBaseDirOverlay = cm.Get("libbasediroverlay", true)
+	vars.BatchInjection = cm.Get("batchinjection", true)
+	vars.VetoFiles = cm.Get("vetofiles", "/*.~tmp/")
+	vars.DefaultShareComment = cm.Get("defaultcomment", "")
+}
 
 func (s *Struct) Setup() {
 	logger.DebugContinue(Name, "System Setup...")

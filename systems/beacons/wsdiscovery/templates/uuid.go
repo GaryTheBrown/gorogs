@@ -3,9 +3,6 @@ package templates
 import (
 	"crypto/rand"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 )
 
 var currentInstanceUUID string
@@ -28,20 +25,9 @@ func GenerateRandomUUIDv4() string {
 	return uuidStr
 }
 
-func LoadOrCreatePersistentUUID(configDir string, serverName string) {
-	cleanServerName := strings.ToLower(strings.TrimSpace(serverName))
-	if cleanServerName == "" {
-		cleanServerName = "generic-node"
+func LoadOrCreatePersistentUUID() {
+	if currentInstanceUUID != "" {
+		return
 	}
-	fileName := fmt.Sprintf("uuid-%s.txt", cleanServerName)
-	filePath := filepath.Join(configDir, fileName)
-	data, err := os.ReadFile(filePath)
-	if err == nil {
-		currentInstanceID := strings.TrimSpace(string(data))
-		if len(currentInstanceID) == 36 {
-			return
-		}
-	}
-	currentInstanceID := GenerateRandomUUIDv4()
-	_ = os.WriteFile(filePath, []byte(currentInstanceID), 0644)
+	currentInstanceUUID = GenerateRandomUUIDv4()
 }

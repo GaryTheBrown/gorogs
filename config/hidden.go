@@ -34,4 +34,4 @@ var (
 	enabled  map[string]bool
 )
 
-var massConfigMap = make(map[string]any)
+var massConfigMap = make(ConfigMap)

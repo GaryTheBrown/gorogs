@@ -3,6 +3,7 @@ package wsdiscovery
 import (
 	"context"
 	"fmt"
+	"gorogs/config"
 	"gorogs/logger"
 	"gorogs/systems/beacons/wsdiscovery/connection"
 	"gorogs/systems/beacons/wsdiscovery/engine"
@@ -18,6 +19,12 @@ const (
 	IsCritical = false
 	AutoStart  = false
 )
+
+func init() {
+	connection.Name = Name
+	engine.Name = Name
+	incoming.Name = Name
+}
 
 type Struct struct {
 	sState systeminterface.SysStateEnum
@@ -35,6 +42,12 @@ func (_ *Struct) AutoStart() bool                              { return AutoStar
 func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
+func (s *Struct) Config() {
+	cm := config.GetServiceConfig(Name)
+	incoming.DisableValidation = cm.Get("disablevalidation", false)
+	connection.FastDecodingMode = cm.Get("fastdecode", false)
+}
+
 func (s *Struct) Setup() {
 	logger.DebugContinue(Name, "System Setup...")
 
@@ -43,14 +56,6 @@ func (s *Struct) Setup() {
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.engine = engine.NewEngineState()
 	logger.DebugAppend(Name, "[SETUP ENGINE]")
-
-	//Configs For This this will eventually be something we get from the cfg when we
-	// switch to a more dynamic way of passing configs in and out.
-	incoming.SkipValidation = false //only works if fastdecodingmode is false
-	connection.FastDecodingMode = false
-	connection.Name = Name
-	engine.Name = Name
-	incoming.Name = Name
 
 	s.sState = systeminterface.SETUP
 	logger.DebugEnd(Name, "[DONE]")

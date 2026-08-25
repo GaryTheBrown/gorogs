@@ -37,6 +37,10 @@ func (_ *Struct) AutoStart() bool                              { return AutoStar
 func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
+func (s *Struct) Config() {
+	// NOTHING TO CONFIGURE IN HERE
+}
+
 func (s *Struct) Setup() {
 	logger.DebugContinue(Name, "System Setup...")
 	s.sState = systeminterface.SETUP

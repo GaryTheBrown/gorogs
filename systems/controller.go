@@ -12,6 +12,12 @@ import (
 
 const logName = "systems"
 
+func Config() {
+	for _, sys := range systemList {
+		sys.Config()
+	}
+}
+
 func Setup() {
 	for i, sys := range systemList {
 		if !ShouldItStart(SystemNameEnum(i)) ||

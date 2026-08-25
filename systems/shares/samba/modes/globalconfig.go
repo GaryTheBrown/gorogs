@@ -34,7 +34,7 @@ var (
 		"strict locking":          "no",
 		"usershare allow guests":  "yes",
 		"use sendfile":            "yes",
-		"veto files":              "/*.*/" + vars.VetoFiles,
+		"veto files":              "/.*/" + vars.VetoFiles,
 		"workgroup":               config.Workgroup,
 	}
 

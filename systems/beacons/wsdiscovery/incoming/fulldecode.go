@@ -10,7 +10,7 @@ import (
 )
 
 var InstanceUUID string
-var SkipValidation bool
+var DisableValidation bool
 
 func FullDecode(rawUDP []byte, message *WSMessage) error {
 	lists := NewListsStruct()
@@ -25,7 +25,7 @@ func FullDecode(rawUDP []byte, message *WSMessage) error {
 		return ErrBadSchemaFailedHeaderRead{ExternalError: err}
 	}
 
-	if !SkipValidation && message.Header.ActionType != versions.Get {
+	if !DisableValidation && message.Header.ActionType != versions.Get {
 		if err := ValidateStrictNamespaces(message.SchemaVersion, envelope.Attrs, lists); err != nil {
 			return err
 		}

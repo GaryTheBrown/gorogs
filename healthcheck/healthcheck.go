@@ -48,7 +48,7 @@ func Setup() {
 	trackedUtilities = make(map[string]systeminterface.System)
 	logger.DebugAppend(logName, "[make map]")
 
-	hEnv := strings.ToLower(config.GetSingleServiceConfigString(logName, "default"))
+	hEnv := strings.ToLower(config.Get(logName, "default"))
 	logger.DebugAppend(logName, "[get healthmode]")
 	switch hEnv {
 	case "full":

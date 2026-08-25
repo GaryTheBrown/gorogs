@@ -8,6 +8,7 @@ type System interface {
 	IsState(in SysStateEnum) bool
 	GetState() SysStateEnum
 
+	Config()
 	Setup()
 	Start() error
 	Stop()

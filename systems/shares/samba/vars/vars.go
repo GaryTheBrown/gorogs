@@ -14,12 +14,13 @@ const (
 
 	MasterConfigFile = "/etc/samba/smb.conf"
 	ShareConfigFile  = SambaBaseLibDir + "/smb-shares.conf"
+)
 
-	// DEFAULT CONFIG VARS TO EVENTUALLY BE LOADED IN FORM A map[string]any
-	LibBaseDirOverlay   = true
-	BatchInjection      = true
-	VetoFiles           = "/*.~tmp/" //This one is for when copying big files to keep them hidden until complete.
-	DefaultShareComment = ""
+var (
+	LibBaseDirOverlay   bool
+	BatchInjection      bool
+	VetoFiles           string
+	DefaultShareComment string
 )
 
 var (

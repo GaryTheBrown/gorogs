@@ -22,6 +22,8 @@ func main() {
 	healthcheck.Start()
 	logger.Info(logName, "Healthcheck Started")
 
+	logger.Info(logName, "Configs Setup...")
+	systems.Config()
 	logger.Info(logName, "Setting up Systems...")
 	systems.Setup()
 	logger.Info(logName, "Starting Systems...")
