@@ -52,6 +52,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG CACHE_STAGE2=1 
 
 RUN mkdir -p \
+    /distroless/config \
     /distroless/etc \
     /distroless/etc/ssl/certs \
     /distroless/usr \
@@ -80,6 +81,7 @@ RUN mkdir -p \
     /distroless/var/lib/nfs/sm \
     /distroless/var/lib/nfs/sm.bak &&\
     chmod 1777 /distroless/tmp && \
+    chmod 0755 /distroless/config && \
     chmod 0755 /distroless/var/lock/samba && \
     chmod 0755 /distroless/var/cache/samba && \
     chmod 0755 /distroless/var/log/samba && \

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"gorogs/logger"
 	"gorogs/systems/beacons/wsdiscovery/versions"
 )
 
@@ -144,13 +143,8 @@ func executeQuickBodyParsing(rawUDP []byte, message *WSMessage) error {
 		}
 		message.Body.Bye.Address = strings.TrimPrefix(string(addrBytes), "urn:uuid:")
 
-	case versions.GetMetadata:
-		logger.Debug("WSDiscovery", "[QuickDecode] GetMetadata endpoint processed successfully.")
-
 	default:
-		if logger.DebugActive {
-			logger.DebugF("WSDiscovery", "[QuickDecode] No custom payload tracker required for action: %s", message.Header.ActionType.String())
-		}
+
 	}
 
 	return nil

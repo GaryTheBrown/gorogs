@@ -49,9 +49,6 @@ func PreCompileTemplates() {
 		}
 	}
 
-	logger.InfoF("WSDiscovery", "Successfully auto-discovered %d outbound body templates inside embedFS.", len(templateFiles))
-	logger.Info("WSDiscovery", "Executing multi-version deep pre-rendering compilation matrix on text assets...")
-
 	for schemaVersion, schemaArray := range versions.SchemaList {
 		CombinedTemplateCache[schemaVersion] = make(map[string]*template.Template)
 		envelopeAttrsStr := BuildEnvelopeAttributes(schemaArray)
@@ -134,5 +131,4 @@ func PreCompileTemplates() {
 			CombinedTemplateCache[schemaVersion][displayToken] = finalTmpl
 		}
 	}
-	logger.Info("WSDiscovery", "Multi-version template nested matrix fully baked and locked into RAM.")
 }

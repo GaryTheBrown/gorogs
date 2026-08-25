@@ -3,7 +3,7 @@ package templates
 import (
 	"bytes"
 	"fmt"
-	"gorogs/logger"
+
 	"gorogs/systems/beacons/wsdiscovery/versions"
 
 	"strings"
@@ -112,7 +112,6 @@ func GenerateXMLResponse(currentVersion string, to string, actionurl string, act
 
 	var finalBuf bytes.Buffer
 	if err := tmpl.Execute(&finalBuf, &ctx); err != nil {
-		logger.Error("WSDiscovery", "Single-pass context rendering tracking pipeline encountered an execution failure", err)
 		return nil, fmt.Errorf("failed to execute combined multi-version template payload: %w", err)
 	}
 

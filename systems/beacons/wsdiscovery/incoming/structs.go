@@ -7,6 +7,10 @@ import (
 	"gorogs/systems/beacons/wsdiscovery/versions"
 )
 
+var (
+	Name string
+)
+
 type listsStruct struct {
 	Found         [versions.MaxSchemaType]bool
 	Shortcut      map[string]versions.SchemaTypeEnum

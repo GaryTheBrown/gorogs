@@ -3,7 +3,6 @@ package wsdiscovery
 import (
 	"context"
 	"fmt"
-	"gorogs/config"
 	"gorogs/logger"
 	"gorogs/systems/beacons/wsdiscovery/connection"
 	"gorogs/systems/beacons/wsdiscovery/engine"
@@ -11,6 +10,13 @@ import (
 	"gorogs/systems/beacons/wsdiscovery/templates"
 	"gorogs/systems/systeminterface"
 	"time"
+)
+
+const (
+	Name       = "WSDiscovery"
+	Type       = systeminterface.Beacon
+	IsCritical = false
+	AutoStart  = false
 )
 
 type Struct struct {
@@ -22,79 +28,70 @@ type Struct struct {
 	SkipValidation bool
 }
 
-func (_ *Struct) Name() string                                 { return "wsdiscovery" }
-func (_ *Struct) Type() systeminterface.SystemTypeEnum         { return systeminterface.Beacon }
-func (_ *Struct) IsCritical() bool                             { return false }
-func (_ *Struct) AutoStart() bool                              { return true }
+func (_ *Struct) Name() string                                 { return Name }
+func (_ *Struct) Type() systeminterface.SystemTypeEnum         { return Type }
+func (_ *Struct) IsCritical() bool                             { return IsCritical }
+func (_ *Struct) AutoStart() bool                              { return AutoStart }
 func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
 func (s *Struct) Setup() {
-	logger.Info("WSDiscovery", "Executing service configuration pre-flight routines...")
+	logger.DebugContinue(Name, "System Setup...")
 
 	templates.PreCompileTemplates()
+	logger.DebugAppend(Name, "[PRECOMPILE TEMPLATES]")
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.engine = engine.NewEngineState()
+	logger.DebugAppend(Name, "[SETUP ENGINE]")
 
 	//Configs For This this will eventually be something we get from the cfg when we
 	// switch to a more dynamic way of passing configs in and out.
 	incoming.SkipValidation = false //only works if fastdecodingmode is false
 	connection.FastDecodingMode = false
+	connection.Name = Name
+	engine.Name = Name
+	incoming.Name = Name
 
-	if incoming.SkipValidation {
-		logger.Info("WSDiscovery", "High-speed tokenless XML decoding optimization shunt is ACTIVE.")
-	} else {
-		logger.Info("WSDiscovery", "Standard full-document recursive namespace token validation scan is ACTIVE.")
-	}
-	logger.InfoF("WSDiscovery", "Subsystem setup completed for server name: %s", config.Hostname)
 	s.sState = systeminterface.SETUP
+	logger.DebugEnd(Name, "[DONE]")
 }
 
 func (s *Struct) Start() error {
-	if s.engine == nil {
-		err := fmt.Errorf("setup state was not executed")
-		logger.Error("WSDiscovery", "Start process failed fundamentally", err)
-		return fmt.Errorf("WSDiscovery service failed to start: %w", err)
-	}
-
-	logger.Info("WSDiscovery", "Launching background network engines and dispatcher routines...")
+	logger.DebugContinue(Name, "System Starting...")
 	err := s.engine.Start(
 		s.ctx,
 		"/config",
 	)
 	if err != nil {
-		logger.Error("WSDiscovery", "Engine failed to initialize completely", err)
 		return fmt.Errorf("WSDiscovery engine failed to initialize: %w", err)
 	}
+	logger.DebugAppend(Name, "[STARTED ENGINE]")
 
-	logger.Info("WSDiscovery", "Daemon engine successfully running in background mode.")
 	s.sState = systeminterface.STARTED
+	logger.DebugEnd(Name, "[DONE]")
 	return nil
 }
 
 func (s *Struct) Stop() {
-	if s.cancel == nil {
-		logger.Error("WSDiscovery", "Stop command skipped: cancellation pointer wrapper is unallocated", nil)
-		return
+	logger.DebugContinue(Name, "Stopping WSDiscovery daemon threads...")
+	if s.cancel != nil {
+		s.cancel()
+
+		done := make(chan struct{})
+		go func() {
+			s.engine.Stop()
+			close(done)
+		}()
+		logger.DebugAppend(Name, "[CMD Stop]")
+		select {
+		case <-done:
+			logger.DebugAppend(Name, "[CLEAN SHUTDOWN]")
+		case <-time.After(200 * time.Millisecond):
+			logger.DebugAppend(Name, "[TIMEOUT]")
+		}
 	}
-
-	logger.Info("WSDiscovery", "Shutdown execution requested. Safely draining network workers...")
-	s.cancel()
-
-	done := make(chan struct{})
-	go func() {
-		s.engine.Stop()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		logger.Info("WSDiscovery", "Subsystem completely closed down. Multicast groups detached cleanly.")
-	case <-time.After(200 * time.Millisecond):
-		logger.Info("WSDiscovery", "Network flush timed out during packet drain. Forcing immediate subsystem release.")
-	}
-
 	s.sState = systeminterface.STOPPED
+	logger.DebugEnd(Name, "[DONE]")
 }
 
 func (s *Struct) Healthcheck() error {
