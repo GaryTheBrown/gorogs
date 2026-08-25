@@ -53,7 +53,10 @@ ARG CACHE_STAGE2=1
 
 RUN mkdir -p \
     /distroless/etc \
+    /distroless/etc/ssl \
     /distroless/etc/ssl/certs \
+    /distroless/etc/ca-certificates \
+    /distroless/etc/ca-certificates/extracted \
     /distroless/usr \
     /distroless/usr/bin \
     /distroless/usr/lib \
@@ -100,8 +103,9 @@ RUN mkdir -p \
     grep -E '^root:|^nobody:|^rpc:|^wheel:' /etc/group > /distroless/etc/group && \
     cp -a /etc/protocols /etc/services /etc/netconfig /distroless/etc/ && \
     if [ -f /etc/idmapd.conf ]; then cp -a /etc/idmapd.conf /distroless/etc/; fi && \
-    if [ -f /etc/ssl/certs/ca-certificates.crt ]; then cp -a /etc/ssl/certs/ca-certificates.crt /distroless/etc/ssl/certs/; fi && \
     echo "hosts: files dns" > /distroless/etc/nsswitch.conf && \
+    cp -a /etc/ssl/certs/ca-certificates.crt /distroless/etc/ssl/certs/ && \
+    cp -a /etc/ca-certificates/extracted/* /distroless/etc/ca-certificates/extracted/ && \
     cp /usr/bin/ganesha.nfsd /distroless/usr/bin/ && \
     cp /usr/bin/smbd /distroless/usr/bin/ && \
     cp /usr/bin/net /distroless/usr/bin/ && \
