@@ -36,7 +36,6 @@ func SendMulticastBroadcast(payload []byte) error {
 	}
 
 	if UDPConn != nil {
-		logger.DebugF(Name, "Reusing central socket to write multicast broadcast to group: %s:%s", DiscoveryMulticastIP, DiscoveryMulticastPort)
 		_, err := UDPConn.WriteToUDP(payload, multicastAddr)
 		if err != nil {
 			logger.Error(Name, "Network write operation failure: data frame dropped writing multicast payload", err)
