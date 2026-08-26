@@ -62,7 +62,7 @@ func (s *Struct) Start() error {
 }
 
 func (s *Struct) Stop() {
-	logger.DebugContinue(Name, "Stopping RPCBind daemon threads...")
+	logger.DebugContinue(Name, "Stopping RPCBind...")
 
 	s.startRPCStatd()
 	s.stopRPCBind()

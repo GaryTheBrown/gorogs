@@ -81,7 +81,7 @@ func (s *Struct) Start() error {
 }
 
 func (s *Struct) Stop() {
-	logger.DebugContinue(Name, "Stopping WSDiscovery daemon threads...")
+	logger.DebugContinue(Name, "Stopping WSDiscovery...")
 
 	if s.engine != nil {
 		done := make(chan struct{})

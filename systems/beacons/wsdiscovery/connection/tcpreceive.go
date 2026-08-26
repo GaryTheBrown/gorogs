@@ -41,19 +41,19 @@ func HandleIncomingHTTPTransfer(w http.ResponseWriter, r *http.Request, outputCh
 
 	if FastDecodingMode {
 		if err := incoming.QuickDecode(bodyBytes, &msg); err != nil {
-			logger.ErrorF(Name, "[Worker] Fast Decoding Failed: %s", err, remoteAddrStr)
+			logger.WarnF(Name, "[Worker] Fast Decoding Failed: %s ERROR: %s", remoteAddrStr, err.Error())
 			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 	} else {
 		if err := incoming.FullDecode(bodyBytes, &msg); err != nil {
-			logger.ErrorF(Name, "[Worker] Dropping invalid/malformed payload block from remote host: %s", err, remoteAddrStr)
+			logger.WarnF(Name, "[Worker] Dropping invalid/malformed payload block from remote host: %s ERROR: %s", remoteAddrStr, err.Error())
 			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 	}
 	if err := incoming.FullDecode(bodyBytes, &msg); err != nil {
-		logger.ErrorF(Name, "[HTTP Transfer] Dropping invalid/malformed SOAP frame from: %s", err, remoteAddrStr)
+		logger.WarnF(Name, "[HTTP Transfer] Dropping invalid/malformed SOAP frame from: %s ERROR: %s", remoteAddrStr, err.Error())
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
@@ -74,7 +74,7 @@ func HandleIncomingHTTPTransfer(w http.ResponseWriter, r *http.Request, outputCh
 		}
 
 		if err := StreamHTTPMetadataPayload(w, result.BodyBytes); err != nil {
-			logger.ErrorF(Name, "[HTTP Transfer] Pipeline execution failed transmitting content blocks to: %s", err, remoteAddrStr)
+			logger.WarnF(Name, "[HTTP Transfer] Pipeline execution failed transmitting content blocks to: %s  ERROR: %s", remoteAddrStr, err.Error())
 		}
 
 	case <-r.Context().Done():

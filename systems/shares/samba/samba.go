@@ -101,7 +101,7 @@ func (s *Struct) Start() error {
 }
 
 func (s *Struct) Stop() {
-	logger.DebugContinue(Name, "Stopping NetBIOS daemon threads...")
+	logger.DebugContinue(Name, "Stopping NetBIOS...")
 	if s.cancelWatch != nil {
 		s.cancelWatch()
 		logger.DebugAppend(Name, "[CANCEL WATCH]")

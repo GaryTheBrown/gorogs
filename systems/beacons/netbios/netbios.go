@@ -103,7 +103,7 @@ func (s *Struct) Start() error {
 }
 
 func (s *Struct) Stop() {
-	logger.DebugContinue(Name, "Stopping NetBIOS daemon threads...")
+	logger.DebugContinue(Name, "Stopping NetBIOS...")
 	if s.cmd != nil && s.cmd.Process != nil {
 
 		if err := s.cmd.Process.Signal(syscall.SIGTERM); err != nil {

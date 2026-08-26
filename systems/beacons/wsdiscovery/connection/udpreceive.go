@@ -62,12 +62,12 @@ func UDPWorker(wg *sync.WaitGroup, data []byte, sender net.Addr, outputChan chan
 	senderString := sender.String()
 	if FastDecodingMode {
 		if err := incoming.QuickDecode(data, &msg); err != nil {
-			logger.ErrorF(Name, "[Worker] Fast Decoding Failed: %s", err, senderString)
+			logger.WarnF(Name, "[Worker] Fast Decoding Failed: %s ERROR: %s", senderString, err.Error())
 			return
 		}
 	} else {
 		if err := incoming.FullDecode(data, &msg); err != nil {
-			logger.ErrorF(Name, "[Worker] Dropping invalid/malformed payload block from remote host: %s", err, senderString)
+			logger.WarnF(Name, "[Worker] Dropping invalid/malformed payload block from remote host: %s ERROR: %s", senderString, err.Error())
 			return
 		}
 	}

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const logName = "systems"
+const logName = "main"
 
 func Config() {
 	for _, sys := range systemList {
@@ -45,8 +45,6 @@ func Start() error {
 }
 
 func Stop() {
-	logger.InfoF(logName, "Initiating parallel storage cluster teardown sequence...")
-
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
 
@@ -62,13 +60,13 @@ func Stop() {
 		go func(s systeminterface.System) {
 			defer wg.Done()
 
-			logger.InfoF(s.Name(), "Stopping: %s...", s.Name())
+			logger.InfoF(s.Name(), "Stopping: %s", s.Name())
 			s.Stop()
 
 			if s.IsState(systeminterface.STOPPED) {
-				logger.InfoF(s.Name(), "Stopping: %s[DONE]", s.Name())
+				logger.InfoF(s.Name(), "Stopped: %s[DONE]", s.Name())
 			} else {
-				logger.InfoF(s.Name(), "Stopping: %s[FAILED]", s.Name())
+				logger.InfoF(s.Name(), "Stopped: %s[FAILED]", s.Name())
 			}
 		}(sys)
 	}
@@ -81,7 +79,7 @@ func Stop() {
 
 	select {
 	case <-done:
-		logger.InfoF(logName, "All storage appliance subsystems cleanly defused in parallel. Graceful exit accomplished.")
+		logger.InfoF(logName, "Graceful exit accomplished.")
 	case <-shutdownCtx.Done():
 		logger.WarnF(logName, "Teardown safety threshold reached before all socket threads cleared. Overriding deadlock to ensure clean exit.")
 	}
