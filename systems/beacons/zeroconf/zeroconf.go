@@ -39,10 +39,13 @@ func (s *Struct) Config() {
 	disabledSlice = strings.SplitSeq(strings.ToLower(disabledStr), ",")
 	enabledStr := cm.Get("enabled", "")
 	enabledSlice = strings.SplitSeq(strings.ToLower(enabledStr), ",")
+
 	forceLocalDomainName = cm.Get("forcelocaldomainname", false)
 	forceNoDomainName = cm.Get("forcelocaldomainname", false)
-	serverIcon = cm.Get("serverIcon", "nas")
-	serverName = cm.Get("serverName", config.Hostname)
+	singleTextRecord = cm.Get("singletextrecord", false)
+
+	serverIcon = cm.Get("servericon", "nas")
+	serverName = cm.Get("servername", config.Hostname)
 
 }
 

@@ -79,19 +79,35 @@ func dnsSRV(service AddrType, ttl ...uint32) *dns.SRV {
 	}
 }
 
-func dnsTXT(serviceAddr string, ttl ...uint32) *dns.TXT {
+func dnsTXTSingle(serviceAddr string, ttl ...uint32) *dns.TXT {
 	ttlVal := ttlShared
 	if len(ttl) > 0 {
 		ttlVal = ttl[0]
 	}
 	return &dns.TXT{
 		Hdr: headerFlush(dns.TypeTXT, fmt.Sprintf("%s.%s", config.Hostname, serviceAddr), ttlVal),
-		Txt: []string{
-			"path=/",
-			fmt.Sprintf("host=%s", hostParam),
-			fmt.Sprintf("model=%s", serverIcon),
-		},
+		Txt: txtRecordsList,
 	}
+}
+
+func dnsTXTMultiple(serviceAddr string, ttl ...uint32) []dns.RR {
+	ttlVal := ttlShared
+	if len(ttl) > 0 {
+		ttlVal = ttl[0]
+	}
+
+	instanceName := fmt.Sprintf("%s.%s", config.Hostname, serviceAddr)
+
+	var records []dns.RR
+
+	for _, txtStr := range txtRecordsList {
+		records = append(records, &dns.TXT{
+			Hdr: headerFlush(dns.TypeTXT, instanceName, ttlVal),
+			Txt: []string{txtStr},
+		})
+	}
+
+	return records
 }
 
 func dnsNSEC(name string, typeBitMask []uint16, ttl ...uint32) *dns.NSEC {

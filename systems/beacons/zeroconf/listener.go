@@ -79,7 +79,11 @@ func (s *Struct) listenForQueries() {
 						if question.Name == addr.Address && (question.Qtype == dns.TypePTR || question.Qtype == dns.TypeANY) {
 							appendAnswer(resp, dnsPTRService(addr.Address))
 							appendExtra(resp, dnsSRV(addr))
-							appendExtra(resp, dnsTXT(addr.Address))
+							if singleTextRecord {
+								appendExtra(resp, dnsTXTSingle(addr.Address))
+							} else {
+								appendExtra(resp, dnsTXTMultiple(addr.Address)...)
+							}
 							appendExtra(resp, dnsNSECServiceInstance(addr.Address))
 							hasAnswers = true
 							break
@@ -92,7 +96,11 @@ func (s *Struct) listenForQueries() {
 								hasAnswers = true
 							}
 							if question.Qtype == dns.TypeTXT || question.Qtype == dns.TypeANY {
-								appendAnswer(resp, dnsTXT(addr.Address))
+								if singleTextRecord {
+									appendExtra(resp, dnsTXTSingle(addr.Address))
+								} else {
+									appendExtra(resp, dnsTXTMultiple(addr.Address)...)
+								}
 								hasAnswers = true
 							}
 						}
