@@ -49,13 +49,12 @@ var (
 	serverIcon         string
 	serverName         string
 
-	Addrs          AddrMap
-	txtRecordsList []string
+	Addrs AddrMap
 
 	activebroadcaster    bool
 	forceLocalDomainName bool
 	forceNoDomainName    bool
-	singleTextRecord      bool
+	singleTextRecord     bool
 
 	disabledSlice iter.Seq[string]
 	enabledSlice  iter.Seq[string]
@@ -63,12 +62,6 @@ var (
 
 func init() {
 	Addrs = AddrMap{}
-
-	txtRecordsList = []string{
-		"path=/",
-		fmt.Sprintf("host=%s", hostParam),
-		fmt.Sprintf("model=%s", serverIcon),
-	}
 }
 
 func AddrSetup() {

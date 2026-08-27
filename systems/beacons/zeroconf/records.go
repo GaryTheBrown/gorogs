@@ -84,6 +84,11 @@ func dnsTXTSingle(serviceAddr string, ttl ...uint32) *dns.TXT {
 	if len(ttl) > 0 {
 		ttlVal = ttl[0]
 	}
+	txtRecordsList := []string{
+		"path=/",
+		fmt.Sprintf("host=%s", hostParam),
+		fmt.Sprintf("model=%s", serverIcon),
+	}
 	return &dns.TXT{
 		Hdr: headerFlush(dns.TypeTXT, fmt.Sprintf("%s.%s", config.Hostname, serviceAddr), ttlVal),
 		Txt: txtRecordsList,
@@ -97,6 +102,12 @@ func dnsTXTMultiple(serviceAddr string, ttl ...uint32) []dns.RR {
 	}
 
 	instanceName := fmt.Sprintf("%s.%s", config.Hostname, serviceAddr)
+
+	txtRecordsList := []string{
+		"path=/",
+		fmt.Sprintf("host=%s", hostParam),
+		fmt.Sprintf("model=%s", serverIcon),
+	}
 
 	var records []dns.RR
 
