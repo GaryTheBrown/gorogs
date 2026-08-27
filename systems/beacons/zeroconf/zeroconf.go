@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	"gorogs/config"
 	"gorogs/logger"
@@ -16,15 +15,6 @@ const (
 	Type       = systeminterface.Beacon
 	IsCritical = false
 	AutoStart  = true
-)
-
-var (
-	localHostTarget    = fmt.Sprintf("%s.local.", strings.ToLower(config.Hostname))
-	fqdnHostTarget     = fmt.Sprintf("%s.%s.", strings.ToLower(config.Hostname), strings.ToLower(config.DomainName))
-	servicesMetaRecord = "_services._dns-sd._udp.local."
-	txtRecords         = []string{"path=/", fmt.Sprintf("host=%s", fqdnHostTarget)}
-	nfsAddr            = "_nfs._tcp.local."
-	smbAddr            = "_smb._tcp.local."
 )
 
 type Struct struct {
@@ -42,54 +32,71 @@ func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
 func (s *Struct) Config() {
-	// NOTHING TO CONFIGURE IN HERE
+	cm := config.GetServiceConfig(Name)
+	activebroadcaster = cm.Get("activebroadcaster", false)
+
+	disabledStr := cm.Get("disabled", "")
+	disabledSlice = strings.SplitSeq(strings.ToLower(disabledStr), ",")
+	enabledStr := cm.Get("enabled", "")
+	enabledSlice = strings.SplitSeq(strings.ToLower(enabledStr), ",")
+	forceLocalDomainName = cm.Get("forcelocaldomainname", false)
+	serverIcon = cm.Get("serverIcon", "nas")
+
 }
 
 func (s *Struct) Setup() {
 	logger.DebugContinue(Name, "System Setup...")
-	var err error
-	s.multicastAddr, err = net.ResolveUDPAddr("udp4", "224.0.0.251:5353")
-	if err != nil {
-		logger.FatalF(Name, "failed to resolve multicast address block: %w", err)
+	if config.DomainName == "" || forceLocalDomainName {
+		hostParam = fmt.Sprintf("%s.local", config.Hostname)
+		logger.DebugAppend(Name, "[LOCAL MODE]")
+	} else {
+		hostParam = fmt.Sprintf("%s.%s", config.Hostname, config.DomainName)
+		logger.DebugAppend(Name, "[FQDN MODE]")
 	}
-	logger.DebugAppend(Name, "[RESOLVE MULTICAST ADDRESS]")
+	tcpLocal = "_tcp.local."
+	udpLocal = "_udp.local."
+	hostTarget = fmt.Sprintf("%s.", hostParam)
+	servicesMetaRecord = fmt.Sprintf("_services._dns-sd.%s", udpLocal)
 
-	s.conn, err = net.ListenMulticastUDP("udp4", nil, s.multicastAddr)
-	if err != nil {
-		logger.FatalF(Name, "failed to join kernel ZeroCONF multicast loop: %w", err)
-	}
-	logger.DebugAppend(Name, "[LISTEN TO MULTICAST ADDRESS]")
+	AddrSetup()
 
-	s.done = make(chan struct{})
 	s.sState = systeminterface.SETUP
 	logger.DebugEnd(Name, "[DONE]")
 }
 
 func (s *Struct) Start() error {
 	logger.DebugContinue(Name, "System Starting...")
+	if err := s.connectionStart(); err != nil {
+		return err
+	}
 
-	s.broadcastAnnouncement(120)
-	logger.DebugAppend(Name, "[BROADCAST HELLO]")
+	s.done = make(chan struct{})
 
 	go s.listenForQueries()
 	logger.DebugAppend(Name, "[STARTED LISTNER]")
 
+	s.broadcastHello()
+	logger.DebugAppend(Name, "[BROADCAST HELLO]")
+
+	if activebroadcaster {
+		go s.activeBroadcaster()
+		logger.DebugAppend(Name, "[STARTED REFRESH TICKER]")
+	}
 	s.sState = systeminterface.STARTED
 	logger.DebugEnd(Name, "[DONE]")
 	return nil
 }
 
 func (s *Struct) Stop() {
-	logger.DebugContinue(Name, "Stopping ZeroCONF daemon threads...")
+	logger.DebugContinue(Name, "Stopping ZeroCONF...")
 
 	if s.done != nil {
 		close(s.done)
 	}
 
 	if s.conn != nil {
-		s.broadcastAnnouncement(0)
+		s.BroadcastBye()
 		logger.DebugAppend(Name, "[BROADCAST BYE]")
-		time.Sleep(500 * time.Millisecond)
 
 		_ = s.conn.Close()
 		s.conn = nil
