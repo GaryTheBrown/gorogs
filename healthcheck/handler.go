@@ -22,10 +22,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for name, share := range tracked {
-		if healthMode == Nfs && name != strings.ToLower(nfs.Name) {
+		if healthMode == Nfs && !strings.EqualFold(name, nfs.Name) {
 			continue
 		}
-		if healthMode == Samba && name != strings.ToLower(samba.Name) {
+		if healthMode == Samba && !strings.EqualFold(name, samba.Name) {
 			continue
 		}
 
@@ -40,9 +40,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			case Shares:
 				shouldFail = (systeminterface.Share == share.Type())
 			case Nfs:
-				shouldFail = (name == strings.ToLower(nfs.Name))
+				shouldFail = strings.EqualFold(name, nfs.Name)
 			case Samba:
-				shouldFail = (name == strings.ToLower(samba.Name))
+				shouldFail = strings.EqualFold(name, samba.Name)
 			case Default:
 				shouldFail = (systeminterface.Share == share.Type())
 			}
