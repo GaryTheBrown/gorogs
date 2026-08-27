@@ -40,17 +40,26 @@ func (s *Struct) Config() {
 	enabledStr := cm.Get("enabled", "")
 	enabledSlice = strings.SplitSeq(strings.ToLower(enabledStr), ",")
 	forceLocalDomainName = cm.Get("forcelocaldomainname", false)
+	forceNoDomainName = cm.Get("forcelocaldomainname", false)
 	serverIcon = cm.Get("serverIcon", "nas")
+	serverName = cm.Get("serverName", config.Hostname)
 
 }
 
 func (s *Struct) Setup() {
 	logger.DebugContinue(Name, "System Setup...")
-	if config.DomainName == "" || forceLocalDomainName {
-		hostParam = fmt.Sprintf("%s.local", config.Hostname)
+	if forceLocalDomainName {
+		hostParam = fmt.Sprintf("%s.local", serverName)
+		logger.DebugAppend(Name, "[FORCED LOCAL MODE]")
+	} else if forceNoDomainName {
+		hostParam = fmt.Sprintf("%s", serverName)
+		logger.DebugAppend(Name, "[FORCED NOLOCAL MODE]")
+
+	} else if config.DomainName == "" {
+		hostParam = fmt.Sprintf("%s.local", serverName)
 		logger.DebugAppend(Name, "[LOCAL MODE]")
 	} else {
-		hostParam = fmt.Sprintf("%s.%s", config.Hostname, config.DomainName)
+		hostParam = fmt.Sprintf("%s.%s", serverName, config.DomainName)
 		logger.DebugAppend(Name, "[FQDN MODE]")
 	}
 	tcpLocal = "_tcp.local."

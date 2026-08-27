@@ -47,11 +47,13 @@ var (
 	udpLocal           string
 	servicesMetaRecord string
 	serverIcon         string
+	serverName         string
 
 	Addrs AddrMap
 
 	activebroadcaster    bool
 	forceLocalDomainName bool
+	forceNoDomainName    bool
 
 	disabledSlice iter.Seq[string]
 	enabledSlice  iter.Seq[string]
