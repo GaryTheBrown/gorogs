@@ -18,21 +18,21 @@ type ModeRegistry struct {
 
 func (m *ModeRegistry) Setup() error {
 	configMap := structs.NewConfigMap(structs.ModeRegistry)
-	logger.DebugAppend(Name, "[NEW CONFIG STRUCT]")
+	logger.Debug(Name, "[NEW CONFIG STRUCT]")
 	configMap.SetSection(structs.GlobalName, directoryconf)
-	logger.DebugAppend(Name, "[ADD GLOBAL SECTION DIRS]")
+	logger.Debug(Name, "[ADD GLOBAL SECTION DIRS]")
 	configMap.SectionMerge(structs.GlobalName, RegSetup)
-	logger.DebugAppend(Name, "[REGISTRY ONLY SETTING]")
+	logger.Debug(Name, "[REGISTRY ONLY SETTING]")
 
 	if err := configMap.ToFile(vars.MasterConfigFile); err != nil {
 		return err
 	}
-	logger.DebugAppend(Name, "[SAVE CONFIG FILE]")
+	logger.Debug(Name, "[SAVE CONFIG FILE]")
 
 	if err := sharedRegistrySystemSetup(); err != nil {
 		return err
 	}
-	logger.DebugAppend(Name, "[INITAL REGISTRY SETUP]")
+	logger.Debug(Name, "[INITAL REGISTRY SETUP]")
 	if vars.BatchInjection {
 		return m.injectAllToRegistryBatch()
 	}
@@ -63,40 +63,40 @@ func (m *ModeRegistry) NotifyCommentUpdate(shareName, comment string) error {
 
 func (m *ModeRegistry) injectAllToRegistryBatch() error {
 	cmdImport := exec.Command(vars.NetPath, "conf", "import", "/dev/stdin", "-s", vars.MasterConfigFile)
-	logger.DebugAppend(Name, "[BATCH:COMMAND]")
+	logger.Debug(Name, "[BATCH:COMMAND]")
 	globalReader := bytes.NewReader(m.ConfigMap.ToByte())
-	logger.DebugAppendF(Name, "[BATCH:GLOBAL COUNT %d]", m.ConfigMap.Count())
+	logger.DebugF(Name, "[BATCH:GLOBAL COUNT %d]", m.ConfigMap.Count())
 	sharesReader := bytes.NewReader(m.SharesMap.ToByte())
-	logger.DebugAppendF(Name, "[BATCH:SHARES COUNT %d]", m.SharesMap.Count())
+	logger.DebugF(Name, "[BATCH:SHARES COUNT %d]", m.SharesMap.Count())
 	cmdImport.Stdin = io.MultiReader(globalReader, sharesReader)
-	logger.DebugAppend(Name, "[BATCH:MULTIREADER]")
+	logger.Debug(Name, "[BATCH:MULTIREADER]")
 	output, err := cmdImport.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Atomic global registry bulk import failed: %s ERROR: %w", strings.TrimSpace(string(output)), err)
 	}
-	logger.DebugAppendF(Name, "[BATCH:INJECTED:%s]", output)
+	logger.DebugF(Name, "[BATCH:INJECTED:%s]", output)
 	return nil
 }
 
 func (m *ModeRegistry) injectAllToRegistryLoop() error {
 	globals := m.ConfigMap.GetSection(structs.GlobalName)
-	logger.DebugAppend(Name, "[LOOP:GLOBALS]")
+	logger.Debug(Name, "[LOOP:GLOBALS]")
 	for parameter, val := range globals {
 		cmdGlobal := exec.Command(vars.NetPath, "conf", "setparm", "global", parameter, val, "-s", vars.MasterConfigFile)
 		output, err := cmdGlobal.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("Failed to write Global parameter [%s:%s] ERROR: %w", parameter, strings.TrimSpace(string(output)), err)
 		}
-		logger.DebugAppendF(Name, "[LOOP:ISTR:%s=%s:%s]", parameter, val, output)
+		logger.DebugF(Name, "[LOOP:ISTR:%s=%s:%s]", parameter, val, output)
 	}
 
-	logger.DebugAppend(Name, "[LOOP:SHARES]")
+	logger.Debug(Name, "[LOOP:SHARES]")
 	for entryName, entry := range m.SharesMap {
 		if err := entry.RegistryShareAdd(entryName); err != nil {
 			return fmt.Errorf("Failed to write Share [%s] ERROR: %w", entryName, err)
 		}
-		logger.DebugAppendF(Name, "[LOOP:ADDED %s]", entryName)
+		logger.DebugF(Name, "[LOOP:ADDED %s]", entryName)
 	}
-	logger.DebugAppend(Name, "[LOOP:DONE]")
+	logger.Debug(Name, "[LOOP:DONE]")
 	return nil
 }

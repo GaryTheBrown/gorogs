@@ -42,33 +42,33 @@ func (s *Struct) Config() {
 }
 
 func (s *Struct) Setup() {
-	logger.DebugContinue(Name, "System Setup...")
+	logger.Debug(Name, "System Setup...")
 	s.sState = systeminterface.SETUP
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 }
 
 func (s *Struct) Start() error {
-	logger.DebugContinue(Name, "System Starting...")
+	logger.Debug(Name, "System Starting...")
 	if err := s.startRPCBind(); err != nil {
 		return err
 	}
-	logger.DebugAppend(Name, "[RPCBIND:DONE][RPC.STATD:STARTING]")
+	logger.Debug(Name, "[RPCBIND:DONE][RPC.STATD:STARTING]")
 	if err := s.startRPCStatd(); err != nil {
 		return err
 	}
 	s.sState = systeminterface.STARTED
-	logger.DebugEnd(Name, "[RPC.STATD:DONE][DONE]")
+	logger.Debug(Name, "[RPC.STATD:DONE][DONE]")
 	return nil
 }
 
 func (s *Struct) Stop() {
-	logger.DebugContinue(Name, "Stopping RPCBind...")
+	logger.Debug(Name, "Stopping RPCBind...")
 
-	s.startRPCStatd()
+	s.stopRPCStatd()
 	s.stopRPCBind()
 
 	s.sState = systeminterface.STOPPED
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 }
 
 func (s *Struct) Healthcheck() error {

@@ -4,4 +4,5 @@
 3. nfs is empty in dolphin.
    
 ## TODO ADDS:
-1. be able to say a system requires another system so we can do some ordering of startups.
+1. Need to go through all the programs we call and look at what logging they each do and have it give the basic and change to debugging when debugging is active. need to also look at what it outputs and and make it do some magic on the data to strip away data we provide and if possible tell what log level it should use.
+2. be able to say a system requires another system so we can do some ordering of startups.

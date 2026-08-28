@@ -58,7 +58,7 @@ func (s *Struct) Config() {
 }
 
 func (s *Struct) Setup() {
-	logger.DebugContinue(Name, "System Setup...")
+	logger.Debug(Name, "System Setup...")
 
 	if vars.BaseDirOverlay {
 		if err := s.setupOverlay(); err != nil {
@@ -69,11 +69,11 @@ func (s *Struct) Setup() {
 	s.setupSystem()
 
 	s.sState = systeminterface.SETUP
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 }
 
 func (s *Struct) Start() error {
-	logger.DebugContinue(Name, "System Starting...")
+	logger.Debug(Name, "System Starting...")
 
 	if err := s.ProgramStart(); err != nil {
 		return err
@@ -85,54 +85,54 @@ func (s *Struct) Start() error {
 		}
 		return fmt.Errorf("timeout reached waiting for Samba daemon to bind network port 445")
 	}
-	logger.DebugAppend(Name, "[READY]")
+	logger.Debug(Name, "[READY]")
 
 	if !config.IsDisabled("livechanges") {
 		watchCtx, cancel := context.WithCancel(context.Background())
 		s.cancelWatch = cancel
 		go s.startFSEventDirectoryWatcher(watchCtx)
 		go s.startFSEventCommentWatcher(watchCtx)
-		logger.DebugAppend(Name, "[TRACKING]")
+		logger.Debug(Name, "[TRACKING]")
 	}
 
 	s.sState = systeminterface.STARTED
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 	return nil
 }
 
 func (s *Struct) Stop() {
-	logger.DebugContinue(Name, "Stopping NetBIOS...")
+	logger.Debug(Name, "Stopping NetBIOS...")
 	if s.cancelWatch != nil {
 		s.cancelWatch()
-		logger.DebugAppend(Name, "[CANCEL WATCH]")
+		logger.Debug(Name, "[CANCEL WATCH]")
 	}
 
 	if vars.Cmd != nil && vars.Cmd.Process != nil {
 		if err := vars.Cmd.Process.Signal(syscall.SIGTERM); err != nil {
 			_ = vars.Cmd.Process.Kill()
 		}
-		logger.DebugAppend(Name, "[SIGTERM SENT]")
+		logger.Debug(Name, "[SIGTERM SENT]")
 
 		// Ensure the parent daemon tracker releases its process hooks completely
 		_ = vars.Cmd.Wait()
-		logger.DebugAppend(Name, "[PROCESS TERMINATED]")
+		logger.Debug(Name, "[PROCESS TERMINATED]")
 	}
 
 	if s.logWriter != nil {
 		_ = s.logWriter.Close()
-		logger.DebugAppend(Name, "[DETACH LOGS]")
+		logger.Debug(Name, "[DETACH LOGS]")
 	}
 
 	if vars.BaseDirOverlay {
 		if err := syscall.Unmount(vars.SambaBaseLibDir, syscall.MNT_DETACH); err != nil {
 			logger.ErrorF(Name, "Failed to unmount memory partition layer cleanly from layout ERROR: %v", err, err.Error())
 		} else {
-			logger.DebugAppend(Name, "[REMOVE OVERLAY CLEAN]")
+			logger.Debug(Name, "[REMOVE OVERLAY CLEAN]")
 		}
 	}
 
 	s.sState = systeminterface.STOPPED
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 }
 
 func (s *Struct) Healthcheck() error {

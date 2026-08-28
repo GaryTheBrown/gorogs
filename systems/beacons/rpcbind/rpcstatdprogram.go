@@ -1,25 +1,34 @@
 package rpcbind
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"syscall"
 	"time"
 
+	"gorogs/config"
 	"gorogs/logger"
 	"gorogs/systems/helpers"
 )
 
 func (s *Struct) startRPCStatd() error {
+	statdArgs := []string{
+		"-F",
+		"-n", config.Hostname,
+		"-p", "32765",
+		"-o", "32766",
+	}
 
-	s.statdCmd = exec.Command(statdPath, "-F")
+	s.statdCmd = exec.Command(statdPath, statdArgs...)
 	s.statdCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	logger.DebugAppend(Name, "[RPC.STATD:CMD SETUP]")
+	logger.Debug(Name, "[RPC.STATD:CMD SETUP]")
+
 	if logger.IsDebugActive(Name) {
 		s.statdWriter = helpers.NewSubsystemWriter(Name, nil)
 		s.statdCmd.Stdout = s.statdWriter
 		s.statdCmd.Stderr = s.statdWriter
-		logger.DebugAppend(Name, "[RPC.STATD:LINK STDOUT->LOG]")
+		logger.Debug(Name, "[RPC.STATD:LINK STDOUT->LOG]")
 	}
 
 	if err := s.statdCmd.Start(); err != nil {
@@ -27,14 +36,15 @@ func (s *Struct) startRPCStatd() error {
 		if s.statdWriter != nil {
 			_ = s.statdWriter.Close()
 		}
+		return fmt.Errorf("failed to start rpc.statd: %w", err)
 	}
-	logger.DebugAppend(Name, "[RPC.STATD:START]")
+	logger.Debug(Name, "[RPC.STATD:START]")
 	return nil
 }
 
 func (s *Struct) stopRPCStatd() {
 	if s.rpcCmd != nil && s.rpcCmd.Process != nil {
-		logger.DebugAppend(Name, "[RPC.STATD:STOPPING]")
+		logger.Debug(Name, "[RPC.STATD:STOPPING]")
 		_ = s.rpcCmd.Process.Signal(syscall.SIGTERM)
 		go func(p *os.Process) {
 			time.Sleep(100 * time.Millisecond)
@@ -43,7 +53,7 @@ func (s *Struct) stopRPCStatd() {
 			}
 		}(s.rpcCmd.Process)
 		_ = s.rpcCmd.Wait()
-		logger.DebugAppend(Name, "[RPC.STATD:STOPPED]")
+		logger.Debug(Name, "[RPC.STATD:STOPPED]")
 	}
 
 	if s.rpcWriter != nil {

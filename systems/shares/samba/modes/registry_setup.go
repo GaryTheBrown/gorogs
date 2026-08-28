@@ -14,20 +14,20 @@ import (
 
 func sharedRegistrySystemSetup() error {
 	_ = os.WriteFile(filepath.Join(vars.SambaBaseLibDir, "account_policy.tdb"), []byte{}, 0600)
-	logger.DebugAppend(Name, "[CREATE ACCOUNT_POLICY.TDB]")
+	logger.Debug(Name, "[CREATE ACCOUNT_POLICY.TDB]")
 	_ = os.WriteFile(filepath.Join(vars.SambaBaseLibDir, "winbindd_idmap.tdb"), []byte{}, 0600)
-	logger.DebugAppend(Name, "[CREATE WINBINDD_IDMAP.TDB]")
+	logger.Debug(Name, "[CREATE WINBINDD_IDMAP.TDB]")
 	cmdPasswd := exec.Command(vars.SmbpasswdPath, "-L", "-c", vars.MasterConfigFile, "-a", "nobody", "-n")
 	if output, err := cmdPasswd.CombinedOutput(); err != nil {
 		return fmt.Errorf("User database initialization failed: %s ERROR: %w", strings.TrimSpace(string(output)), err)
 	}
-	logger.DebugAppend(Name, "[CREATE USER.TDB]")
+	logger.Debug(Name, "[CREATE USER.TDB]")
 
 	cmdSID := exec.Command(vars.NetPath, "setlocalsid", "S-1-5-21-1111111111-2222222222-3333333333", "-s", vars.MasterConfigFile)
 	if output, err := cmdSID.CombinedOutput(); err != nil {
 		return fmt.Errorf("Failed to register machine identity tokens: %s ERROR: %w", strings.TrimSpace(string(output)), err)
 	}
-	logger.DebugAppend(Name, "[ADD MACHINE ID]")
+	logger.Debug(Name, "[ADD MACHINE ID]")
 	return nil
 }
 

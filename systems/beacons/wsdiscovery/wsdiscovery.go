@@ -52,20 +52,20 @@ func (s *Struct) Config() {
 }
 
 func (s *Struct) Setup() {
-	logger.DebugContinue(Name, "System Setup...")
+	logger.Debug(Name, "System Setup...")
 
 	templates.PreCompileTemplates()
-	logger.DebugAppend(Name, "[PRECOMPILE TEMPLATES]")
+	logger.Debug(Name, "[PRECOMPILE TEMPLATES]")
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.engine = engine.NewEngineState()
-	logger.DebugAppend(Name, "[SETUP ENGINE]")
+	logger.Debug(Name, "[SETUP ENGINE]")
 
 	s.sState = systeminterface.SETUP
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 }
 
 func (s *Struct) Start() error {
-	logger.DebugContinue(Name, "System Starting...")
+	logger.Debug(Name, "System Starting...")
 	err := s.engine.Start(
 		s.ctx,
 		"/config",
@@ -73,15 +73,15 @@ func (s *Struct) Start() error {
 	if err != nil {
 		return fmt.Errorf("WSDiscovery engine failed to initialize: %w", err)
 	}
-	logger.DebugAppend(Name, "[STARTED ENGINE]")
+	logger.Debug(Name, "[STARTED ENGINE]")
 
 	s.sState = systeminterface.STARTED
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 	return nil
 }
 
 func (s *Struct) Stop() {
-	logger.DebugContinue(Name, "Stopping WSDiscovery...")
+	logger.Debug(Name, "Stopping WSDiscovery...")
 
 	if s.engine != nil {
 		done := make(chan struct{})
@@ -91,25 +91,25 @@ func (s *Struct) Stop() {
 			close(done)
 		}()
 
-		logger.DebugAppend(Name, "[CMD Stop Initiated]")
+		logger.Debug(Name, "[CMD Stop Initiated]")
 
 		select {
 		case <-done:
-			logger.DebugAppend(Name, "[ENGINE INTERNAL FLUSH CLEAN]")
+			logger.Debug(Name, "[ENGINE INTERNAL FLUSH CLEAN]")
 		case <-s.engine.FlushDone:
-			logger.DebugAppend(Name, "[BROADCAST BYE COUPLING CONFIRMED]")
+			logger.Debug(Name, "[BROADCAST BYE COUPLING CONFIRMED]")
 		case <-time.After(300 * time.Millisecond):
-			logger.DebugAppend(Name, "[TIMEOUT PROTECTION TRIGGERED]")
+			logger.Debug(Name, "[TIMEOUT PROTECTION TRIGGERED]")
 		}
 	}
 
 	if s.cancel != nil {
 		s.cancel()
-		logger.DebugAppend(Name, "[CONTEXT CANCEL CLEAN]")
+		logger.Debug(Name, "[CONTEXT CANCEL CLEAN]")
 	}
 
 	s.sState = systeminterface.STOPPED
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 }
 
 func (s *Struct) Healthcheck() error {

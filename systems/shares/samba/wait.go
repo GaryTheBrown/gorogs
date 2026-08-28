@@ -13,10 +13,10 @@ func (s *Struct) WaitForStart(maxWait time.Duration) bool {
 	currentTick := 100 * time.Millisecond
 	startTime := time.Now()
 	probeAttempts := 0
-	logger.DebugAppend(Name, "[WAIT")
+	logger.Debug(Name, "[WAIT")
 	for time.Since(startTime) < maxWait {
 		probeAttempts++
-		logger.DebugAppend(Name, ".")
+		logger.Debug(Name, ".")
 		if err := vars.Cmd.Process.Signal(syscall.Signal(0)); err != nil {
 			if s.logWriter != nil {
 				s.logWriter.Close()
@@ -24,7 +24,7 @@ func (s *Struct) WaitForStart(maxWait time.Duration) bool {
 			logger.Fatal(Name, "samba smbd daemon process terminated unexpectedly during boot", err)
 		}
 		if helpers.WaitForSocket("tcp", "127.0.0.1:445", 50*time.Millisecond) {
-			logger.DebugAppend(Name, "DONE]")
+			logger.Debug(Name, "DONE]")
 			return true
 		}
 		if probeAttempts > 10 {

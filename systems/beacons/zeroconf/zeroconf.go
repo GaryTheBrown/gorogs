@@ -50,20 +50,20 @@ func (s *Struct) Config() {
 }
 
 func (s *Struct) Setup() {
-	logger.DebugContinue(Name, "System Setup...")
+	logger.Debug(Name, "System Setup...")
 	if forceLocalDomainName {
 		hostParam = fmt.Sprintf("%s.local", serverName)
-		logger.DebugAppend(Name, "[FORCED LOCAL MODE]")
+		logger.Debug(Name, "[FORCED LOCAL MODE]")
 	} else if forceNoDomainName {
 		hostParam = fmt.Sprintf("%s", serverName)
-		logger.DebugAppend(Name, "[FORCED NOLOCAL MODE]")
+		logger.Debug(Name, "[FORCED NOLOCAL MODE]")
 
 	} else if config.DomainName == "" {
 		hostParam = fmt.Sprintf("%s.local", serverName)
-		logger.DebugAppend(Name, "[LOCAL MODE]")
+		logger.Debug(Name, "[LOCAL MODE]")
 	} else {
 		hostParam = fmt.Sprintf("%s.%s", serverName, config.DomainName)
-		logger.DebugAppend(Name, "[FQDN MODE]")
+		logger.Debug(Name, "[FQDN MODE]")
 	}
 	tcpLocal = "_tcp.local."
 	udpLocal = "_udp.local."
@@ -73,11 +73,11 @@ func (s *Struct) Setup() {
 	AddrSetup()
 
 	s.sState = systeminterface.SETUP
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 }
 
 func (s *Struct) Start() error {
-	logger.DebugContinue(Name, "System Starting...")
+	logger.Debug(Name, "System Starting...")
 	if err := s.connectionStart(); err != nil {
 		return err
 	}
@@ -85,22 +85,22 @@ func (s *Struct) Start() error {
 	s.done = make(chan struct{})
 
 	go s.listenForQueries()
-	logger.DebugAppend(Name, "[STARTED LISTNER]")
+	logger.Debug(Name, "[STARTED LISTNER]")
 
 	s.broadcastHello()
-	logger.DebugAppend(Name, "[BROADCAST HELLO]")
+	logger.Debug(Name, "[BROADCAST HELLO]")
 
 	if activebroadcaster {
 		go s.activeBroadcaster()
-		logger.DebugAppend(Name, "[STARTED REFRESH TICKER]")
+		logger.Debug(Name, "[STARTED REFRESH TICKER]")
 	}
 	s.sState = systeminterface.STARTED
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 	return nil
 }
 
 func (s *Struct) Stop() {
-	logger.DebugContinue(Name, "Stopping ZeroCONF...")
+	logger.Debug(Name, "Stopping ZeroCONF...")
 
 	if s.done != nil {
 		close(s.done)
@@ -108,15 +108,15 @@ func (s *Struct) Stop() {
 
 	if s.conn != nil {
 		s.BroadcastBye()
-		logger.DebugAppend(Name, "[BROADCAST BYE]")
+		logger.Debug(Name, "[BROADCAST BYE]")
 
 		_ = s.conn.Close()
 		s.conn = nil
-		logger.DebugAppend(Name, "[CLOSE LISTNER]")
+		logger.Debug(Name, "[CLOSE LISTNER]")
 	}
 
 	s.sState = systeminterface.STOPPED
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 }
 
 func (s *Struct) Healthcheck() error {

@@ -8,10 +8,10 @@ import (
 
 func (s *Struct) setupSystem() {
 	modeStr := structs.ModeToString(systemMode)
-	logger.DebugAppendF(Name, "[MODE:%s]", modeStr)
+	logger.DebugF(Name, "[MODE:%s]", modeStr)
 	cm := modes.SharedConfigFile(systemMode)
 	sm := structs.NewShareMap()
-	logger.DebugAppendF(Name, "[SHARES: Count(%d)]", sm.Count())
+	logger.DebugF(Name, "[SHARES: Count(%d)]", sm.Count())
 	switch systemMode {
 	case structs.ModeFile:
 		s.sys = &modes.ModeFile{
@@ -32,7 +32,7 @@ func (s *Struct) setupSystem() {
 		logger.FatalF(Name, "failed to get Sambas system mode. Got Int %d", nil, int(systemMode))
 	}
 
-	logger.DebugAppendF(Name, "[MODE %s SETUP]", modeStr)
+	logger.DebugF(Name, "[MODE %s SETUP]", modeStr)
 	if err := s.sys.Setup(); err != nil {
 		logger.FatalF(Name, "failed to Setup the Mode [%s]", err, modeStr)
 	}

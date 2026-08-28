@@ -38,64 +38,64 @@ var (
 )
 
 func Setup() {
-	logger.DebugContinue(logName, "System Setup...")
+	logger.Debug(logName, "System Setup...")
 	tracked = make(map[string]systeminterface.System)
-	logger.DebugAppend(logName, "[make map]")
+	logger.Debug(logName, "[make map]")
 
 	hEnv := strings.ToLower(config.Get(logName, "default"))
-	logger.DebugAppend(logName, "[get healthmode]")
+	logger.Debug(logName, "[get healthmode]")
 	switch hEnv {
 	case "full":
 		healthMode = Full
-		logger.DebugAppend(logName, "[set healthmode][FULL]")
+		logger.Debug(logName, "[set healthmode][FULL]")
 	case "critical":
 		healthMode = Critical
-		logger.DebugAppend(logName, "[set healthmode][CRITICAL]")
+		logger.Debug(logName, "[set healthmode][CRITICAL]")
 	case "shares":
 		healthMode = Shares
-		logger.DebugAppend(logName, "[set healthmode][SHARES]")
+		logger.Debug(logName, "[set healthmode][SHARES]")
 	case "nfs":
 		healthMode = Nfs
-		logger.DebugAppend(logName, "[set healthmode][NFS]")
+		logger.Debug(logName, "[set healthmode][NFS]")
 	case "samba":
 		healthMode = Samba
-		logger.DebugAppend(logName, "[set healthmode][SAMBA]")
+		logger.Debug(logName, "[set healthmode][SAMBA]")
 	case "disabled":
 		healthMode = Disabled
-		logger.DebugAppend(logName, "[set healthmode][DISABLED]")
+		logger.Debug(logName, "[set healthmode][DISABLED]")
 	default:
 		healthMode = Default
-		logger.DebugAppend(logName, "[set healthmode][DEFAULT]")
+		logger.Debug(logName, "[set healthmode][DEFAULT]")
 	}
 
 	logger.AddHealthCheckStopFunction(Stop)
-	logger.DebugEnd(logName, "[DONE]")
+	logger.Debug(logName, "[DONE]")
 }
 
 func Start() error {
-	logger.DebugContinue(logName, "System Starting...")
+	logger.Debug(logName, "System Starting...")
 	_ = os.Remove(socketFile)
-	logger.DebugAppend(logName, "[REMOVE OLD SOCKET]")
+	logger.Debug(logName, "[REMOVE OLD SOCKET]")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler)
-	logger.DebugAppend(logName, "[HANDLER ADDED]")
+	logger.Debug(logName, "[HANDLER ADDED]")
 
 	server = &http.Server{Handler: mux}
 
 	var err error
 	listener, err = net.Listen("unix", socketFile)
 	if err != nil {
-		logger.DebugEnd(logName, "[SOCKET STARTUP FAILED]")
+		logger.Debug(logName, "[SOCKET STARTUP FAILED]")
 		return fmt.Errorf("failed to bind to local Unix socket path: %w", err)
 	}
-	logger.DebugAppend(logName, "[SOCKET LISTEN SUCCESS]")
+	logger.Debug(logName, "[SOCKET LISTEN SUCCESS]")
 
 	_ = os.Chmod(socketFile, 0666)
-	logger.DebugAppend(logName, "[PERMISSIONS SET]")
+	logger.Debug(logName, "[PERMISSIONS SET]")
 
 	go socketListner()
-	logger.DebugEnd(logName, "[SOCKET STARTED][DONE]")
+	logger.Debug(logName, "[SOCKET STARTED][DONE]")
 
 	return nil
 }
@@ -104,26 +104,26 @@ func Stop() {
 	if server == nil {
 		return
 	}
-	logger.DebugContinue(logName, "System Stopping...")
+	logger.Debug(logName, "System Stopping...")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	logger.DebugAppend(logName, "[SOCKET SHUTDOWN]")
+	logger.Debug(logName, "[SOCKET SHUTDOWN]")
 	err := server.Shutdown(ctx)
 	if err != nil {
-		logger.DebugEnd(logName, "[FAILED]")
+		logger.Debug(logName, "[FAILED]")
 		return
 	}
 
 	_ = os.Remove(socketFile)
-	logger.DebugEnd(logName, "[REMOVE SOCKET][DONE]")
+	logger.Debug(logName, "[REMOVE SOCKET][DONE]")
 
 }
 
 func AddTracker(sys systeminterface.System) {
-	logger.DebugContinueF(logName, "Adding Tracker for %s...", sys.Name())
+	logger.DebugF(logName, "Adding Tracker for %s...", sys.Name())
 	lName := strings.ToLower(sys.Name())
 	tracked[lName] = sys
-	logger.DebugEnd(logName, "[DONE]")
+	logger.Debug(logName, "[DONE]")
 }
 
 func socketListner() {

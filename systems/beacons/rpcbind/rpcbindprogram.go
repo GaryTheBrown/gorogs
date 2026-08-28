@@ -13,10 +13,12 @@ import (
 )
 
 func (s *Struct) startRPCBind() error {
-	logger.DebugAppend(Name, "[RPCBIND:STARTING]")
-	rpcArgs := []string{"-w", "-f"}
+	logger.Debug(Name, "[RPCBIND:STARTING]")
+
+	rpcArgs := []string{"-i"}
+
 	if logger.IsDebugActive(Name) {
-		rpcArgs = append(rpcArgs, "-d")
+		rpcArgs = append(rpcArgs, "-d") // Debug foreground tracking mode remains hot
 	}
 
 	containerIPStr := config.SystemIP.String()
@@ -27,13 +29,13 @@ func (s *Struct) startRPCBind() error {
 
 	s.rpcCmd = exec.Command(programPath, rpcArgs...)
 	s.rpcCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	logger.DebugAppend(Name, "[RPCBIND:CMD SETUP]")
+	logger.Debug(Name, "[RPCBIND:CMD SETUP]")
 
 	if logger.IsDebugActive(Name) {
 		s.rpcWriter = helpers.NewSubsystemWriter(Name, nil)
 		s.rpcCmd.Stdout = s.rpcWriter
 		s.rpcCmd.Stderr = s.rpcWriter
-		logger.DebugAppend(Name, "[RPCBIND:LINK STDOUT->LOG]")
+		logger.Debug(Name, "[RPCBIND:LINK STDOUT->LOG]")
 	}
 
 	if err := s.rpcCmd.Start(); err != nil {
@@ -42,8 +44,9 @@ func (s *Struct) startRPCBind() error {
 		}
 		return fmt.Errorf("failed to execute local rpcbind utility loop: %w", err)
 	}
-	logger.DebugAppend(Name, "[RPCBIND:START]")
+	logger.Debug(Name, "[RPCBIND:START]")
 
+	// Wait for port 111 to stabilize over the internal runtime environment
 	if !helpers.WaitForSocket("tcp", "127.0.0.1:111", 5*time.Second) {
 		if s.rpcWriter != nil {
 			_ = s.rpcWriter.Close()
@@ -55,7 +58,7 @@ func (s *Struct) startRPCBind() error {
 
 func (s *Struct) stopRPCBind() {
 	if s.statdCmd != nil && s.statdCmd.Process != nil {
-		logger.DebugAppend(Name, "[RPCBIND:STOPPING]")
+		logger.Debug(Name, "[RPCBIND:STOPPING]")
 		_ = s.statdCmd.Process.Signal(syscall.SIGTERM)
 		go func(p *os.Process) {
 			time.Sleep(100 * time.Millisecond)
@@ -64,7 +67,7 @@ func (s *Struct) stopRPCBind() {
 			}
 		}(s.statdCmd.Process)
 		_ = s.statdCmd.Wait()
-		logger.DebugAppend(Name, "[RPCBIND:STOPPED]")
+		logger.Debug(Name, "[RPCBIND:STOPPED]")
 	}
 
 	if s.statdWriter != nil {

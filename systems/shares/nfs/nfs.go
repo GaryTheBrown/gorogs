@@ -22,7 +22,7 @@ const (
 
 var (
 	programPath = "/usr/bin/ganesha.nfsd"
-	ganeshaConf = "/etc/ganesha.conf"
+	ganeshaConf = "/etc/ganesha/ganesha.conf"
 )
 
 type Struct struct {
@@ -44,64 +44,120 @@ func (s *Struct) Config() {
 }
 
 func (s *Struct) Setup() {
-	logger.DebugContinue(Name, "System Setup...")
+	logger.Debug(Name, "System Setup...")
 
 	if err := s.writeGaneshaConfig(); err != nil {
 		logger.Fatal(Name, "failed to execute master ganesha config file write utility", err)
 	}
-	logger.DebugAppend(Name, "[write config]")
+	logger.Debug(Name, "[write config]")
+
+	// Injected right before triggering s.ganeshaCmd.Start()
+	if info, err := os.Stat(config.ShareRoot); err == nil {
+		// 1. Extract standard file mode bits (e.g., 0755)
+		perms := info.Mode().Perm()
+
+		// 2. Extract underlying Linux syscall ownership parameters (UID/GID)
+		if sysData, ok := info.Sys().(*syscall.Stat_t); ok {
+			logger.Debug(Name, fmt.Sprintf(
+				"CRUCIAL DIAGNOSTIC: Path [%s] has Perms [%04o] | Owner UID [%d] | Group GID [%d]",
+				config.ShareRoot, perms, sysData.Uid, sysData.Gid,
+			))
+		}
+	} else {
+		logger.Error(Name, "Failed to read diagnostic stats for ShareRoot", err)
+	}
 
 	s.sState = systeminterface.SETUP
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 }
 
 func (s *Struct) writeGaneshaConfig() error {
-	configPath := "/etc/ganesha.conf"
+
+	detectedUID := 65534
+	detectedGID := 65534
+
+	if info, err := os.Stat(config.ShareRoot); err == nil {
+		if sysData, ok := info.Sys().(*syscall.Stat_t); ok {
+			detectedUID = int(sysData.Uid)
+			detectedGID = int(sysData.Gid)
+		}
+	}
 
 	gLogLevel := "EVENT"
 	if logger.IsDebugActive(Name) {
-		gLogLevel = "DEBUG"
+		gLogLevel = "FULL_DEBUG"
 	}
 
 	configContent := fmt.Sprintf(`NFS_CORE_PARAM {
-    NFS_Protocols = 3, 4;
     mount_path_pseudo = true;
     NFS_Port = 2049;
     MNT_Port = 20048;
     NLM_Port = 32803;
-    Rquota_Port = 875;
+    Rquota_Port = 875; 
+    fsid_device = true;
 }
 
 LOG {
     Default_Log_Level = %s;
+    Format {
+        date_format = none;
+        time_format = none;
+        EPOCH = false;
+        CLIENTIP = false; 
+        HOSTNAME = false;
+        PROGNAME = false;
+        PID = false;
+        THREAD_NAME = true;
+        FILE_NAME = false;
+        LINE_NUM = false;
+        FUNCTION_NAME = false;
+        COMPONENT = false;
+        LEVEL = true; 
+        OP_ID = false; 
+        CLIENT_REQ_XID = false; 
+        LOG_INDEX = false; 
+    }
 }
 
 NFSV4 {
     Graceless = true;
+    Allow_Numeric_Owners = true;
+    Only_Numeric_Owners = true;
+}
+DIRECTORY_SERVICES {
     DomainName = "%s";
+    Idmapping_Active = false;
+}
+
+EXPORT_DEFAULTS {
+    Squash = All_Squash;
+    Anonymous_uid = %d;
+    Anonymous_gid = %d;
 }
 
 EXPORT {
-    Export_Id = 1;
-    Path = %s;
-    Pseudo = /;
+    Path = "%s";
+    Pseudo = "/";
+    Export_Id = 1; 
+    Filesystem_id = 1.1;
     Access_Type = RO;
     Protocols = 3, 4;
-    SecType = "sys";
-    Squash = All_Squash;
-    Anonymous_Uid = 65534;
-    Anonymous_Gid = 65534;
+    Transports = UDP, TCP; 
+    SecType = sys;
+	Squash = All_Squash;
+    Anonymous_uid = %d;
+    Anonymous_gid = %d;
     FSAL {
         Name = VFS;
-        Filesystem_Id = 1.1;
+        fsid_type = uuid;
     }
-}`, gLogLevel, config.DomainName, config.ShareRoot)
+}`, gLogLevel, config.DomainName, detectedUID, detectedGID, config.ShareRoot, detectedUID, detectedGID)
 
-	return os.WriteFile(configPath, []byte(configContent), 0644)
+	return os.WriteFile(ganeshaConf, []byte(configContent), 0644)
 }
 
 func (s *Struct) Start() error {
-	logger.DebugContinue(Name, "System Starting...")
+	logger.Debug(Name, "System Starting...")
 	if err := s.StartProgram(); err != nil {
 		return err
 	}
@@ -109,13 +165,13 @@ func (s *Struct) Start() error {
 		return err
 	}
 	s.sState = systeminterface.STARTED
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 	return nil
 }
 
 func (s *Struct) Stop() {
 	if s.ganeshaCmd != nil && s.ganeshaCmd.Process != nil {
-		logger.DebugContinue(Name, "Stopping NFS daemon threads...")
+		logger.Debug(Name, "Stopping NFS...")
 
 		_ = s.ganeshaCmd.Process.Signal(syscall.SIGTERM)
 
@@ -128,16 +184,16 @@ func (s *Struct) Stop() {
 		}(s.ganeshaCmd.Process)
 
 		_ = s.ganeshaCmd.Wait()
-		logger.DebugAppend(Name, "[CMD Stop]")
+		logger.Debug(Name, "[CMD Stop]")
 	}
 
 	if s.logWriter != nil {
 		_ = s.logWriter.Close()
-		logger.DebugAppend(Name, "[STDOUT->LOG STOP]")
+		logger.Debug(Name, "[STDOUT->LOG STOP]")
 	}
 
 	s.sState = systeminterface.STOPPED
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 }
 
 func (s *Struct) Healthcheck() error {

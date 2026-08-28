@@ -16,7 +16,7 @@ type ModeFile struct {
 }
 
 func (m *ModeFile) Setup() error {
-	logger.DebugAppend(Name, "[WRITE CONFIG FILE]")
+	logger.Debug(Name, "[WRITE CONFIG FILE]")
 	return m.writeConfigFile()
 }
 

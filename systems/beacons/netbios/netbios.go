@@ -42,15 +42,15 @@ func (s *Struct) Config() {
 }
 
 func (s *Struct) Setup() {
-	logger.DebugContinue(Name, "System Setup...")
+	logger.Debug(Name, "System Setup...")
 
 	if err := s.writeMasterNmbdConfig(); err != nil {
 		logger.FatalF(Name, "failed to write %s config file", err, Name)
 	}
-	logger.DebugAppend(Name, "[write config]")
+	logger.Debug(Name, "[write config]")
 
 	s.sState = systeminterface.SETUP
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 }
 
 func (s *Struct) writeMasterNmbdConfig() error {
@@ -68,17 +68,17 @@ func (s *Struct) writeMasterNmbdConfig() error {
 }
 
 func (s *Struct) Start() error {
-	logger.DebugContinue(Name, "System Starting...")
+	logger.Debug(Name, "System Starting...")
 
 	s.cmd = exec.Command(programPath, "--foreground", "--no-process-group", "--debug-stdout", "-s", masterConfigPath)
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	logger.DebugAppend(Name, "[CMD SETUP]")
+	logger.Debug(Name, "[CMD SETUP]")
 
 	if logger.IsDebugActive(Name) {
 		s.logWriter = helpers.NewSubsystemWriter(Name, nil)
 		s.cmd.Stdout = s.logWriter
 		s.cmd.Stderr = s.logWriter
-		logger.DebugAppend(Name, "[LINK STDOUT->LOG]")
+		logger.Debug(Name, "[LINK STDOUT->LOG]")
 	}
 
 	if err := s.cmd.Start(); err != nil {
@@ -87,23 +87,23 @@ func (s *Struct) Start() error {
 		}
 		return fmt.Errorf("failed to start standalone nmbd beacon process: %w", err)
 	}
-	logger.DebugAppend(Name, "[CMD START]")
+	logger.Debug(Name, "[CMD START]")
 
 	if !helpers.WaitForSocket("udp4", "127.0.0.1:137", 15*time.Second) {
 		if s.logWriter != nil {
 			_ = s.logWriter.Close()
 		}
-		logger.DebugEnd(Name, "[TIMEOUT][FAILED]")
+		logger.Debug(Name, "[TIMEOUT][FAILED]")
 		return fmt.Errorf("timeout waiting for NetBIOS network interface to bind socket 137")
 	}
 
 	s.sState = systeminterface.STARTED
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 	return nil
 }
 
 func (s *Struct) Stop() {
-	logger.DebugContinue(Name, "Stopping NetBIOS...")
+	logger.Debug(Name, "Stopping NetBIOS...")
 	if s.cmd != nil && s.cmd.Process != nil {
 
 		if err := s.cmd.Process.Signal(syscall.SIGTERM); err != nil {
@@ -111,15 +111,15 @@ func (s *Struct) Stop() {
 		}
 
 		_ = s.cmd.Wait()
-		logger.DebugAppend(Name, "[CMD Stop]")
+		logger.Debug(Name, "[CMD Stop]")
 	}
 
 	if s.logWriter != nil {
 		_ = s.logWriter.Close()
-		logger.DebugAppend(Name, "[STDOUT->LOG STOP]")
+		logger.Debug(Name, "[STDOUT->LOG STOP]")
 	}
 	s.sState = systeminterface.STOPPED
-	logger.DebugEnd(Name, "[DONE]")
+	logger.Debug(Name, "[DONE]")
 }
 
 func (s *Struct) Healthcheck() error {

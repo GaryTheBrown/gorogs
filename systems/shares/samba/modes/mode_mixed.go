@@ -18,11 +18,11 @@ func (m *ModeMixed) Setup() error {
 	if err := m.ConfigMap.ToFile(vars.MasterConfigFile); err != nil {
 		return nil
 	}
-	logger.DebugAppend(Name, "[WRITTEN CONFIG]")
+	logger.Debug(Name, "[WRITTEN CONFIG]")
 	if err := sharedRegistrySystemSetup(); err != nil {
 		return err
 	}
-	logger.DebugAppend(Name, "[INITAL REGISTRY SETUP]")
+	logger.Debug(Name, "[INITAL REGISTRY SETUP]")
 	if vars.BatchInjection {
 		return m.injectAllSharesToRegistryBatch()
 	}
@@ -52,7 +52,7 @@ func (m *ModeMixed) NotifyCommentUpdate(shareName, comment string) error {
 }
 
 func (m *ModeMixed) injectAllSharesToRegistryBatch() error {
-	logger.DebugAppend(Name, "[BATCH SHARE ADD]")
+	logger.Debug(Name, "[BATCH SHARE ADD]")
 	cmdImport := exec.Command(vars.NetPath, "conf", "import", "/dev/stdin", "-s", vars.MasterConfigFile)
 	cmdImport.Stdin = bytes.NewReader(m.SharesMap.ToByte())
 	if output, err := cmdImport.CombinedOutput(); err != nil {
@@ -62,13 +62,13 @@ func (m *ModeMixed) injectAllSharesToRegistryBatch() error {
 }
 
 func (m *ModeMixed) injectAllSharesToRegistryLoop() error {
-	logger.DebugAppend(Name, "[LOOP SHARE ADD][")
+	logger.Debug(Name, "[LOOP SHARE ADD][")
 	for entryName, entry := range m.SharesMap {
-		logger.DebugAppend(Name, ".")
+		logger.Debug(Name, ".")
 		if err := entry.RegistryShareAdd(entryName); err != nil {
 			return fmt.Errorf("IMPORT FAILED OUTPUT FROM COMMAND:[%s] ERROR: %s", entryName, err.Error())
 		}
 	}
-	logger.DebugAppend(Name, "][DONE]")
+	logger.Debug(Name, "][DONE]")
 	return nil
 }

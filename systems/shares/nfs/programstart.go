@@ -11,24 +11,22 @@ import (
 
 func (s *Struct) StartProgram() error {
 	s.readyChan = make(chan struct{})
-	ganeshaArgs := []string{"-F", "-f", ganeshaConf}
+	ganeshaArgs := []string{"-F", "-f", ganeshaConf, "-L", "/dev/stdout"}
 	if logger.IsDebugActive(Name) {
-		ganeshaArgs = append(ganeshaArgs, "-L", "/dev/stdout", "-N", "NIV_FULL_DEBUG")
+		ganeshaArgs = append(ganeshaArgs, "-x", "-N", "FULL_DEBUG")
 	}
 
 	s.ganeshaCmd = exec.Command("/usr/bin/ganesha.nfsd", ganeshaArgs...)
 	s.ganeshaCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	logger.DebugAppend(Name, "[CMD SETUP]")
+	logger.Debug(Name, "[CMD SETUP]")
 
-	if logger.IsDebugActive(Name) {
-		phrases := []string{"NFS SERVER INITIALIZED", "General fridge was started successfully"}
-		s.logWriter = helpers.NewSubsystemWriter(Name, s.readyChan, phrases, nil)
-	} else {
-		s.logWriter = helpers.NewSubsystemWriter(Name, nil, nil, nil)
-	}
+	s.logWriter = helpers.NewSubsystemWriter(Name, nil)
 	s.ganeshaCmd.Stdout = s.logWriter
 	s.ganeshaCmd.Stderr = s.logWriter
-	logger.DebugAppend(Name, "[LINK STDOUT->LOG]")
+	logger.Debug(Name, "[LINK STDOUT->LOG]")
+	// s.ganeshaCmd.Stdout = os.Stdout
+	// s.ganeshaCmd.Stderr = os.Stderr
+	// logger.Debug(Name, "[LINK STDOUT->STDOUT]")
 
 	if err := s.ganeshaCmd.Start(); err != nil {
 		close(s.readyChan)
@@ -37,7 +35,7 @@ func (s *Struct) StartProgram() error {
 		}
 		return fmt.Errorf("failed to initialize background ganesha.nfsd: %w", err)
 	}
-	logger.DebugAppend(Name, "[CMD START]")
+	logger.Debug(Name, "[CMD START]")
 
 	return nil
 }

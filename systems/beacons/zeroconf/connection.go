@@ -12,7 +12,7 @@ import (
 )
 
 func (s *Struct) connectionStart() error {
-	logger.DebugAppend(Name, "[CONNECTION STARTING]")
+	logger.Debug(Name, "[CONNECTION STARTING]")
 
 	var err error
 	s.multicastAddr, err = net.ResolveUDPAddr("udp4", "224.0.0.251:5353")
@@ -61,6 +61,6 @@ func (s *Struct) connectionStart() error {
 		return fmt.Errorf("failed to subscribe socket to mDNS multicast tracking group on any active network interface")
 	}
 
-	logger.DebugEnd(Name, "[CONNECTION DONE]")
+	logger.Debug(Name, "[CONNECTION DONE]")
 	return nil
 }

@@ -2,7 +2,20 @@ package helpers
 
 import (
 	"bytes"
+	"fmt"
+	"gorogs/logger"
 	"sync"
+)
+
+type LogType uint8
+
+const (
+	LOGNONE LogType = iota
+	LOGINFO
+	LOGWARN
+	LOGERROR
+	LOGFATAL
+	LOGDEBUG
 )
 
 type SubsystemWriter struct {
@@ -10,54 +23,67 @@ type SubsystemWriter struct {
 	loggerName string
 	buffer     []byte
 
-	stripFunc func(string) (string, bool)
+	stripFunc func(string) (LogType, string)
 }
 
-func NewSubsystemWriter(name string, stripFn func(string) (string, bool)) *SubsystemWriter {
+func NewSubsystemWriter(name string, stripFn func(string) (LogType, string)) *SubsystemWriter {
 	return &SubsystemWriter{
 		loggerName: name,
 		stripFunc:  stripFn,
 	}
 }
 
-func (w *SubsystemWriter) Write(p []byte) (n int, err error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+func (sw *SubsystemWriter) Write(p []byte) (n int, err error) {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
 
-	w.buffer = append(w.buffer, p...)
+	sw.buffer = append(sw.buffer, p...)
 
 	for {
-		idx := bytes.IndexByte(w.buffer, '\n')
+		idx := bytes.IndexByte(sw.buffer, '\n')
 		if idx == -1 {
 			break
 		}
 
-		line := string(w.buffer[:idx])
-		w.buffer = w.buffer[idx+1:]
+		line := string(sw.buffer[:idx])
+		sw.buffer = sw.buffer[idx+1:]
 
-		w.processLine(line)
+		sw.processLine(line)
 	}
 
 	return len(p), nil
 }
 
-func (w *SubsystemWriter) processLine(line string) {
-	if w.stripFunc != nil {
-		var keep bool
-		line, keep = w.stripFunc(line)
-		if !keep {
-			return
-		}
+func (sw *SubsystemWriter) processLine(lineIn string) {
+	if sw.stripFunc == nil {
+		logger.Info(sw.loggerName, lineIn)
+		return
+	}
+
+	logType, line := sw.stripFunc(lineIn)
+	switch logType {
+	case LOGINFO:
+		logger.Info(sw.loggerName, line)
+	case LOGWARN:
+		logger.Warn(sw.loggerName, line)
+	case LOGERROR:
+		logger.Error(sw.loggerName, line, fmt.Errorf("ERROR IN PROGRAM"))
+	case LOGFATAL:
+		logger.Fatal(sw.loggerName, line, fmt.Errorf("FATAL ISSUE IN PROGRAM"))
+	case LOGDEBUG:
+		logger.Debug(sw.loggerName, line)
+	default:
+		return
 	}
 }
 
-func (w *SubsystemWriter) Close() error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+func (sw *SubsystemWriter) Close() error {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
 
-	if len(w.buffer) > 0 {
-		w.processLine(string(w.buffer))
-		w.buffer = nil
+	if len(sw.buffer) > 0 {
+		sw.processLine(string(sw.buffer))
+		sw.buffer = nil
 	}
 
 	return nil

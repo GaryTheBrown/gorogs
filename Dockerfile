@@ -51,38 +51,49 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG CACHE_STAGE2=1 
 
-RUN mkdir -p \
+RUN mkdir -p /distroless \
     /distroless/etc \
     /distroless/etc/ssl \
     /distroless/etc/ssl/certs \
     /distroless/etc/ca-certificates \
     /distroless/etc/ca-certificates/extracted \
+    /distroless/etc/samba \
+    /distroless/etc/samba/private \
+    /distroless/etc/ganesha \
+    /distroless/run/ \
+    /distroless/run/samba \
+    /distroless/run/samba/ncalrpc \
+    /distroless/run/samba/ncalrpc/np \
+    /distroless/run/rpcbind \
+    /distroless/run/ganesha \
+    /distroless/run/sendsigs.omit.d \
+    /distroless/srv \
+    /distroless/tmp \
     /distroless/usr \
     /distroless/usr/bin \
+    /distroless/var/cache \
+    /distroless/var/cache/samba \
     /distroless/usr/lib \
-    /distroless/tmp \
-    /distroless/run/ganesha \
-    /distroless/var/run/ganesha \
+    /distroless/usr/lib/ganesha \
+    /distroless/usr/lib/libnfsidmap \
+    /distroless/usr/lib/samba \
+    /distroless/usr/lib/samba/vfs \
+    /distroless/var/lib/nfs \
+    /distroless/var/lib/nfs/sm \
+    /distroless/var/lib/nfs/sm.bak \
+    /distroless/var/lib/nfs/statd \
     /distroless/var/lib/nfs/statd/sm \
     /distroless/var/lib/nfs/statd/sm.bak \
     /distroless/var/lib/nfs/ganesha \
-    /distroless/usr/lib/ganesha \
-    /distroless/usr/lib/libnfsidmap \
-    /distroless/etc/samba \
-    /distroless/etc/samba/private \
     /distroless/var/lib/samba \
     /distroless/var/lib/samba/private \
-    /distroless/usr/lib/samba/vfs \
-    /distroless/var/log/samba \
     /distroless/var/lock/samba \
-    /distroless/var/cache/samba \
-    /distroless/run/samba \
-    /distroless/run/samba/ncalrpc/np \
-    /distroless/run/rpcbind \
-    /distroless/run/sendsigs.omit.d \
-    /distroless/var/lib/nfs/sm \
-    /distroless/var/lib/nfs/sm.bak &&\
+    /distroless/var/log/samba \
+    /distroless/var/run \
+    /distroless/var/run/ganesha \
+    touch /distroless/var/lib/nfs/rmtab && \
     chmod 1777 /distroless/tmp && \
+    chmod 0755 /distroless/srv && \
     chmod 0755 /distroless/var/lock/samba && \
     chmod 0755 /distroless/var/cache/samba && \
     chmod 0755 /distroless/var/log/samba && \
@@ -92,6 +103,7 @@ RUN mkdir -p \
     chmod 0775 /distroless/run/rpcbind && \
     chmod 0755 /distroless/run/sendsigs.omit.d && \
     chmod 0755 /distroless/var/run/ganesha && \
+    chmod 0644 /distroless/var/lib/nfs/rmtab && \
     chmod 0755 /distroless/var/lib/nfs/sm && \
     chmod 0755 /distroless/var/lib/nfs/sm.bak && \
     ln -s usr/bin /distroless/bin && \
@@ -106,6 +118,8 @@ RUN mkdir -p \
     echo "hosts: files dns" > /distroless/etc/nsswitch.conf && \
     cp -a /etc/ssl/certs/ca-certificates.crt /distroless/etc/ssl/certs/ && \
     cp -a /etc/ca-certificates/extracted/* /distroless/etc/ca-certificates/extracted/ && \
+    ln -sf /proc/self/mounts /distroless/etc/mtab && \
+    # Programs
     cp /usr/bin/ganesha.nfsd /distroless/usr/bin/ && \
     cp /usr/bin/smbd /distroless/usr/bin/ && \
     cp /usr/bin/net /distroless/usr/bin/ && \
@@ -116,6 +130,7 @@ RUN mkdir -p \
     cp /usr/bin/nmbd /distroless/usr/bin/ && \
     cp /usr/bin/rpcbind /distroless/usr/bin/ && \
     cp /usr/bin/rpc.statd /distroless/usr/bin/ && \
+    cp /usr/bin/sm-notify    /distroless/usr/bin/ && \
     cp -a /usr/lib/ganesha/* /distroless/usr/lib/ganesha/ && \
     cp -r /usr/lib/samba/* /distroless/usr/lib/samba/ && \
     cp -vnP /usr/lib/libnss_files* /distroless/usr/lib/ && \
@@ -123,8 +138,20 @@ RUN mkdir -p \
     cp -vnP /usr/lib/libnfsidmap.so* /distroless/usr/lib/ && \
     cp -vnP /usr/lib/libcups.so* /distroless/usr/lib/ && \
     cp -a /usr/lib/libnfsidmap/* /distroless/usr/lib/libnfsidmap/ && \
-    # THIS IS LEFT IN ONLY FOR IF WE NEED TO TRACK DOWN MISSING FILES.
-    cp /usr/bin/strace /distroless/usr/bin/ 
+    # ==============================================================================
+    # DEBUG FILES TO BE REMOVED ONCE EVERYTHING IS
+    # ==============================================================================
+    if [ "$ENABLE_DEBUG" = "true" ]; then \
+    # 1. Essential filesystem checking utilities
+    cp /usr/bin/ls       /distroless/usr/bin/ && \
+    cp /usr/bin/cat      /distroless/usr/bin/ && \
+    cp /usr/bin/mkdir    /distroless/usr/bin/ && \
+    # 2. Critical networking socket tracking diagnostics (Highly Recommended)
+    cp /usr/bin/ss       /distroless/usr/bin/ && \
+    cp /usr/bin/rpcinfo  /distroless/usr/bin/ && \
+    # 3. tool for missing librarys
+    cp /usr/bin/strace /distroless/usr/bin/; \
+    fi  
 
 RUN for bin in /distroless/usr/bin/* \
     /distroless/usr/lib/samba/*.so \
@@ -153,10 +180,11 @@ ARG GOARCH
 
 COPY --from=distroless-setup /distroless /distroless
 
-ARG CACHE_STAGE3=1 
+ARG CACHE_STAGE3A=1 
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
+ARG CACHE_STAGE3B 1 
 COPY . .
 
 RUN TAG_LIST="" && BUILD_ARG="" && \

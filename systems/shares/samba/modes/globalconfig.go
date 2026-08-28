@@ -66,28 +66,28 @@ var (
 
 func SharedConfigFile(mode structs.ModeEnum) structs.ConfigMap {
 	configMap := structs.NewConfigMap(mode)
-	logger.DebugAppend(Name, "[NEW CONFIG STRUCT]")
+	logger.Debug(Name, "[NEW CONFIG STRUCT]")
 	configMap.SetSection("global", masterConf)
-	logger.DebugAppend(Name, "[SET GLOBAL SECTION]")
+	logger.Debug(Name, "[SET GLOBAL SECTION]")
 	if mode != structs.ModeRegistry {
 		configMap.SectionMerge(structs.GlobalName, directoryconf)
-		logger.DebugAppend(Name, "[MERGE DIR SETTINGS]")
+		logger.Debug(Name, "[MERGE DIR SETTINGS]")
 	}
 	if config.IsEnabled("netbios") {
 		configMap.SectionMerge(structs.GlobalName, netbiosAdditions)
-		logger.DebugAppend(Name, "[MERGE NETBIOS SETTINGS]")
+		logger.Debug(Name, "[MERGE NETBIOS SETTINGS]")
 	} else {
 		if mode != structs.ModeRegistry {
 			configMap.SectionMerge(structs.GlobalName, antiNetbiosAdditions)
-			logger.DebugAppend(Name, "[MERGE ANTI NETBIOS SETTINGS]")
+			logger.Debug(Name, "[MERGE ANTI NETBIOS SETTINGS]")
 		}
 	}
 
 	if mode != structs.ModeRegistry {
 		configMap.SectionMerge(structs.GlobalName, RegFailAdditions)
-		logger.DebugAppend(Name, "[MERGE NOTINREG SETTINGS]")
+		logger.Debug(Name, "[MERGE NOTINREG SETTINGS]")
 	}
-	logger.DebugAppend(Name, "[CONFIG STRUCT DONE]")
+	logger.Debug(Name, "[CONFIG STRUCT DONE]")
 	return configMap
 
 }

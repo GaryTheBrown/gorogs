@@ -5,10 +5,10 @@ import (
 	"os"
 )
 
-type LogType int
+type LogModeType int
 
 const (
-	typeStandard LogType = iota
+	typeStandard LogModeType = iota
 	typeStart
 	typeAppend
 	typeEnd
@@ -16,7 +16,7 @@ const (
 )
 
 type logMessage struct {
-	kind      LogType
+	kind      LogModeType
 	text      string
 	subSystem string
 }
