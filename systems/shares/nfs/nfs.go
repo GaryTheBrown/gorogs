@@ -51,12 +51,9 @@ func (s *Struct) Setup() {
 	}
 	logger.Debug(Name, "[write config]")
 
-	// Injected right before triggering s.ganeshaCmd.Start()
 	if info, err := os.Stat(config.ShareRoot); err == nil {
-		// 1. Extract standard file mode bits (e.g., 0755)
 		perms := info.Mode().Perm()
 
-		// 2. Extract underlying Linux syscall ownership parameters (UID/GID)
 		if sysData, ok := info.Sys().(*syscall.Stat_t); ok {
 			logger.Debug(Name, fmt.Sprintf(
 				"CRUCIAL DIAGNOSTIC: Path [%s] has Perms [%04o] | Owner UID [%d] | Group GID [%d]",
@@ -139,12 +136,11 @@ EXPORT {
     Path = "%s";
     Pseudo = "/";
     Export_Id = 1; 
-    Filesystem_id = 1.1;
     Access_Type = RO;
     Protocols = 3, 4;
     Transports = UDP, TCP; 
     SecType = sys;
-	Squash = All_Squash;
+	Squash = all_squash;
     Anonymous_uid = %d;
     Anonymous_gid = %d;
     FSAL {
