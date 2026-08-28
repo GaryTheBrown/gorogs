@@ -30,7 +30,7 @@ func (s *Struct) startRPCBind() error {
 	logger.DebugAppend(Name, "[RPCBIND:CMD SETUP]")
 
 	if logger.IsDebugActive(Name) {
-		s.rpcWriter = helpers.NewSubsystemWriter(Name, nil, nil, nil)
+		s.rpcWriter = helpers.NewSubsystemWriter(Name, nil)
 		s.rpcCmd.Stdout = s.rpcWriter
 		s.rpcCmd.Stderr = s.rpcWriter
 		logger.DebugAppend(Name, "[RPCBIND:LINK STDOUT->LOG]")

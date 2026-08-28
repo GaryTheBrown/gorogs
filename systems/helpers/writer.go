@@ -2,7 +2,6 @@ package helpers
 
 import (
 	"bytes"
-	"strings"
 	"sync"
 )
 
@@ -11,19 +10,13 @@ type SubsystemWriter struct {
 	loggerName string
 	buffer     []byte
 
-	matchPhrases []string
-	readyChan    chan struct{}
-	hasSignaled  bool
-
 	stripFunc func(string) (string, bool)
 }
 
-func NewSubsystemWriter(name string, readyChan chan struct{}, matchPhrases []string, stripFn func(string) (string, bool)) *SubsystemWriter {
+func NewSubsystemWriter(name string, stripFn func(string) (string, bool)) *SubsystemWriter {
 	return &SubsystemWriter{
-		loggerName:   name,
-		readyChan:    readyChan,
-		matchPhrases: matchPhrases,
-		stripFunc:    stripFn,
+		loggerName: name,
+		stripFunc:  stripFn,
 	}
 }
 
@@ -49,16 +42,6 @@ func (w *SubsystemWriter) Write(p []byte) (n int, err error) {
 }
 
 func (w *SubsystemWriter) processLine(line string) {
-	if !w.hasSignaled && w.readyChan != nil {
-		for _, phrase := range w.matchPhrases {
-			if strings.Contains(line, phrase) {
-				close(w.readyChan)
-				w.hasSignaled = true
-				break
-			}
-		}
-	}
-
 	if w.stripFunc != nil {
 		var keep bool
 		line, keep = w.stripFunc(line)
@@ -77,9 +60,5 @@ func (w *SubsystemWriter) Close() error {
 		w.buffer = nil
 	}
 
-	if !w.hasSignaled && w.readyChan != nil {
-		close(w.readyChan)
-		w.hasSignaled = true
-	}
 	return nil
 }

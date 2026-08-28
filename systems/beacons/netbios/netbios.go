@@ -75,7 +75,7 @@ func (s *Struct) Start() error {
 	logger.DebugAppend(Name, "[CMD SETUP]")
 
 	if logger.IsDebugActive(Name) {
-		s.logWriter = helpers.NewSubsystemWriter(Name+".CMD", nil, nil, nil)
+		s.logWriter = helpers.NewSubsystemWriter(Name, nil)
 		s.cmd.Stdout = s.logWriter
 		s.cmd.Stderr = s.logWriter
 		logger.DebugAppend(Name, "[LINK STDOUT->LOG]")

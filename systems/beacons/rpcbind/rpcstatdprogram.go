@@ -16,7 +16,7 @@ func (s *Struct) startRPCStatd() error {
 	s.statdCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.DebugAppend(Name, "[RPC.STATD:CMD SETUP]")
 	if logger.IsDebugActive(Name) {
-		s.statdWriter = helpers.NewSubsystemWriter(Name, nil, nil, nil)
+		s.statdWriter = helpers.NewSubsystemWriter(Name, nil)
 		s.statdCmd.Stdout = s.statdWriter
 		s.statdCmd.Stderr = s.statdWriter
 		logger.DebugAppend(Name, "[RPC.STATD:LINK STDOUT->LOG]")

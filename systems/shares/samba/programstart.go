@@ -24,7 +24,7 @@ func (s *Struct) ProgramStart() error {
 	logger.DebugAppend(Name, "[COMMAND ARGS]")
 
 	if logger.IsDebugActive(Name) {
-		s.logWriter = helpers.NewSubsystemWriter(Name, nil, nil, nil)
+		s.logWriter = helpers.NewSubsystemWriter(Name, nil)
 		vars.Cmd.Stdout = s.logWriter
 		vars.Cmd.Stderr = s.logWriter
 		logger.DebugAppend(Name, "[ATTACHING LOGS]")
