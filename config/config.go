@@ -44,6 +44,19 @@ func (cm ConfigMap) Get[T any](key string, defaultValue T) T {
 	return defaultValue
 }
 
+func (cm ConfigMap) GetExists[T any](key string, defaultValue T) (T, bool) {
+	if gotValue, exists := cm[strings.ToLower(key)].(T); exists {
+		return gotValue, true
+	}
+	return defaultValue, false
+}
+
+func (cm ConfigMap) Exists(key string) bool {
+	_, exists := cm[strings.ToLower(key)]
+	return exists
+
+}
+
 func GetServiceConfig(key string) ConfigMap {
 	if gotValue, exists := massConfigMap[strings.ToLower(key)].(ConfigMap); exists {
 		return gotValue
@@ -56,4 +69,17 @@ func Get[T any](key string, defaultValue T) T {
 		return gotValue
 	}
 	return defaultValue
+}
+
+func GetExists[T any](key string, defaultValue T) (T, bool) {
+	if gotValue, exists := massConfigMap[strings.ToLower(key)].(T); exists {
+		return gotValue, true
+	}
+	return defaultValue, false
+}
+
+func Exists(key string) bool {
+	_, exists := massConfigMap[strings.ToLower(key)]
+	return exists
+
 }
