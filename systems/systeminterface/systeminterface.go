@@ -1,5 +1,7 @@
 package systeminterface
 
+import "gorogs/config"
+
 type System interface {
 	Name() string
 	Type() SystemTypeEnum
@@ -8,7 +10,7 @@ type System interface {
 	IsState(in SysStateEnum) bool
 	GetState() SysStateEnum
 
-	Config()
+	Config(cm config.ConfigMap)
 	Setup()
 	Start() error
 	Stop()

@@ -2,6 +2,7 @@ package systems
 
 import (
 	"context"
+	"gorogs/config"
 	"gorogs/healthcheck"
 	"gorogs/logger"
 	"gorogs/systems/systeminterface"
@@ -13,8 +14,10 @@ import (
 const logName = "main"
 
 func Config() {
+
 	for _, sys := range systemList {
-		sys.Config()
+		sysConfig := config.GetServiceConfig(sys.Name())
+		sys.Config(sysConfig)
 	}
 }
 

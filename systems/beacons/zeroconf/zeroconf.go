@@ -31,15 +31,13 @@ func (_ *Struct) AutoStart() bool                              { return AutoStar
 func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
-func (s *Struct) Config() {
-	cm := config.GetServiceConfig(Name)
-	activebroadcaster = cm.Get("activebroadcaster", false)
-
+func (s *Struct) Config(cm config.ConfigMap) {
 	disabledStr := cm.Get("disabled", "")
 	disabledSlice = strings.SplitSeq(strings.ToLower(disabledStr), ",")
 	enabledStr := cm.Get("enabled", "")
 	enabledSlice = strings.SplitSeq(strings.ToLower(enabledStr), ",")
 
+	activebroadcaster = cm.Get("activebroadcaster", false)
 	forceLocalDomainName = cm.Get("forcelocaldomainname", false)
 	forceNoDomainName = cm.Get("forcelocaldomainname", false)
 	singleTextRecord = cm.Get("singletextrecord", false)

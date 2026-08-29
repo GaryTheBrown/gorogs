@@ -2,6 +2,7 @@ package nfs
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"syscall"
@@ -20,72 +21,7 @@ const (
 	AutoStart  = true
 )
 
-var (
-	programPath = "/usr/bin/ganesha.nfsd"
-	ganeshaConf = "/etc/ganesha/ganesha.conf"
-)
-
-type Struct struct {
-	sState     systeminterface.SysStateEnum
-	ganeshaCmd *exec.Cmd
-	logWriter  *helpers.SubsystemWriter
-	readyChan  chan struct{}
-}
-
-func (_ *Struct) Name() string                                 { return Name }
-func (_ *Struct) Type() systeminterface.SystemTypeEnum         { return Type }
-func (_ *Struct) IsCritical() bool                             { return IsCritical }
-func (_ *Struct) AutoStart() bool                              { return AutoStart }
-func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
-func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
-
-func (s *Struct) Config() {
-
-}
-
-func (s *Struct) Setup() {
-	logger.Debug(Name, "System Setup...")
-
-	if err := s.writeGaneshaConfig(); err != nil {
-		logger.Fatal(Name, "failed to execute master ganesha config file write utility", err)
-	}
-	logger.Debug(Name, "[write config]")
-
-	if info, err := os.Stat(config.ShareRoot); err == nil {
-		perms := info.Mode().Perm()
-
-		if sysData, ok := info.Sys().(*syscall.Stat_t); ok {
-			logger.Debug(Name, fmt.Sprintf(
-				"CRUCIAL DIAGNOSTIC: Path [%s] has Perms [%04o] | Owner UID [%d] | Group GID [%d]",
-				config.ShareRoot, perms, sysData.Uid, sysData.Gid,
-			))
-		}
-	} else {
-		logger.Error(Name, "Failed to read diagnostic stats for ShareRoot", err)
-	}
-
-	s.sState = systeminterface.SETUP
-	logger.Debug(Name, "[DONE]")
-}
-
-func (s *Struct) writeGaneshaConfig() error {
-
-	detectedUID := 65534
-	detectedGID := 65534
-
-	if info, err := os.Stat(config.ShareRoot); err == nil {
-		if sysData, ok := info.Sys().(*syscall.Stat_t); ok {
-			detectedUID = int(sysData.Uid)
-			detectedGID = int(sysData.Gid)
-		}
-	}
-
-	gLogLevel := "EVENT"
-	if logger.IsDebugActive(Name) {
-		gLogLevel = "FULL_DEBUG"
-	}
-
-	configContent := fmt.Sprintf(`NFS_CORE_PARAM {
+const CONFIGFILE = `NFS_CORE_PARAM {
     mount_path_pseudo = true;
     NFS_Port = 2049;
     MNT_Port = 20048;
@@ -147,7 +83,76 @@ EXPORT {
         Name = VFS;
         fsid_type = uuid;
     }
-}`, gLogLevel, config.DomainName, detectedUID, detectedGID, config.ShareRoot, detectedUID, detectedGID)
+}`
+
+var (
+	programPath = "/usr/bin/ganesha.nfsd"
+	ganeshaConf = "/etc/ganesha/ganesha.conf"
+	socketPath  = "/run/dbus/system_bus_socket"
+)
+
+type Struct struct {
+	sState        systeminterface.SysStateEnum
+	ganeshaCmd    *exec.Cmd
+	logWriter     *helpers.SubsystemWriter
+	dbusListener  net.Listener
+	readyChan     chan struct{}
+	zeroFreeSpace bool
+}
+
+func (_ *Struct) Name() string                                 { return Name }
+func (_ *Struct) Type() systeminterface.SystemTypeEnum         { return Type }
+func (_ *Struct) IsCritical() bool                             { return IsCritical }
+func (_ *Struct) AutoStart() bool                              { return AutoStart }
+func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
+func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
+
+func (s *Struct) Config(cm config.ConfigMap) {
+}
+
+func (s *Struct) Setup() {
+	logger.Debug(Name, "System Setup...")
+
+	if err := s.writeGaneshaConfig(); err != nil {
+		logger.Fatal(Name, "failed to execute master ganesha config file write utility", err)
+	}
+	logger.Debug(Name, "[write config]")
+
+	if info, err := os.Stat(config.ShareRoot); err == nil {
+		perms := info.Mode().Perm()
+
+		if sysData, ok := info.Sys().(*syscall.Stat_t); ok {
+			logger.Debug(Name, fmt.Sprintf(
+				"CRUCIAL DIAGNOSTIC: Path [%s] has Perms [%04o] | Owner UID [%d] | Group GID [%d]",
+				config.ShareRoot, perms, sysData.Uid, sysData.Gid,
+			))
+		}
+	} else {
+		logger.Error(Name, "Failed to read diagnostic stats for ShareRoot", err)
+	}
+
+	s.sState = systeminterface.SETUP
+	logger.Debug(Name, "[DONE]")
+}
+
+func (s *Struct) writeGaneshaConfig() error {
+
+	detectedUID := 65534
+	detectedGID := 65534
+
+	if info, err := os.Stat(config.ShareRoot); err == nil {
+		if sysData, ok := info.Sys().(*syscall.Stat_t); ok {
+			detectedUID = int(sysData.Uid)
+			detectedGID = int(sysData.Gid)
+		}
+	}
+
+	gLogLevel := "EVENT"
+	if logger.IsDebugActive(Name) {
+		gLogLevel = "FULL_DEBUG"
+	}
+
+	configContent := fmt.Sprintf(CONFIGFILE, gLogLevel, config.DomainName, detectedUID, detectedGID, config.ShareRoot, detectedUID, detectedGID)
 
 	return os.WriteFile(ganeshaConf, []byte(configContent), 0644)
 }

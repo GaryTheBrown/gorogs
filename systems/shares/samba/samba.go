@@ -46,8 +46,7 @@ var (
 	systemMode = structs.ModeRegistry
 )
 
-func (s *Struct) Config() {
-	cm := config.GetServiceConfig(Name)
+func (s *Struct) Config(cm config.ConfigMap) {
 	mode := cm.Get("mode", "Registry")
 	systemMode = structs.StringToMode(mode)
 	vars.BaseDirOverlay = cm.Get("basediroverlay", true)

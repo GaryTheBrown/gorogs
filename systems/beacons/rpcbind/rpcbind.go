@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"syscall"
 
+	"gorogs/config"
 	"gorogs/logger"
 	"gorogs/systems/helpers"
 	"gorogs/systems/systeminterface"
@@ -37,7 +38,7 @@ func (_ *Struct) AutoStart() bool                              { return AutoStar
 func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
-func (s *Struct) Config() {
+func (s *Struct) Config(cm config.ConfigMap) {
 	// NOTHING TO CONFIGURE IN HERE
 }
 
