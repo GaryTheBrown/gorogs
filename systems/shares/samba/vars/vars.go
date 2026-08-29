@@ -19,6 +19,7 @@ const (
 var (
 	BaseDirOverlay      bool
 	BatchInjection      bool
+	ZeroFreeSpace       bool
 	VetoFiles           string
 	DefaultShareComment string
 	ServerComment       string

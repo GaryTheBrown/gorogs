@@ -53,19 +53,20 @@ ARG CACHE_STAGE2=1
 
 RUN mkdir -p /distroless \
     /distroless/etc \
-    /distroless/etc/ssl \
-    /distroless/etc/ssl/certs \
     /distroless/etc/ca-certificates \
     /distroless/etc/ca-certificates/extracted \
+    /distroless/etc/ganesha \
     /distroless/etc/samba \
     /distroless/etc/samba/private \
-    /distroless/etc/ganesha \
+    /distroless/etc/ssl \
+    /distroless/etc/ssl/certs \
     /distroless/run/ \
+    /distroless/run/dbus \
+    /distroless/run/ganesha \
+    /distroless/run/rpcbind \
     /distroless/run/samba \
     /distroless/run/samba/ncalrpc \
     /distroless/run/samba/ncalrpc/np \
-    /distroless/run/rpcbind \
-    /distroless/run/ganesha \
     /distroless/run/sendsigs.omit.d \
     /distroless/srv \
     /distroless/tmp \
@@ -77,7 +78,6 @@ RUN mkdir -p /distroless \
     /distroless/usr/lib/ganesha \
     /distroless/usr/lib/libnfsidmap \
     /distroless/usr/lib/samba \
-    /distroless/usr/lib/samba/vfs \
     /distroless/var/lib/nfs \
     /distroless/var/lib/nfs/sm \
     /distroless/var/lib/nfs/sm.bak \
@@ -87,6 +87,7 @@ RUN mkdir -p /distroless \
     /distroless/var/lib/nfs/ganesha \
     /distroless/var/lib/samba \
     /distroless/var/lib/samba/private \
+    /distroless/usr/lib/samba/vfs \
     /distroless/var/lock/samba \
     /distroless/var/log/samba \
     /distroless/var/run \
@@ -138,6 +139,14 @@ RUN mkdir -p /distroless \
     cp -vnP /usr/lib/libnfsidmap.so* /distroless/usr/lib/ && \
     cp -vnP /usr/lib/libcups.so* /distroless/usr/lib/ && \
     cp -a /usr/lib/libnfsidmap/* /distroless/usr/lib/libnfsidmap/ && \
+    cp -vnP /usr/lib/libdl.so* /distroless/usr/lib/ && \
+    cp -a /usr/lib/libnfsidmap/* /distroless/usr/lib/libnfsidmap/ && \
+    #Free Space Zero Script Samba
+    printf '#!/sh\necho "100000 0"\n' > /distroless/usr/bin/smb-fake-dfree && \
+    chmod +x /distroless/usr/bin/smb-fake-dfree && \
+    #Free Space Zero Trick for Nfs
+    printf '#define _GNU_SOURCE\n#include <sys/vfs.h>\n#include <dlfcn.h>\nint statfs(const char *path, struct statfs *buf) {\n    int (*orig_statfs)(const char*, struct statfs*) = dlsym(RTLD_NEXT, "statfs");\n    int ret = orig_statfs(path, buf);\n    if (ret == 0) { buf->f_bfree = 0; buf->f_bavail = 0; }\n    return ret;\n}\nint statfs64(const char *path, struct statfs64 *buf) {\n    int (*orig_statfs64)(const char*, struct statfs64*) = dlsym(RTLD_NEXT, "statfs64");\n    int ret = orig_statfs64(path, buf);\n    if (ret == 0) { buf->f_bfree = 0; buf->f_bavail = 0; }\n    return ret;\n}\n' > /usr/src/fake_statfs.c && \
+    gcc -shared -fPIC -o /distroless/usr/lib/libfake_statfs.so /usr/src/fake_statfs.c -ldl && \
     # ==============================================================================
     # DEBUG FILES TO BE REMOVED ONCE EVERYTHING IS
     # ==============================================================================

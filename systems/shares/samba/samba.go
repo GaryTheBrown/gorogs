@@ -51,6 +51,7 @@ func (s *Struct) Config(cm config.ConfigMap) {
 	systemMode = structs.StringToMode(mode)
 	vars.BaseDirOverlay = cm.Get("basediroverlay", true)
 	vars.BatchInjection = cm.Get("batchinjection", true)
+	vars.ZeroFreeSpace = cm.Get("zerofreespace", true)
 	vars.VetoFiles = cm.Get("vetofiles", "/*.~tmp/")
 	vars.DefaultShareComment = cm.Get("defaultcomment", "")
 	vars.ServerComment = cm.Get("servercomment", "GO Read Only Guest Share")

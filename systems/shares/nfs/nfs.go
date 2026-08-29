@@ -108,6 +108,7 @@ func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
 
 func (s *Struct) Config(cm config.ConfigMap) {
+	s.zeroFreeSpace = cm.Get("zerofreespace", true)
 }
 
 func (s *Struct) Setup() {
@@ -117,19 +118,6 @@ func (s *Struct) Setup() {
 		logger.Fatal(Name, "failed to execute master ganesha config file write utility", err)
 	}
 	logger.Debug(Name, "[write config]")
-
-	if info, err := os.Stat(config.ShareRoot); err == nil {
-		perms := info.Mode().Perm()
-
-		if sysData, ok := info.Sys().(*syscall.Stat_t); ok {
-			logger.Debug(Name, fmt.Sprintf(
-				"CRUCIAL DIAGNOSTIC: Path [%s] has Perms [%04o] | Owner UID [%d] | Group GID [%d]",
-				config.ShareRoot, perms, sysData.Uid, sysData.Gid,
-			))
-		}
-	} else {
-		logger.Error(Name, "Failed to read diagnostic stats for ShareRoot", err)
-	}
 
 	s.sState = systeminterface.SETUP
 	logger.Debug(Name, "[DONE]")
@@ -159,6 +147,10 @@ func (s *Struct) writeGaneshaConfig() error {
 
 func (s *Struct) Start() error {
 	logger.Debug(Name, "System Starting...")
+	if err := s.SartDummyDBus(); err != nil {
+		return err
+	}
+
 	if err := s.StartProgram(); err != nil {
 		return err
 	}
@@ -192,6 +184,8 @@ func (s *Struct) Stop() {
 		_ = s.logWriter.Close()
 		logger.Debug(Name, "[STDOUT->LOG STOP]")
 	}
+
+	s.StopDummyDBus()
 
 	s.sState = systeminterface.STOPPED
 	logger.Debug(Name, "[DONE]")

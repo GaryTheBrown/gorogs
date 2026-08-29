@@ -14,9 +14,14 @@ import (
 const logName = "main"
 
 func Config() {
+	zeroFreeSpaceStr := "zerofreespace"
+	value, found := config.GetExists(zeroFreeSpaceStr, true)
 
 	for _, sys := range systemList {
 		sysConfig := config.GetServiceConfig(sys.Name())
+		if found && sys.Type() == systeminterface.Share && !sysConfig.Exists(zeroFreeSpaceStr) {
+			sysConfig[zeroFreeSpaceStr] = value
+		}
 		sys.Config(sysConfig)
 	}
 }

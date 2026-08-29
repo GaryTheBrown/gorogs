@@ -2,6 +2,7 @@ package nfs
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"syscall"
 
@@ -20,13 +21,15 @@ func (s *Struct) StartProgram() error {
 	s.ganeshaCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.Debug(Name, "[CMD SETUP]")
 
+	if s.zeroFreeSpace {
+		s.ganeshaCmd.Env = append(os.Environ(), "LD_PRELOAD=/usr/lib/libfake_statfs.so")
+		logger.Debug(Name, "[ZERO FREE SPACE ENABLED]")
+	}
+
 	s.logWriter = helpers.NewSubsystemWriter(Name, nil)
 	s.ganeshaCmd.Stdout = s.logWriter
 	s.ganeshaCmd.Stderr = s.logWriter
 	logger.Debug(Name, "[LINK STDOUT->LOG]")
-	// s.ganeshaCmd.Stdout = os.Stdout
-	// s.ganeshaCmd.Stderr = os.Stderr
-	// logger.Debug(Name, "[LINK STDOUT->STDOUT]")
 
 	if err := s.ganeshaCmd.Start(); err != nil {
 		close(s.readyChan)

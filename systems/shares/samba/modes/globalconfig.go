@@ -62,6 +62,9 @@ var (
 	RegSetup = structs.ConfigSection{
 		"config backend": "registry",
 	}
+	zeroSpaceSetup = structs.ConfigSection{
+		"dfree command": "/usr/bin/smb-fake-dfree",
+	}
 )
 
 func SharedConfigFile(mode structs.ModeEnum) structs.ConfigMap {
@@ -69,6 +72,10 @@ func SharedConfigFile(mode structs.ModeEnum) structs.ConfigMap {
 	logger.Debug(Name, "[NEW CONFIG STRUCT]")
 	configMap.SetSection("global", masterConf)
 	logger.Debug(Name, "[SET GLOBAL SECTION]")
+	if vars.ZeroFreeSpace {
+		configMap.SectionMerge(structs.GlobalName, zeroSpaceSetup)
+		logger.Debug(Name, "[MERGE ZERO SPACE SETTINGS]")
+	}
 	if mode != structs.ModeRegistry {
 		configMap.SectionMerge(structs.GlobalName, directoryconf)
 		logger.Debug(Name, "[MERGE DIR SETTINGS]")
