@@ -23,10 +23,10 @@ type SubsystemWriter struct {
 	loggerName string
 	buffer     []byte
 
-	stripFunc func(string) (LogType, string)
+	stripFunc func(string) (string, LogType, string)
 }
 
-func NewSubsystemWriter(name string, stripFn func(string) (LogType, string)) *SubsystemWriter {
+func NewSubsystemWriter(name string, stripFn func(string) (string, LogType, string)) *SubsystemWriter {
 	return &SubsystemWriter{
 		loggerName: name,
 		stripFunc:  stripFn,
@@ -59,19 +59,22 @@ func (sw *SubsystemWriter) processLine(lineIn string) {
 		logger.Info(sw.loggerName, lineIn)
 		return
 	}
-
-	logType, line := sw.stripFunc(lineIn)
+	fullName := sw.loggerName
+	subsystem, logType, line := sw.stripFunc(lineIn)
+	if subsystem != "" {
+		fullName = fmt.Sprintf("%s.%s", sw.loggerName, subsystem)
+	}
 	switch logType {
 	case LOGINFO:
-		logger.Info(sw.loggerName, line)
+		logger.Info(fullName, line)
 	case LOGWARN:
-		logger.Warn(sw.loggerName, line)
+		logger.Warn(fullName, line)
 	case LOGERROR:
-		logger.Error(sw.loggerName, line, fmt.Errorf("ERROR IN PROGRAM"))
+		logger.Error(fullName, line, fmt.Errorf("ERROR IN PROGRAM"))
 	case LOGFATAL:
-		logger.Fatal(sw.loggerName, line, fmt.Errorf("FATAL ISSUE IN PROGRAM"))
+		logger.Fatal(fullName, line, fmt.Errorf("FATAL ISSUE IN PROGRAM"))
 	case LOGDEBUG:
-		logger.Debug(sw.loggerName, line)
+		logger.Debug(fullName, line)
 	default:
 		return
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 
 	"gorogs/logger"
@@ -26,7 +27,7 @@ func (s *Struct) StartProgram() error {
 		logger.Debug(Name, "[ZERO FREE SPACE ENABLED]")
 	}
 
-	s.logWriter = helpers.NewSubsystemWriter(Name, nil)
+	s.logWriter = helpers.NewSubsystemWriter(Name, nfsLogStripper)
 	s.ganeshaCmd.Stdout = s.logWriter
 	s.ganeshaCmd.Stderr = s.logWriter
 	logger.Debug(Name, "[LINK STDOUT->LOG]")
@@ -41,4 +42,65 @@ func (s *Struct) StartProgram() error {
 	logger.Debug(Name, "[CMD START]")
 
 	return nil
+}
+
+func nfsLogModeStringToLoggerType(strType string) helpers.LogType {
+	switch strings.TrimSpace(strType) {
+	case "LOG":
+		return helpers.LOGINFO
+	case "EVENT":
+		return helpers.LOGINFO
+	case "INFO":
+		return helpers.LOGINFO
+	case "WARN":
+		return helpers.LOGWARN
+	case "MAJ":
+		return helpers.LOGERROR
+	case "CRIT":
+		return helpers.LOGERROR
+	case "FATAL":
+		return helpers.LOGFATAL
+	case "DEBUG":
+		return helpers.LOGDEBUG
+	case "MID_DEBUG":
+		return helpers.LOGDEBUG
+	case "M_DBG":
+		return helpers.LOGDEBUG
+	case "FULL_DEBUG":
+		return helpers.LOGDEBUG
+	case "F_DBG":
+		return helpers.LOGDEBUG
+	case "NULL":
+		return helpers.LOGNONE
+	default:
+		return helpers.LOGNONE
+	}
+}
+
+var stringShortMode bool = false
+
+func nfsLogStripper(line string) (string, helpers.LogType, string) {
+	if !stringShortMode {
+		if line[0] == '[' {
+			stringShortMode = true
+		} else {
+			_, after, _ := strings.Cut(line, "[")
+			subsystem, after, _ := strings.Cut(after, "] ")
+
+			splice := strings.SplitAfterN(after, ":", 3)
+			if strings.ToLower(subsystem) == "main" {
+				subsystem = ""
+			}
+			return subsystem, nfsLogModeStringToLoggerType(splice[1]), splice[2]
+		}
+	}
+	if stringShortMode {
+		subsystem, afterBrackets, _ := strings.Cut(line[1:], "]")
+		if strings.ToLower(subsystem) == "main" {
+			subsystem = ""
+		}
+		msgType, msg, _ := strings.Cut(afterBrackets, ":")
+		return subsystem, nfsLogModeStringToLoggerType(msgType), msg
+	}
+	return "", helpers.LOGNONE, "string"
 }
