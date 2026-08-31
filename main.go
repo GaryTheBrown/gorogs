@@ -9,7 +9,7 @@ import (
 	"syscall"
 )
 
-const logName = "main"
+const logName = "gorogs"
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--check-health" {

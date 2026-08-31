@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const logName = "main"
+const logName = "gorogs"
 
 func Config() {
 	zeroFreeSpaceStr := "zerofreespace"
