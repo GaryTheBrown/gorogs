@@ -28,14 +28,28 @@ func init() {
 		debugRegistry[trimmed] = true
 	}
 }
+func debugCheck(subSystem string) bool {
+	if allDebugActive {
+		return true
+	}
+	lowerSub := strings.ToLower(subSystem)
+	if strings.Contains(subSystem, ".") {
+		splitStrs := strings.Split(lowerSub, ".")
+		if debugRegistry[splitStrs[0]] {
+			return true
+		}
+	} else if debugRegistry[lowerSub] {
+		return true
+	}
+	return false
+}
 
 func DebugF(subSystem, format string, args ...any) {
 	Debug(subSystem, fmt.Sprintf(format, args...))
 }
 
 func Debug(subSystem, message string) {
-	lowerSub := strings.ToLower(subSystem)
-	if !allDebugActive && !debugRegistry[lowerSub] {
+	if !debugCheck(subSystem) {
 		return
 	}
 	prefix := formatPrefix(subSystem, "DEBUG")
@@ -47,8 +61,7 @@ func DebugContinueF(subSystem, format string, args ...any) {
 }
 
 func DebugContinue(subSystem, message string) {
-	lowerSub := strings.ToLower(subSystem)
-	if !allDebugActive && !debugRegistry[lowerSub] {
+	if !debugCheck(subSystem) {
 		return
 	}
 	prefix := formatPrefix(subSystem, "DEBUG")
@@ -60,8 +73,7 @@ func DebugAppendF(subSystem, format string, a ...any) {
 }
 
 func DebugAppend(subSystem, message string) {
-	lowerSub := strings.ToLower(subSystem)
-	if !allDebugActive && !debugRegistry[lowerSub] {
+	if !debugCheck(subSystem) {
 		return
 	}
 	logChan <- logMessage{kind: typeAppend, text: message, subSystem: subSystem}
@@ -71,8 +83,7 @@ func DebugEndF(subSystem, format string, a ...any) {
 	DebugEnd(subSystem, fmt.Sprintf(format, a...)+"\n")
 }
 func DebugEnd(subSystem, message string) {
-	lowerSub := strings.ToLower(subSystem)
-	if !allDebugActive && !debugRegistry[lowerSub] {
+	if !debugCheck(subSystem) {
 		return
 	}
 	logChan <- logMessage{kind: typeEnd, text: message + "\n", subSystem: subSystem}
