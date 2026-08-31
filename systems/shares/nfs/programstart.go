@@ -78,29 +78,43 @@ func nfsLogModeStringToLoggerType(strType string) helpers.LogType {
 }
 
 var stringShortMode bool = false
+var stringFatalMode bool = false
 
 func nfsLogStripper(line string) (string, helpers.LogType, string) {
-	if !stringShortMode {
-		if line[0] == '[' {
-			stringShortMode = true
-		} else {
-			_, after, _ := strings.Cut(line, "[")
-			subsystem, after, _ := strings.Cut(after, "] ")
+	if line != "" {
+		if stringFatalMode {
+			return "", helpers.LOGERROR, line
+		}
+		if !stringShortMode {
+			if line[0] == '[' {
+				stringShortMode = true
+			} else {
+				_, after, _ := strings.Cut(line, "[")
+				subsystem, after, _ := strings.Cut(after, "] ")
 
-			splice := strings.SplitAfterN(after, ":", 3)
+				splice := strings.SplitAfterN(after, ":", 3)
+				if strings.ToLower(subsystem) == "main" {
+					subsystem = ""
+				}
+				loggerType := nfsLogModeStringToLoggerType(splice[1])
+				if loggerType == helpers.LOGFATAL {
+					stringFatalMode = true
+				}
+				return subsystem, loggerType, splice[2]
+			}
+		}
+		if stringShortMode {
+			subsystem, afterBrackets, _ := strings.Cut(line[1:], "]")
 			if strings.ToLower(subsystem) == "main" {
 				subsystem = ""
 			}
-			return subsystem, nfsLogModeStringToLoggerType(splice[1]), splice[2]
+			msgType, msg, _ := strings.Cut(afterBrackets, ":")
+			loggerType := nfsLogModeStringToLoggerType(msgType)
+			if loggerType == helpers.LOGFATAL {
+				stringFatalMode = true
+			}
+			return subsystem, nfsLogModeStringToLoggerType(msgType), msg
 		}
-	}
-	if stringShortMode {
-		subsystem, afterBrackets, _ := strings.Cut(line[1:], "]")
-		if strings.ToLower(subsystem) == "main" {
-			subsystem = ""
-		}
-		msgType, msg, _ := strings.Cut(afterBrackets, ":")
-		return subsystem, nfsLogModeStringToLoggerType(msgType), msg
 	}
 	return "", helpers.LOGNONE, "string"
 }

@@ -28,6 +28,8 @@ const CONFIGFILE = `NFS_CORE_PARAM {
     NLM_Port = 32803;
     Rquota_Port = 875; 
     fsid_device = true;
+    heartbeat_freq = 0;
+    Dbus_Name_Prefix = "disabled.org.ganesha.nfsd";
 }
 
 LOG {
@@ -60,6 +62,8 @@ NFSV4 {
 DIRECTORY_SERVICES {
     DomainName = "%s";
     Idmapping_Active = false;
+    Idmapped_User_Time_Validity = 300;
+    Idmapped_Group_Time_Validity = 300;
 }
 
 EXPORT_DEFAULTS {
@@ -147,10 +151,6 @@ func (s *Struct) writeGaneshaConfig() error {
 
 func (s *Struct) Start() error {
 	logger.Debug(Name, "System Starting...")
-	if err := s.SartDummyDBus(); err != nil {
-		return err
-	}
-
 	if err := s.StartProgram(); err != nil {
 		return err
 	}
@@ -184,8 +184,6 @@ func (s *Struct) Stop() {
 		_ = s.logWriter.Close()
 		logger.Debug(Name, "[STDOUT->LOG STOP]")
 	}
-
-	s.StopDummyDBus()
 
 	s.sState = systeminterface.STOPPED
 	logger.Debug(Name, "[DONE]")

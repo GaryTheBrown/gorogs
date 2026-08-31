@@ -37,7 +37,26 @@ USER aur-builder
 WORKDIR /home/aur-builder
 RUN git clone "${GANESHA_AUR_URL}" 
 WORKDIR /home/aur-builder/nfs-ganesha
-RUN makepkg -si --noconfirm --skipchecksums --skippgpcheck
+
+RUN _custom_flags="-DUSE_DBUS=OFF \
+    -DUSE_ADMIN_TOOLS=OFF \
+    -DUSE_9P=OFF \
+    -DUSE_MONITORING=OFF \
+    -DUSE_GSS=OFF \
+    -DUSE_NFSIDMAP=OFF \
+    -DENABLE_ERROR_INJECTION=OFF \
+    -DUSE_FSAL_VFS=ON \
+    -DUSE_FSAL_PROXY_V4=OFF \
+    -DUSE_FSAL_PROXY_V3=OFF \
+    -DUSE_FSAL_GPFS=OFF \
+    -DUSE_FSAL_XFS=OFF \
+    -DUSE_FSAL_NULL=OFF \
+    -DUSE_FSAL_MEM=OFF \
+    -DUSE_FSAL_SAUNAFS=OFF" && \
+    for _flag in $_custom_flags; do \
+    sed -i "/local _flags=(/a \    ${_flag}" PKGBUILD; \
+    done && \
+    makepkg -si --noconfirm --skipchecksums --skippgpcheck
 # hadolint ignore=DL3002
 USER root
 RUN gpasswd -d aur-builder wheel && \
