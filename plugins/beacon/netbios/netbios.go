@@ -82,12 +82,10 @@ func (s *Struct) Start() error {
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.Debug(Name, "[CMD SETUP]")
 
-	if logger.IsDebugActive(Name) {
-		s.logWriter = config.NewSubsystemWriter(Name, nil)
-		s.cmd.Stdout = s.logWriter
-		s.cmd.Stderr = s.logWriter
-		logger.Debug(Name, "[LINK STDOUT->LOG]")
-	}
+	s.logWriter = config.NewSubsystemWriter(Name, nil)
+	s.cmd.Stdout = s.logWriter
+	s.cmd.Stderr = s.logWriter
+	logger.Debug(Name, "[LINK STDOUT->LOG]")
 
 	if err := s.cmd.Start(); err != nil {
 		if s.logWriter != nil {

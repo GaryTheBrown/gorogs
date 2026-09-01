@@ -224,17 +224,30 @@ RUN TAG_LIST="" && BUILD_ARG="" && \
 
 RUN cp /gorogs /distroless/usr/bin/gorogs && chmod +x /distroless/usr/bin/gorogs
 
-RUN find plugins -mindepth 2 -maxdepth 2 -type d | while read -r plugin_dir; do \
-    _type=$(basename "$(dirname "$plugin_dir")") && \
-    _name=$(basename "$plugin_dir") && \
+RUN _target_plugins="share/nfs \
+    share/samba \
+    beacon/rpcbind \
+    beacon/netbios \
+    beacon/wsdiscovery \
+    beacon/zeroconf" && \
+    for _plugin in $_target_plugins; do \
+    _plugin_dir="plugins/${_plugin}" && \
+    \
+    if [ ! -d "$_plugin_dir" ]; then \
+    echo "Skipping compilation: ${_plugin_dir} does not exist in repository workspace." && \
+    continue; \
+    fi; \
+    \
+    _type=$(echo "$_plugin" | cut -d'/' -f1) && \
+    _name=$(echo "$_plugin" | cut -d'/' -f2) && \
     _output_name="gorogs-${_type}-${_name}.so" && \
     \
-    echo "Compiling system appliance: ${_output_name} -> ${plugin_dir}" && \
+    echo "Compiling explicit plug-in module: ${_output_name} from ${_plugin_dir}" && \
     CGO_ENABLED=${CGO_ENABLED} GOOS=${GOOS} GOARCH=${GOARCH} \
     go build -buildmode=plugin \
     -ldflags="-s -w" \
     -o "/distroless/usr/lib/gorogs/${_output_name}" \
-    "${plugin_dir}"/*.go; \
+    "${_plugin_dir}"/*.go; \
     done
 
 RUN if [ "$CGO_ENABLED" = "1" ] ; then \

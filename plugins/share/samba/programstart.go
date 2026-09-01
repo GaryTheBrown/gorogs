@@ -23,12 +23,10 @@ func (s *Struct) ProgramStart() error {
 	vars.Cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.Debug(Name, "[COMMAND ARGS]")
 
-	if logger.IsDebugActive(Name) {
-		s.logWriter = config.NewSubsystemWriter(Name, nil)
-		vars.Cmd.Stdout = s.logWriter
-		vars.Cmd.Stderr = s.logWriter
-		logger.Debug(Name, "[ATTACHING LOGS]")
-	}
+	s.logWriter = config.NewSubsystemWriter(Name, nil)
+	vars.Cmd.Stdout = s.logWriter
+	vars.Cmd.Stderr = s.logWriter
+	logger.Debug(Name, "[LINK STDOUT->LOG]")
 
 	if err := vars.Cmd.Start(); err != nil {
 		return fmt.Errorf("failed to initialize background smbd process: %w", err)

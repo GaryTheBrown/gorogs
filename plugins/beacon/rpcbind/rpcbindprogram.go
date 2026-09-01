@@ -31,12 +31,10 @@ func (s *Struct) startRPCBind() error {
 	s.rpcCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.Debug(Name, "[RPCBIND:CMD SETUP]")
 
-	if logger.IsDebugActive(Name) {
-		s.rpcWriter = config.NewSubsystemWriter(Name, nil)
-		s.rpcCmd.Stdout = s.rpcWriter
-		s.rpcCmd.Stderr = s.rpcWriter
-		logger.Debug(Name, "[RPCBIND:LINK STDOUT->LOG]")
-	}
+	s.rpcWriter = config.NewSubsystemWriter(Name, nil)
+	s.rpcCmd.Stdout = s.rpcWriter
+	s.rpcCmd.Stderr = s.rpcWriter
+	logger.Debug(Name, "[RPCBIND:LINK STDOUT->LOG]")
 
 	if err := s.rpcCmd.Start(); err != nil {
 		if s.rpcWriter != nil {

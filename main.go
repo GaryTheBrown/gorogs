@@ -27,10 +27,6 @@ func main() {
 		logger.Fatal(logName, "FATAL: System plugin engine failed to bootstrap", err)
 	}
 
-	for _, sys := range system.SystemList {
-		healthcheck.AddTracker(sys)
-	}
-
 	logger.Info(logName, "Configs Setup...")
 	system.Config()
 	logger.Info(logName, "Setting up Systems...")
@@ -38,6 +34,11 @@ func main() {
 	logger.Info(logName, "Starting Systems...")
 	system.Start()
 	logger.Info(logName, "Systems Started")
+
+	logger.Info(logName, "Adding Systems To Healthcheck...")
+	for _, sys := range system.SystemList {
+		healthcheck.AddTracker(sys)
+	}
 
 	logger.Info(logName, "Arming signal interception traps.")
 	shutdownSignalChan := make(chan os.Signal, 1)
