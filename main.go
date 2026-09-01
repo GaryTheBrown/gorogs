@@ -4,9 +4,17 @@ import (
 	"gorogs/healthcheck"
 	"gorogs/logger"
 	"gorogs/systems"
+	"gorogs/systems/systeminterface"
 	"os"
 	"os/signal"
 	"syscall"
+
+	_ "gorogs/systems/beacons/netbios"
+	_ "gorogs/systems/beacons/rpcbind"
+	_ "gorogs/systems/beacons/wsdiscovery"
+	_ "gorogs/systems/beacons/zeroconf"
+	_ "gorogs/systems/shares/nfs"
+	_ "gorogs/systems/shares/samba"
 )
 
 const logName = "gorogs"
@@ -22,6 +30,8 @@ func main() {
 	healthcheck.Start()
 	logger.Info(logName, "Healthcheck Started")
 
+	logger.Info(logName, "Getting Systems ...")
+	systeminterface.InitializeAndSort()
 	logger.Info(logName, "Configs Setup...")
 	systems.Config()
 	logger.Info(logName, "Setting up Systems...")

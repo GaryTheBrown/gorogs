@@ -37,6 +37,13 @@ func (_ *Struct) IsCritical() bool                             { return IsCritic
 func (_ *Struct) AutoStart() bool                              { return AutoStart }
 func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
+func (_ *Struct) Dependencies() []string                       { return nil }
+func (_ *Struct) OrderAfter() []string                         { return nil }
+func (_ *Struct) Priority() int                                { return 100 }
+
+func init() {
+	systeminterface.Register(&Struct{})
+}
 
 func (s *Struct) Config(cm config.ConfigMap) {
 	// NOTHING TO CONFIGURE IN HERE

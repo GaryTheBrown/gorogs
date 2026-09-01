@@ -1,23 +1,26 @@
+// systems/controller.go
 package systems
 
 import (
 	"context"
+	"fmt"
 	"gorogs/config"
 	"gorogs/healthcheck"
 	"gorogs/logger"
 	"gorogs/systems/systeminterface"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 )
 
-const logName = "gorogs"
+const logName = "gorogs.controller"
 
 func Config() {
 	zeroFreeSpaceStr := "zerofreespace"
 	value, found := config.GetExists(zeroFreeSpaceStr, true)
 
-	for _, sys := range systemList {
+	for _, sys := range systeminterface.SystemList {
 		sysConfig := config.GetServiceConfig(sys.Name())
 		if found && sys.Type() == systeminterface.Share && !sysConfig.Exists(zeroFreeSpaceStr) {
 			sysConfig[zeroFreeSpaceStr] = value
@@ -27,12 +30,38 @@ func Config() {
 }
 
 func Setup() {
-	for i, sys := range systemList {
-		if !ShouldItStart(SystemNameEnum(i)) ||
-			(i == int(RpcBind) && !ShouldItStart(SystemNameEnum(i)) && !ShouldItStart(NFS)) {
-			logger.DebugF(logName, "Skipping: %s", sys.Name())
+	runningStatus := make(map[string]bool)
+	var nfsSys systeminterface.System
+
+	for _, sys := range systeminterface.SystemList {
+		if strings.EqualFold(sys.Name(), "NFS") {
+			nfsSys = sys
+		}
+		runningStatus[strings.ToLower(sys.Name())] = ShouldItStart(sys)
+	}
+
+	for _, sys := range systeminterface.SystemList {
+		sysKey := strings.ToLower(sys.Name())
+		sysEnabled := runningStatus[sysKey]
+
+		if strings.EqualFold(sys.Name(), "RpcBind") && !sysEnabled && nfsSys != nil && ShouldItStart(nfsSys) {
+			sysEnabled = true
+			runningStatus[sysKey] = true
+		}
+
+		if !sysEnabled {
+			logger.DebugF(logName, "Skipping config setup for disabled service: %s", sys.Name())
 			continue
 		}
+
+		for _, hardDep := range sys.Dependencies() {
+			hardDepKey := strings.ToLower(hardDep)
+			if !runningStatus[hardDepKey] {
+				logger.Fatal(logName, "FATAL DEPENDENCY ERROR",
+					fmt.Errorf("cannot start %s because its hard dependency %s is disabled", sys.Name(), hardDep))
+			}
+		}
+
 		logger.InfoF(logName, "Setting Up: %s", sys.Name())
 		sys.Setup()
 	}
@@ -40,7 +69,7 @@ func Setup() {
 }
 
 func Start() error {
-	for _, sys := range systemList {
+	for _, sys := range systeminterface.SystemList {
 		if sys.IsState(systeminterface.SETUP) {
 			logger.InfoF(logName, "Starting: %s", sys.Name())
 			if err := sys.Start(); err != nil {
@@ -58,7 +87,7 @@ func Stop() {
 
 	var wg sync.WaitGroup
 
-	for _, sys := range slices.Backward(systemList) {
+	for _, sys := range slices.Backward(systeminterface.SystemList) {
 		if !sys.IsState(systeminterface.STARTED) {
 			continue
 		}

@@ -9,6 +9,9 @@ type System interface {
 	AutoStart() bool
 	IsState(in SysStateEnum) bool
 	GetState() SysStateEnum
+	Dependencies() []string
+	OrderAfter() []string
+	Priority() int
 
 	Config(cm config.ConfigMap)
 	Setup()

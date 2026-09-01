@@ -41,6 +41,13 @@ func (_ *Struct) IsCritical() bool                             { return IsCritic
 func (_ *Struct) AutoStart() bool                              { return AutoStart }
 func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
 func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
+func (_ *Struct) Dependencies() []string                       { return nil }
+func (_ *Struct) OrderAfter() []string                         { return []string{"NetBIOS"} }
+func (_ *Struct) Priority() int                                { return 50 }
+
+func init() {
+	systeminterface.Register(&Struct{})
+}
 
 var (
 	systemMode = structs.ModeRegistry

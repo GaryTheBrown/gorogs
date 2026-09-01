@@ -2,25 +2,18 @@ package systems
 
 import (
 	"gorogs/config"
+	"gorogs/systems/systeminterface"
 )
 
-func ShouldItStart(e SystemNameEnum) bool {
-	systemName := systemList[e].Name()
-
-	autoStart := systemList[e].AutoStart()
-	isDisabled := config.IsDisabled(systemName)
-	isEnabled := config.IsEnabled(systemName)
-
-	if autoStart {
-		return !isDisabled
+func ShouldItStart(sys systeminterface.System) bool {
+	if sys == nil {
+		return false
 	}
-	return isEnabled
-}
 
-func SystemNameList() []string {
-	var snList []string
-	for _, sys := range systemList {
-		snList = append(snList, sys.Name())
+	systemName := sys.Name()
+
+	if sys.AutoStart() {
+		return !config.IsDisabled(systemName)
 	}
-	return snList
+	return config.IsEnabled(systemName)
 }
