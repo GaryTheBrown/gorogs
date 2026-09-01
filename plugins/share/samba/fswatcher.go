@@ -1,4 +1,4 @@
-package samba
+package main
 
 import (
 	"context"

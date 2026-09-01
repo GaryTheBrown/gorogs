@@ -1,4 +1,4 @@
-package systeminterface
+package system
 
 import "gorogs/config"
 

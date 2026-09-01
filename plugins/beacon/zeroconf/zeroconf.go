@@ -1,4 +1,4 @@
-package zeroconf
+package main
 
 import (
 	"fmt"
@@ -7,35 +7,37 @@ import (
 
 	"gorogs/config"
 	"gorogs/logger"
-	"gorogs/system/systeminterface"
+	"gorogs/system"
 )
 
 const (
 	Name       = "ZeroCONF"
-	Type       = systeminterface.Beacon
+	Type       = system.Beacon
 	IsCritical = false
 	AutoStart  = true
 )
 
 type Struct struct {
-	sState        systeminterface.SysStateEnum
+	sState        system.SysStateEnum
 	conn          *net.UDPConn
 	multicastAddr *net.UDPAddr
 	done          chan struct{}
 }
 
-func (_ *Struct) Name() string                                 { return Name }
-func (_ *Struct) Type() systeminterface.SystemTypeEnum         { return Type }
-func (_ *Struct) IsCritical() bool                             { return IsCritical }
-func (_ *Struct) AutoStart() bool                              { return AutoStart }
-func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
-func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
-func (_ *Struct) Dependencies() []string                       { return nil }
-func (_ *Struct) OrderAfter() []string                         { return []string{"nfs", "samba"} }
-func (_ *Struct) Priority() int                                { return 100 }
+func (_ *Struct) Name() string                        { return Name }
+func (_ *Struct) Type() system.SystemTypeEnum         { return Type }
+func (_ *Struct) IsCritical() bool                    { return IsCritical }
+func (_ *Struct) AutoStart() bool                     { return AutoStart }
+func (s *Struct) IsState(in system.SysStateEnum) bool { return s.sState == in }
+func (s *Struct) GetState() system.SysStateEnum       { return s.sState }
+func (_ *Struct) Dependencies() []string              { return nil }
+func (_ *Struct) OrderAfter() []string                { return []string{"nfs", "samba"} }
+func (_ *Struct) Priority() int                       { return 100 }
+
+var SystemInstance Struct
 
 func init() {
-	systeminterface.Register(&Struct{})
+	system.Register(&SystemInstance)
 }
 
 func (s *Struct) Config(cm config.ConfigMap) {
@@ -77,7 +79,7 @@ func (s *Struct) Setup() {
 
 	AddrSetup()
 
-	s.sState = systeminterface.SETUP
+	s.sState = system.SETUP
 	logger.Debug(Name, "[DONE]")
 }
 
@@ -99,7 +101,7 @@ func (s *Struct) Start() error {
 		go s.activeBroadcaster()
 		logger.Debug(Name, "[STARTED REFRESH TICKER]")
 	}
-	s.sState = systeminterface.STARTED
+	s.sState = system.STARTED
 	logger.Debug(Name, "[DONE]")
 	return nil
 }
@@ -120,7 +122,7 @@ func (s *Struct) Stop() {
 		logger.Debug(Name, "[CLOSE LISTNER]")
 	}
 
-	s.sState = systeminterface.STOPPED
+	s.sState = system.STOPPED
 	logger.Debug(Name, "[DONE]")
 }
 

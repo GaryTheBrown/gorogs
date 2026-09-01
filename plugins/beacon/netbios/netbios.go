@@ -1,11 +1,11 @@
-package netbios
+package main
 
 import (
 	"fmt"
 	"gorogs/config"
+	"gorogs/helpers"
 	"gorogs/logger"
-	"gorogs/system/helpers"
-	"gorogs/system/systeminterface"
+	"gorogs/system"
 	"os"
 	"os/exec"
 	"syscall"
@@ -14,7 +14,7 @@ import (
 
 const (
 	Name       = "NetBIOS"
-	Type       = systeminterface.Beacon
+	Type       = system.Beacon
 	IsCritical = false
 	AutoStart  = false
 )
@@ -25,27 +25,28 @@ var (
 )
 
 type Struct struct {
-	sState    systeminterface.SysStateEnum
+	sState    system.SysStateEnum
 	cmd       *exec.Cmd
-	logWriter *helpers.SubsystemWriter
+	logWriter *config.SubsystemWriter
 }
 
-func (_ *Struct) Name() string                                 { return Name }
-func (_ *Struct) Type() systeminterface.SystemTypeEnum         { return Type }
-func (_ *Struct) IsCritical() bool                             { return IsCritical }
-func (_ *Struct) AutoStart() bool                              { return AutoStart }
-func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
-func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
-func (_ *Struct) Dependencies() []string                       { return nil }
-func (_ *Struct) OrderAfter() []string                         { return nil }
-func (_ *Struct) Priority() int                                { return 100 }
+func (_ *Struct) Name() string                        { return Name }
+func (_ *Struct) Type() system.SystemTypeEnum         { return Type }
+func (_ *Struct) IsCritical() bool                    { return IsCritical }
+func (_ *Struct) AutoStart() bool                     { return AutoStart }
+func (s *Struct) IsState(in system.SysStateEnum) bool { return s.sState == in }
+func (s *Struct) GetState() system.SysStateEnum       { return s.sState }
+func (_ *Struct) Dependencies() []string              { return nil }
+func (_ *Struct) OrderAfter() []string                { return nil }
+func (_ *Struct) Priority() int                       { return 100 }
+
+var SystemInstance Struct
 
 func init() {
-	systeminterface.Register(&Struct{})
+	system.Register(&SystemInstance)
 }
 
 func (s *Struct) Config(cm config.ConfigMap) {
-	//NOTHING TO CONFIGURE IN HERE
 }
 
 func (s *Struct) Setup() {
@@ -56,7 +57,7 @@ func (s *Struct) Setup() {
 	}
 	logger.Debug(Name, "[write config]")
 
-	s.sState = systeminterface.SETUP
+	s.sState = system.SETUP
 	logger.Debug(Name, "[DONE]")
 }
 
@@ -82,7 +83,7 @@ func (s *Struct) Start() error {
 	logger.Debug(Name, "[CMD SETUP]")
 
 	if logger.IsDebugActive(Name) {
-		s.logWriter = helpers.NewSubsystemWriter(Name, nil)
+		s.logWriter = config.NewSubsystemWriter(Name, nil)
 		s.cmd.Stdout = s.logWriter
 		s.cmd.Stderr = s.logWriter
 		logger.Debug(Name, "[LINK STDOUT->LOG]")
@@ -104,7 +105,7 @@ func (s *Struct) Start() error {
 		return fmt.Errorf("timeout waiting for NetBIOS network interface to bind socket 137")
 	}
 
-	s.sState = systeminterface.STARTED
+	s.sState = system.STARTED
 	logger.Debug(Name, "[DONE]")
 	return nil
 }
@@ -125,7 +126,7 @@ func (s *Struct) Stop() {
 		_ = s.logWriter.Close()
 		logger.Debug(Name, "[STDOUT->LOG STOP]")
 	}
-	s.sState = systeminterface.STOPPED
+	s.sState = system.STOPPED
 	logger.Debug(Name, "[DONE]")
 }
 

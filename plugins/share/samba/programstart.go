@@ -1,13 +1,13 @@
-package samba
+package main
 
 import (
 	"fmt"
 	"os/exec"
 	"syscall"
 
+	"gorogs/config"
 	"gorogs/logger"
 	"gorogs/plugins/share/samba/vars"
-	"gorogs/system/helpers"
 )
 
 func (s *Struct) ProgramStart() error {
@@ -24,7 +24,7 @@ func (s *Struct) ProgramStart() error {
 	logger.Debug(Name, "[COMMAND ARGS]")
 
 	if logger.IsDebugActive(Name) {
-		s.logWriter = helpers.NewSubsystemWriter(Name, nil)
+		s.logWriter = config.NewSubsystemWriter(Name, nil)
 		vars.Cmd.Stdout = s.logWriter
 		vars.Cmd.Stderr = s.logWriter
 		logger.Debug(Name, "[ATTACHING LOGS]")

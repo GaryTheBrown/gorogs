@@ -1,4 +1,4 @@
-package zeroconf
+package main
 
 import (
 	"github.com/miekg/dns"

@@ -2,10 +2,9 @@ package system
 
 import (
 	"gorogs/config"
-	"gorogs/system/systeminterface"
 )
 
-func ShouldItStart(sys systeminterface.System) bool {
+func ShouldItStart(sys System) bool {
 	if sys == nil {
 		return false
 	}

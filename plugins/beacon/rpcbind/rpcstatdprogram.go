@@ -1,4 +1,4 @@
-package rpcbind
+package main
 
 import (
 	"fmt"
@@ -9,7 +9,6 @@ import (
 
 	"gorogs/config"
 	"gorogs/logger"
-	"gorogs/system/helpers"
 )
 
 func (s *Struct) startRPCStatd() error {
@@ -25,7 +24,7 @@ func (s *Struct) startRPCStatd() error {
 	logger.Debug(Name, "[RPC.STATD:CMD SETUP]")
 
 	if logger.IsDebugActive(Name) {
-		s.statdWriter = helpers.NewSubsystemWriter(Name, nil)
+		s.statdWriter = config.NewSubsystemWriter(Name, nil)
 		s.statdCmd.Stdout = s.statdWriter
 		s.statdCmd.Stderr = s.statdWriter
 		logger.Debug(Name, "[RPC.STATD:LINK STDOUT->LOG]")

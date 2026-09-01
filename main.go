@@ -4,17 +4,9 @@ import (
 	"gorogs/healthcheck"
 	"gorogs/logger"
 	"gorogs/system"
-	"gorogs/system/systeminterface"
 	"os"
 	"os/signal"
 	"syscall"
-
-	_ "gorogs/plugins/beacon/netbios"
-	_ "gorogs/plugins/beacon/rpcbind"
-	_ "gorogs/plugins/beacon/wsdiscovery"
-	_ "gorogs/plugins/beacon/zeroconf"
-	_ "gorogs/plugins/share/nfs"
-	_ "gorogs/plugins/share/samba"
 )
 
 const logName = "gorogs"
@@ -30,8 +22,15 @@ func main() {
 	healthcheck.Start()
 	logger.Info(logName, "Healthcheck Started")
 
-	logger.Info(logName, "Getting Systems ...")
-	systeminterface.InitializeAndSort()
+	logger.Info(logName, "Discovering and Loading Systems Plugins...")
+	if err := system.LoadPlugins("/usr/lib/gorogs"); err != nil {
+		logger.Fatal(logName, "FATAL: System plugin engine failed to bootstrap", err)
+	}
+
+	for _, sys := range system.SystemList {
+		healthcheck.AddTracker(sys)
+	}
+
 	logger.Info(logName, "Configs Setup...")
 	system.Config()
 	logger.Info(logName, "Setting up Systems...")

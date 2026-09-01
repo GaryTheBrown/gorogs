@@ -1,4 +1,4 @@
-package nfs
+package main
 
 import (
 	"fmt"
@@ -10,13 +10,12 @@ import (
 
 	"gorogs/config"
 	"gorogs/logger"
-	"gorogs/system/helpers"
-	"gorogs/system/systeminterface"
+	"gorogs/system"
 )
 
 const (
 	Name       = "NFS"
-	Type       = systeminterface.Share
+	Type       = system.Share
 	IsCritical = true
 	AutoStart  = true
 )
@@ -80,7 +79,7 @@ EXPORT {
     Protocols = 3, 4;
     Transports = UDP, TCP; 
     SecType = sys;
-	Squash = all_squash;
+    Squash = all_squash;
     Anonymous_uid = %d;
     Anonymous_gid = %d;
     FSAL {
@@ -96,26 +95,28 @@ var (
 )
 
 type Struct struct {
-	sState        systeminterface.SysStateEnum
+	sState        system.SysStateEnum
 	ganeshaCmd    *exec.Cmd
-	logWriter     *helpers.SubsystemWriter
+	logWriter     *config.SubsystemWriter
 	dbusListener  net.Listener
 	readyChan     chan struct{}
 	zeroFreeSpace bool
 }
 
-func (_ *Struct) Name() string                                 { return Name }
-func (_ *Struct) Type() systeminterface.SystemTypeEnum         { return Type }
-func (_ *Struct) IsCritical() bool                             { return IsCritical }
-func (_ *Struct) AutoStart() bool                              { return AutoStart }
-func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
-func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
-func (_ *Struct) Dependencies() []string                       { return []string{"RpcBind"} }
-func (_ *Struct) OrderAfter() []string                         { return nil }
-func (_ *Struct) Priority() int                                { return 50 }
+func (_ *Struct) Name() string                        { return Name }
+func (_ *Struct) Type() system.SystemTypeEnum         { return Type }
+func (_ *Struct) IsCritical() bool                    { return IsCritical }
+func (_ *Struct) AutoStart() bool                     { return AutoStart }
+func (s *Struct) IsState(in system.SysStateEnum) bool { return s.sState == in }
+func (s *Struct) GetState() system.SysStateEnum       { return s.sState }
+func (_ *Struct) Dependencies() []string              { return []string{"rpcbind"} }
+func (_ *Struct) OrderAfter() []string                { return nil }
+func (_ *Struct) Priority() int                       { return 50 }
+
+var SystemInstance Struct
 
 func init() {
-	systeminterface.Register(&Struct{})
+	system.Register(&SystemInstance)
 }
 
 func (s *Struct) Config(cm config.ConfigMap) {
@@ -130,12 +131,11 @@ func (s *Struct) Setup() {
 	}
 	logger.Debug(Name, "[write config]")
 
-	s.sState = systeminterface.SETUP
+	s.sState = system.SETUP
 	logger.Debug(Name, "[DONE]")
 }
 
 func (s *Struct) writeGaneshaConfig() error {
-
 	detectedUID := 65534
 	detectedGID := 65534
 
@@ -164,7 +164,7 @@ func (s *Struct) Start() error {
 	if err := s.Wait(); err != nil {
 		return err
 	}
-	s.sState = systeminterface.STARTED
+	s.sState = system.STARTED
 	logger.Debug(Name, "[DONE]")
 	return nil
 }
@@ -192,7 +192,7 @@ func (s *Struct) Stop() {
 		logger.Debug(Name, "[STDOUT->LOG STOP]")
 	}
 
-	s.sState = systeminterface.STOPPED
+	s.sState = system.STOPPED
 	logger.Debug(Name, "[DONE]")
 }
 

@@ -3,7 +3,7 @@
 # ==============================================================================
 ARG GANESHA_AUR_URL="https://aur.archlinux.org/nfs-ganesha.git"
 ARG ENABLE_DEBUG=false
-ARG CGO_ENABLED=0
+ARG CGO_ENABLED=1
 ARG GOOS=linux
 ARG GOARCH=amd64
 
@@ -94,6 +94,7 @@ RUN mkdir -p /distroless \
     /distroless/var/cache \
     /distroless/var/cache/samba \
     /distroless/usr/lib \
+    /distroless/usr/lib/gorogs \
     /distroless/usr/lib/ganesha \
     /distroless/usr/lib/libnfsidmap \
     /distroless/usr/lib/samba \
@@ -212,7 +213,7 @@ ARG CACHE_STAGE3A=1
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
-ARG CACHE_STAGE3B 1 
+ARG CACHE_STAGE3B=1 
 COPY . .
 
 RUN TAG_LIST="" && BUILD_ARG="" && \
@@ -221,14 +222,30 @@ RUN TAG_LIST="" && BUILD_ARG="" && \
     CGO_ENABLED=${CGO_ENABLED} GOOS=${GOOS} GOARCH=${GOARCH} \
     go build -a -v ${BUILD_ARG:+"$BUILD_ARG"} -ldflags="-s -w" -o /gorogs main.go
 
-
 RUN cp /gorogs /distroless/usr/bin/gorogs && chmod +x /distroless/usr/bin/gorogs
 
+RUN find plugins -mindepth 2 -maxdepth 2 -type d | while read -r plugin_dir; do \
+    _type=$(basename "$(dirname "$plugin_dir")") && \
+    _name=$(basename "$plugin_dir") && \
+    _output_name="gorogs-${_type}-${_name}.so" && \
+    \
+    echo "Compiling system appliance: ${_output_name} -> ${plugin_dir}" && \
+    CGO_ENABLED=${CGO_ENABLED} GOOS=${GOOS} GOARCH=${GOARCH} \
+    go build -buildmode=plugin \
+    -ldflags="-s -w" \
+    -o "/distroless/usr/lib/gorogs/${_output_name}" \
+    "${plugin_dir}"/*.go; \
+    done
+
 RUN if [ "$CGO_ENABLED" = "1" ] ; then \
-    ldd /distroless/usr/bin/gorogs 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+    for target in /distroless/usr/bin/gorogs /distroless/usr/lib/gorogs/*.so; do \
+    [ -f "$target" ] || continue; \
+    ldd "$target" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
-    done\
+    done; \
+    done; \
     fi
+
 
 # ==============================================================================
 # STAGE 4: Final Distroless Runtime Assembly

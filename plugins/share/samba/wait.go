@@ -1,12 +1,12 @@
-package samba
+package main
 
 import (
 	"syscall"
 	"time"
 
+	"gorogs/helpers"
 	"gorogs/logger"
 	"gorogs/plugins/share/samba/vars"
-	"gorogs/system/helpers"
 )
 
 func (s *Struct) WaitForStart(maxWait time.Duration) bool {

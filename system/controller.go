@@ -4,24 +4,22 @@ import (
 	"context"
 	"fmt"
 	"gorogs/config"
-	"gorogs/healthcheck"
 	"gorogs/logger"
-	"gorogs/system/systeminterface"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 )
 
-const logName = "gorogs.controller"
+const logName = "gorogs.system"
 
 func Config() {
 	zeroFreeSpaceStr := "zerofreespace"
 	value, found := config.GetExists(zeroFreeSpaceStr, true)
 
-	for _, sys := range systeminterface.SystemList {
+	for _, sys := range SystemList {
 		sysConfig := config.GetServiceConfig(sys.Name())
-		if found && sys.Type() == systeminterface.Share && !sysConfig.Exists(zeroFreeSpaceStr) {
+		if found && sys.Type() == Share && !sysConfig.Exists(zeroFreeSpaceStr) {
 			sysConfig[zeroFreeSpaceStr] = value
 		}
 		sys.Config(sysConfig)
@@ -30,16 +28,16 @@ func Config() {
 
 func Setup() {
 	runningStatus := make(map[string]bool)
-	var nfsSys systeminterface.System
+	var nfsSys System
 
-	for _, sys := range systeminterface.SystemList {
+	for _, sys := range SystemList {
 		if strings.EqualFold(sys.Name(), "NFS") {
 			nfsSys = sys
 		}
 		runningStatus[strings.ToLower(sys.Name())] = ShouldItStart(sys)
 	}
 
-	for _, sys := range systeminterface.SystemList {
+	for _, sys := range SystemList {
 		sysKey := strings.ToLower(sys.Name())
 		sysEnabled := runningStatus[sysKey]
 
@@ -68,13 +66,12 @@ func Setup() {
 }
 
 func Start() error {
-	for _, sys := range systeminterface.SystemList {
-		if sys.IsState(systeminterface.SETUP) {
+	for _, sys := range SystemList {
+		if sys.IsState(SETUP) {
 			logger.InfoF(logName, "Starting: %s", sys.Name())
 			if err := sys.Start(); err != nil {
 				logger.Fatal(logName, "SOMETHING FAILED", err)
 			}
-			healthcheck.AddTracker(sys)
 		}
 	}
 	return nil
@@ -86,20 +83,20 @@ func Stop() {
 
 	var wg sync.WaitGroup
 
-	for _, sys := range slices.Backward(systeminterface.SystemList) {
-		if !sys.IsState(systeminterface.STARTED) {
+	for _, sys := range slices.Backward(SystemList) {
+		if !sys.IsState(STARTED) {
 			continue
 		}
 
 		wg.Add(1)
 
-		go func(s systeminterface.System) {
+		go func(s System) {
 			defer wg.Done()
 
 			logger.InfoF(s.Name(), "Stopping: %s", s.Name())
 			s.Stop()
 
-			if s.IsState(systeminterface.STOPPED) {
+			if s.IsState(STOPPED) {
 				logger.InfoF(s.Name(), "Stopped: %s[DONE]", s.Name())
 			} else {
 				logger.InfoF(s.Name(), "Stopped: %s[FAILED]", s.Name())

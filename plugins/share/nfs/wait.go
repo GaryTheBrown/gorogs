@@ -1,4 +1,4 @@
-package nfs
+package main
 
 import (
 	"fmt"

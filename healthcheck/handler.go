@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"gorogs/logger"
-	"gorogs/system/systeminterface"
+	"gorogs/system"
 )
 
 const (
@@ -41,13 +41,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			case Critical:
 				shouldFail = share.IsCritical()
 			case Shares:
-				shouldFail = (systeminterface.Share == share.Type())
+				shouldFail = (system.Share == share.Type())
 			case Nfs:
 				shouldFail = strings.EqualFold(name, nfsName)
 			case Samba:
 				shouldFail = strings.EqualFold(name, sambaName)
 			case Default:
-				shouldFail = (systeminterface.Share == share.Type())
+				shouldFail = (system.Share == share.Type())
 			}
 
 			if shouldFail {

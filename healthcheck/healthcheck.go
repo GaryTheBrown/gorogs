@@ -12,7 +12,7 @@ import (
 
 	"gorogs/config"
 	"gorogs/logger"
-	"gorogs/system/systeminterface"
+	"gorogs/system"
 )
 
 const socketFile = "/run/gorogs-healtsock"
@@ -32,14 +32,14 @@ const (
 
 var (
 	healthMode Level
-	tracked    map[string]systeminterface.System
+	tracked    map[string]system.System
 	server     *http.Server
 	listener   net.Listener
 )
 
 func Setup() {
 	logger.Debug(logName, "System Setup...")
-	tracked = make(map[string]systeminterface.System)
+	tracked = make(map[string]system.System)
 	logger.Debug(logName, "[make map]")
 
 	hEnv := strings.ToLower(config.Get(logName, "default"))
@@ -119,7 +119,7 @@ func Stop() {
 
 }
 
-func AddTracker(sys systeminterface.System) {
+func AddTracker(sys system.System) {
 	logger.DebugF(logName, "Adding Tracker for %s...", sys.Name())
 	lName := strings.ToLower(sys.Name())
 	tracked[lName] = sys

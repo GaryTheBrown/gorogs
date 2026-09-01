@@ -1,4 +1,4 @@
-package nfs
+package main
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 	"strings"
 	"syscall"
 
+	"gorogs/config"
 	"gorogs/logger"
-	"gorogs/system/helpers"
 )
 
 func (s *Struct) StartProgram() error {
@@ -27,7 +27,7 @@ func (s *Struct) StartProgram() error {
 		logger.Debug(Name, "[ZERO FREE SPACE ENABLED]")
 	}
 
-	s.logWriter = helpers.NewSubsystemWriter(Name, nfsLogStripper)
+	s.logWriter = config.NewSubsystemWriter(Name, nfsLogStripper)
 	s.ganeshaCmd.Stdout = s.logWriter
 	s.ganeshaCmd.Stderr = s.logWriter
 	logger.Debug(Name, "[LINK STDOUT->LOG]")
@@ -44,46 +44,46 @@ func (s *Struct) StartProgram() error {
 	return nil
 }
 
-func nfsLogModeStringToLoggerType(strType string) helpers.LogType {
+func nfsLogModeStringToLoggerType(strType string) config.LogType {
 	switch strings.TrimSpace(strType) {
 	case "LOG":
-		return helpers.LOGINFO
+		return config.LOGINFO
 	case "EVENT":
-		return helpers.LOGINFO
+		return config.LOGINFO
 	case "INFO":
-		return helpers.LOGINFO
+		return config.LOGINFO
 	case "WARN":
-		return helpers.LOGWARN
+		return config.LOGWARN
 	case "MAJ":
-		return helpers.LOGERROR
+		return config.LOGERROR
 	case "CRIT":
-		return helpers.LOGERROR
+		return config.LOGERROR
 	case "FATAL":
-		return helpers.LOGFATAL
+		return config.LOGFATAL
 	case "DEBUG":
-		return helpers.LOGDEBUG
+		return config.LOGDEBUG
 	case "MID_DEBUG":
-		return helpers.LOGDEBUG
+		return config.LOGDEBUG
 	case "M_DBG":
-		return helpers.LOGDEBUG
+		return config.LOGDEBUG
 	case "FULL_DEBUG":
-		return helpers.LOGDEBUG
+		return config.LOGDEBUG
 	case "F_DBG":
-		return helpers.LOGDEBUG
+		return config.LOGDEBUG
 	case "NULL":
-		return helpers.LOGNONE
+		return config.LOGNONE
 	default:
-		return helpers.LOGNONE
+		return config.LOGNONE
 	}
 }
 
 var stringShortMode bool = false
 var stringFatalMode bool = false
 
-func nfsLogStripper(line string) (string, helpers.LogType, string) {
+func nfsLogStripper(line string) (string, config.LogType, string) {
 	if line != "" {
 		if stringFatalMode {
-			return "", helpers.LOGERROR, line
+			return "", config.LOGERROR, line
 		}
 		if !stringShortMode {
 			if line[0] == '[' {
@@ -97,7 +97,7 @@ func nfsLogStripper(line string) (string, helpers.LogType, string) {
 					subsystem = ""
 				}
 				loggerType := nfsLogModeStringToLoggerType(splice[1])
-				if loggerType == helpers.LOGFATAL {
+				if loggerType == config.LOGFATAL {
 					stringFatalMode = true
 				}
 				return subsystem, loggerType, splice[2]
@@ -110,11 +110,11 @@ func nfsLogStripper(line string) (string, helpers.LogType, string) {
 			}
 			msgType, msg, _ := strings.Cut(afterBrackets, ":")
 			loggerType := nfsLogModeStringToLoggerType(msgType)
-			if loggerType == helpers.LOGFATAL {
+			if loggerType == config.LOGFATAL {
 				stringFatalMode = true
 			}
 			return subsystem, nfsLogModeStringToLoggerType(msgType), msg
 		}
 	}
-	return "", helpers.LOGNONE, "string"
+	return "", config.LOGNONE, "string"
 }

@@ -1,4 +1,4 @@
-package wsdiscovery
+package main
 
 import (
 	"context"
@@ -10,13 +10,13 @@ import (
 	"gorogs/plugins/beacon/wsdiscovery/incoming"
 	"gorogs/plugins/beacon/wsdiscovery/templates"
 	"gorogs/plugins/beacon/wsdiscovery/versions"
-	"gorogs/system/systeminterface"
+	"gorogs/system"
 	"time"
 )
 
 const (
 	Name       = "WSDiscovery"
-	Type       = systeminterface.Beacon
+	Type       = system.Beacon
 	IsCritical = false
 	AutoStart  = true
 )
@@ -30,7 +30,7 @@ func init() {
 }
 
 type Struct struct {
-	sState systeminterface.SysStateEnum
+	sState system.SysStateEnum
 	ctx    context.Context
 	cancel context.CancelFunc
 	engine *engine.Engine
@@ -38,18 +38,20 @@ type Struct struct {
 	SkipValidation bool
 }
 
-func (_ *Struct) Name() string                                 { return Name }
-func (_ *Struct) Type() systeminterface.SystemTypeEnum         { return Type }
-func (_ *Struct) IsCritical() bool                             { return IsCritical }
-func (_ *Struct) AutoStart() bool                              { return AutoStart }
-func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
-func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
-func (_ *Struct) Dependencies() []string                       { return []string{"Samba"} }
-func (_ *Struct) OrderAfter() []string                         { return nil }
-func (_ *Struct) Priority() int                                { return 100 }
+func (_ *Struct) Name() string                        { return Name }
+func (_ *Struct) Type() system.SystemTypeEnum         { return Type }
+func (_ *Struct) IsCritical() bool                    { return IsCritical }
+func (_ *Struct) AutoStart() bool                     { return AutoStart }
+func (s *Struct) IsState(in system.SysStateEnum) bool { return s.sState == in }
+func (s *Struct) GetState() system.SysStateEnum       { return s.sState }
+func (_ *Struct) Dependencies() []string              { return []string{"Samba"} }
+func (_ *Struct) OrderAfter() []string                { return nil }
+func (_ *Struct) Priority() int                       { return 100 }
+
+var SystemInstance Struct
 
 func init() {
-	systeminterface.Register(&Struct{})
+	system.Register(&SystemInstance)
 }
 
 func (s *Struct) Config(cm config.ConfigMap) {
@@ -66,7 +68,7 @@ func (s *Struct) Setup() {
 	s.engine = engine.NewEngineState()
 	logger.Debug(Name, "[SETUP ENGINE]")
 
-	s.sState = systeminterface.SETUP
+	s.sState = system.SETUP
 	logger.Debug(Name, "[DONE]")
 }
 
@@ -81,7 +83,7 @@ func (s *Struct) Start() error {
 	}
 	logger.Debug(Name, "[STARTED ENGINE]")
 
-	s.sState = systeminterface.STARTED
+	s.sState = system.STARTED
 	logger.Debug(Name, "[DONE]")
 	return nil
 }
@@ -114,7 +116,7 @@ func (s *Struct) Stop() {
 		logger.Debug(Name, "[CONTEXT CANCEL CLEAN]")
 	}
 
-	s.sState = systeminterface.STOPPED
+	s.sState = system.STOPPED
 	logger.Debug(Name, "[DONE]")
 }
 

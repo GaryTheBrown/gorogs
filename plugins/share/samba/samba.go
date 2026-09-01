@@ -1,4 +1,4 @@
-package samba
+package main
 
 import (
 	"context"
@@ -11,23 +11,22 @@ import (
 	"gorogs/plugins/share/samba/modes"
 	"gorogs/plugins/share/samba/structs"
 	"gorogs/plugins/share/samba/vars"
-	"gorogs/system/helpers"
-	"gorogs/system/systeminterface"
+	"gorogs/system"
 
 	"github.com/fsnotify/fsnotify"
 )
 
 const (
 	Name       = "Samba"
-	Type       = systeminterface.Share
+	Type       = system.Share
 	IsCritical = true
 	AutoStart  = true
 )
 
 type Struct struct {
-	sState systeminterface.SysStateEnum
+	sState system.SysStateEnum
 
-	logWriter      *helpers.SubsystemWriter
+	logWriter      *config.SubsystemWriter
 	readyChan      chan struct{}
 	cancelWatch    context.CancelFunc
 	sys            modes.System
@@ -35,18 +34,20 @@ type Struct struct {
 	commentWatcher *fsnotify.Watcher
 }
 
-func (_ *Struct) Name() string                                 { return Name }
-func (_ *Struct) Type() systeminterface.SystemTypeEnum         { return Type }
-func (_ *Struct) IsCritical() bool                             { return IsCritical }
-func (_ *Struct) AutoStart() bool                              { return AutoStart }
-func (s *Struct) IsState(in systeminterface.SysStateEnum) bool { return s.sState == in }
-func (s *Struct) GetState() systeminterface.SysStateEnum       { return s.sState }
-func (_ *Struct) Dependencies() []string                       { return nil }
-func (_ *Struct) OrderAfter() []string                         { return []string{"NetBIOS"} }
-func (_ *Struct) Priority() int                                { return 50 }
+func (_ *Struct) Name() string                        { return Name }
+func (_ *Struct) Type() system.SystemTypeEnum         { return Type }
+func (_ *Struct) IsCritical() bool                    { return IsCritical }
+func (_ *Struct) AutoStart() bool                     { return AutoStart }
+func (s *Struct) IsState(in system.SysStateEnum) bool { return s.sState == in }
+func (s *Struct) GetState() system.SysStateEnum       { return s.sState }
+func (_ *Struct) Dependencies() []string              { return nil }
+func (_ *Struct) OrderAfter() []string                { return []string{"NetBIOS"} }
+func (_ *Struct) Priority() int                       { return 50 }
+
+var SystemInstance Struct
 
 func init() {
-	systeminterface.Register(&Struct{})
+	system.Register(&SystemInstance)
 }
 
 var (
@@ -75,7 +76,7 @@ func (s *Struct) Setup() {
 
 	s.setupSystem()
 
-	s.sState = systeminterface.SETUP
+	s.sState = system.SETUP
 	logger.Debug(Name, "[DONE]")
 }
 
@@ -102,7 +103,7 @@ func (s *Struct) Start() error {
 		logger.Debug(Name, "[TRACKING]")
 	}
 
-	s.sState = systeminterface.STARTED
+	s.sState = system.STARTED
 	logger.Debug(Name, "[DONE]")
 	return nil
 }
@@ -138,7 +139,7 @@ func (s *Struct) Stop() {
 		}
 	}
 
-	s.sState = systeminterface.STOPPED
+	s.sState = system.STOPPED
 	logger.Debug(Name, "[DONE]")
 }
 
