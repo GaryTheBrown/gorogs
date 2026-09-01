@@ -93,10 +93,13 @@ func nfsLogStripper(line string) (string, config.LogType, string) {
 			} else {
 				_, after, _ := strings.Cut(line, "[")
 				subsystem, after, _ := strings.Cut(after, "] ")
-
-				splice := strings.SplitAfterN(after, ":", 3)
 				if strings.ToLower(subsystem) == "main" {
 					subsystem = ""
+				}
+
+				splice := strings.SplitAfterN(after, ":", 3)
+				if len(splice) == 1 {
+					return subsystem, config.LOGWARN, splice[0]
 				}
 				loggerType := nfsLogModeStringToLoggerType(splice[1])
 				if loggerType == config.LOGFATAL {

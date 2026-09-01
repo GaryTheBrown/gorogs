@@ -2,8 +2,7 @@
 # GLOBAL RUNTIME BUILD ARGUMENTS
 # ==============================================================================
 ARG GANESHA_AUR_URL="https://aur.archlinux.org/nfs-ganesha.git"
-ARG ENABLE_DEBUG=false
-ARG CGO_ENABLED=1
+ARG ENABLE_DEBUG=true
 ARG GOOS=linux
 ARG GOARCH=amd64
 
@@ -170,7 +169,6 @@ RUN mkdir -p /distroless \
     # ==============================================================================
     # DEBUG FILES TO BE REMOVED ONCE EVERYTHING IS
     # ==============================================================================
-    if [ "$ENABLE_DEBUG" = "true" ]; then \
     # 1. Essential filesystem checking utilities
     cp /usr/bin/ls       /distroless/usr/bin/ && \
     cp /usr/bin/cat      /distroless/usr/bin/ && \
@@ -179,8 +177,7 @@ RUN mkdir -p /distroless \
     cp /usr/bin/ss       /distroless/usr/bin/ && \
     cp /usr/bin/rpcinfo  /distroless/usr/bin/ && \
     # 3. tool for missing librarys
-    cp /usr/bin/strace /distroless/usr/bin/; \
-    fi  
+    cp /usr/bin/strace /distroless/usr/bin/; 
 
 RUN for bin in /distroless/usr/bin/* \
     /distroless/usr/lib/samba/*.so \
@@ -203,61 +200,83 @@ USER root
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG ENABLE_DEBUG
-ARG CGO_ENABLED
 ARG GOOS
 ARG GOARCH
 
+ARG CACHE_STAGE3=1 
+
 COPY --from=distroless-setup /distroless /distroless
 
-ARG CACHE_STAGE3A=1 
 WORKDIR /src
+
 COPY go.mod go.sum ./
 RUN go mod download
-ARG CACHE_STAGE3B=1 
-COPY . .
 
-RUN TAG_LIST="" && BUILD_ARG="" && \
-    if [ "$ENABLE_DEBUG" = "true" ]; then TAG_LIST="${TAG_LIST:+$TAG_LIST,}debug"; fi && \
-    if [ -n "$TAG_LIST" ]; then BUILD_ARG="-tags=${TAG_LIST}"; fi && \
-    CGO_ENABLED=${CGO_ENABLED} GOOS=${GOOS} GOARCH=${GOARCH} \
-    go build -a -v ${BUILD_ARG:+"$BUILD_ARG"} -ldflags="-s -w" -o /gorogs main.go
+COPY config/ ./config/
+COPY logger/ ./logger/
+COPY healthcheck/ ./healthcheck/
+COPY system/ ./system/
+COPY helpers/ ./helpers/
+COPY main.go ./main.go
 
-RUN cp /gorogs /distroless/usr/bin/gorogs && chmod +x /distroless/usr/bin/gorogs
+ENV GOFLAGS="-ldflags=-s -w"
+ENV CGO_ENABLED=1
+ENV GOOS=${GOOS}
+ENV GOARCH=${GOARCH}
 
-RUN _target_plugins="share/nfs \
-    share/samba \
-    beacon/rpcbind \
-    beacon/netbios \
-    beacon/wsdiscovery \
-    beacon/zeroconf" && \
-    for _plugin in $_target_plugins; do \
-    _plugin_dir="plugins/${_plugin}" && \
-    \
-    if [ ! -d "$_plugin_dir" ]; then \
-    echo "Skipping compilation: ${_plugin_dir} does not exist in repository workspace." && \
-    continue; \
-    fi; \
-    \
-    _type=$(echo "$_plugin" | cut -d'/' -f1) && \
-    _name=$(echo "$_plugin" | cut -d'/' -f2) && \
-    _output_name="gorogs-${_type}-${_name}.so" && \
-    \
-    echo "Compiling explicit plug-in module: ${_output_name} from ${_plugin_dir}" && \
-    CGO_ENABLED=${CGO_ENABLED} GOOS=${GOOS} GOARCH=${GOARCH} \
-    go build -buildmode=plugin \
-    -ldflags="-s -w" \
-    -o "/distroless/usr/lib/gorogs/${_output_name}" \
-    "${_plugin_dir}"/*.go; \
+RUN if [ "$ENABLE_DEBUG" = "true" ]; then echo "export GOFLAGS=\"-tags=debug ${GOFLAGS}\"" >> /etc/profile.d/go.sh; fi
+
+# --- Compile Core Master Orchestrator ---
+RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
+    go build -a -v -o /gorogs main.go && \
+    cp /gorogs /distroless/usr/bin/gorogs && chmod +x /distroless/usr/bin/gorogs && \
+    ldd "/distroless/usr/bin/gorogs" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+    cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
     done
 
-RUN if [ "$CGO_ENABLED" = "1" ] ; then \
-    for target in /distroless/usr/bin/gorogs /distroless/usr/lib/gorogs/*.so; do \
-    [ -f "$target" ] || continue; \
-    ldd "$target" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+# --- Share Plugins ---
+COPY plugins/share/nfs/ ./plugins/share/nfs/
+RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-share-nfs.so ./plugins/share/nfs/*.go && \
+    ldd "/distroless/usr/lib/gorogs/gorogs-share-nfs.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
-    done; \
-    done; \
-    fi
+    done
+
+COPY plugins/share/samba/ ./plugins/share/samba/
+RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-share-samba.so ./plugins/share/samba/*.go && \
+    ldd "/distroless/usr/lib/gorogs/gorogs-share-samba.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+    cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
+    done
+
+# --- Beacon Plugins ---
+COPY plugins/beacon/rpcbind/ ./plugins/beacon/rpcbind/
+RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-rpcbind.so ./plugins/beacon/rpcbind/*.go && \
+    ldd "/distroless/usr/lib/gorogs/gorogs-beacon-rpcbind.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+    cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
+    done
+
+COPY plugins/beacon/netbios/ ./plugins/beacon/netbios/
+RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-netbios.so ./plugins/beacon/netbios/*.go && \
+    ldd "/distroless/usr/lib/gorogs/gorogs-beacon-netbios.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+    cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
+    done
+
+COPY plugins/beacon/wsdiscovery/ ./plugins/beacon/wsdiscovery/
+RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-wsdiscovery.so ./plugins/beacon/wsdiscovery/*.go && \
+    ldd "/distroless/usr/lib/gorogs/gorogs-beacon-wsdiscovery.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+    cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
+    done
+
+COPY plugins/beacon/zeroconf/ ./plugins/beacon/zeroconf/
+RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-zeroconf.so ./plugins/beacon/zeroconf/*.go && \
+    ldd "/distroless/usr/lib/gorogs/gorogs-beacon-zeroconf.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+    cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
+    done
 
 
 # ==============================================================================

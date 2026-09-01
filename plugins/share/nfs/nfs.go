@@ -18,8 +18,9 @@ const (
 	Type       system.SystemTypeEnum = system.Share
 	IsCritical bool                  = true
 	AutoStart  bool                  = true
+)
 
-	CONFIGFILE = `NFS_CORE_PARAM {
+const CONFIGFILE = `NFS_CORE_PARAM {
     mount_path_pseudo = true;
     NFS_Port = 2049;
     MNT_Port = 20048;
@@ -81,13 +82,14 @@ EXPORT {
     Squash = all_squash;
     Anonymous_uid = %d;
     Anonymous_gid = %d;
-    Clients = "*"
+    CLIENT{
+        Clients = *;
+    }
     FSAL {
         Name = VFS;
         fsid_type = uuid;
     }
 }`
-)
 
 var (
 	programPath string = "/usr/bin/ganesha.nfsd"
