@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"gorogs/logger"
-	"gorogs/systems/shares/nfs"
-	"gorogs/systems/shares/samba"
-	"gorogs/systems/systeminterface"
+	"gorogs/plugins/share/nfs"
+	"gorogs/plugins/share/samba"
+	"gorogs/system/systeminterface"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {

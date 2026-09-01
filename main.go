@@ -3,18 +3,18 @@ package main
 import (
 	"gorogs/healthcheck"
 	"gorogs/logger"
-	"gorogs/systems"
-	"gorogs/systems/systeminterface"
+	"gorogs/system"
+	"gorogs/system/systeminterface"
 	"os"
 	"os/signal"
 	"syscall"
 
-	_ "gorogs/systems/beacons/netbios"
-	_ "gorogs/systems/beacons/rpcbind"
-	_ "gorogs/systems/beacons/wsdiscovery"
-	_ "gorogs/systems/beacons/zeroconf"
-	_ "gorogs/systems/shares/nfs"
-	_ "gorogs/systems/shares/samba"
+	_ "gorogs/plugins/beacon/netbios"
+	_ "gorogs/plugins/beacon/rpcbind"
+	_ "gorogs/plugins/beacon/wsdiscovery"
+	_ "gorogs/plugins/beacon/zeroconf"
+	_ "gorogs/plugins/share/nfs"
+	_ "gorogs/plugins/share/samba"
 )
 
 const logName = "gorogs"
@@ -33,11 +33,11 @@ func main() {
 	logger.Info(logName, "Getting Systems ...")
 	systeminterface.InitializeAndSort()
 	logger.Info(logName, "Configs Setup...")
-	systems.Config()
+	system.Config()
 	logger.Info(logName, "Setting up Systems...")
-	systems.Setup()
+	system.Setup()
 	logger.Info(logName, "Starting Systems...")
-	systems.Start()
+	system.Start()
 	logger.Info(logName, "Systems Started")
 
 	logger.Info(logName, "Arming signal interception traps.")
@@ -48,7 +48,7 @@ func main() {
 	logger.InfoF(logName, "Interception caught system event signal: %s Commencing orderly cleanup procedures...", caughtSignal.String())
 
 	logger.Info(logName, "Stopping Systems...")
-	systems.Stop()
+	system.Stop()
 	logger.Info(logName, "Systems Stopped")
 
 	logger.Info(logName, "Stopping Healthcheck...")

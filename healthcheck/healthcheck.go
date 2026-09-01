@@ -12,7 +12,7 @@ import (
 
 	"gorogs/config"
 	"gorogs/logger"
-	"gorogs/systems/systeminterface"
+	"gorogs/system/systeminterface"
 )
 
 const socketFile = "/run/gorogs-healtsock"
