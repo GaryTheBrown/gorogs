@@ -16,6 +16,15 @@ import (
 	"strings"
 )
 
+var (
+	globalSettings map[string]string = map[string]string{
+		"browseable":            "yes",
+		"readdir_attr:oneshot":  "yes",
+		"smbd:asynclight":       "yes",
+		"smbd:background_queue": "no",
+	}
+)
+
 type Share struct {
 	Path    string
 	Comment string
@@ -48,13 +57,6 @@ func ReadCommentFile(path string) string {
 		f.Close()
 	}
 	return comment
-}
-
-var globalSettings = map[string]string{
-	"browseable":            "yes",
-	"readdir_attr:oneshot":  "yes",
-	"smbd:asynclight":       "yes",
-	"smbd:background_queue": "no",
 }
 
 func (s Share) ToINI(io io.Writer) {

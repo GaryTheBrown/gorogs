@@ -17,7 +17,7 @@ func fileExists(filename string) bool {
 	return false
 }
 
-func init() { //_etc_hosts() {
+func init() {
 	if fileExists("/etc/hosts") {
 		return
 	}
@@ -28,8 +28,7 @@ func init() { //_etc_hosts() {
 		SystemIP.String(), Hostname,
 	)
 	os.WriteFile("/etc/hosts", []byte(hostsContent), 0644)
-}
-func init() { //_etc_nsswitch_conf() {
+
 	if fileExists("/etc/nsswitch.conf") {
 		return
 	}

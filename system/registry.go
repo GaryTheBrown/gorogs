@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	RegisteredSystems = make(map[string]System)
+	RegisteredSystems map[string]System = make(map[string]System)
 	SystemList        []System
 )
 

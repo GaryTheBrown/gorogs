@@ -15,10 +15,10 @@ import (
 )
 
 const (
-	Name       = "WSDiscovery"
-	Type       = system.Beacon
-	IsCritical = false
-	AutoStart  = true
+	Name       string                = "WSDiscovery"
+	Type       system.SystemTypeEnum = system.Beacon
+	IsCritical bool                  = false
+	AutoStart  bool                  = true
 )
 
 func init() {

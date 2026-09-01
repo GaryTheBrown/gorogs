@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	nfsName   = "nfs"
-	sambaName = "samba"
+	nfsName   string = "nfs"
+	sambaName string = "samba"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {

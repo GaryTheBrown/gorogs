@@ -2,7 +2,9 @@
 
 package logger
 
-const DebugActive = false
+const (
+	DebugActive bool = false
+)
 
 func DebugF(subSystem, format string, args ...any)         {}
 func Debug(subSystem, message string)                      {}

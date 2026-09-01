@@ -12,9 +12,10 @@ import (
 	"time"
 )
 
-var Name string
-
-var CombinedTemplateCache = make(map[string]map[string]*template.Template)
+var (
+	Name                  string
+	CombinedTemplateCache map[string]map[string]*template.Template
+)
 
 type StaticBakingContext struct {
 	ServerName         string
@@ -48,7 +49,7 @@ func getNextMessageNumber() uint64 {
 
 func init() {
 	currentInstanceID = uint64(time.Now().Unix())
-
+	CombinedTemplateCache = make(map[string]map[string]*template.Template)
 	schemaIndexMap = make(map[string]int, int(versions.MaxSchemaType))
 	for i := range int(versions.MaxSchemaType) {
 		enumVal := versions.SchemaTypeEnum(i)

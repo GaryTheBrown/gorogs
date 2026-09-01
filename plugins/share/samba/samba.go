@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	Name       = "Samba"
-	Type       = system.Share
-	IsCritical = true
-	AutoStart  = true
+	Name       string                = "Samba"
+	Type       system.SystemTypeEnum = system.Share
+	IsCritical bool                  = true
+	AutoStart  bool                  = true
 )
 
 type Struct struct {
@@ -121,7 +121,6 @@ func (s *Struct) Stop() {
 		}
 		logger.Debug(Name, "[SIGTERM SENT]")
 
-		// Ensure the parent daemon tracker releases its process hooks completely
 		_ = vars.Cmd.Wait()
 		logger.Debug(Name, "[PROCESS TERMINATED]")
 	}

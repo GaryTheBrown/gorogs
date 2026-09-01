@@ -8,8 +8,10 @@ import (
 	"strings"
 )
 
-var InstanceUUID string
-var DisableValidation bool
+var (
+	InstanceUUID      string
+	DisableValidation bool
+)
 
 func FullDecode(rawUDP []byte, message *WSMessage) error {
 	lists := NewListsStruct()

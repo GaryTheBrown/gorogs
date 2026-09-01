@@ -77,8 +77,10 @@ func nfsLogModeStringToLoggerType(strType string) config.LogType {
 	}
 }
 
-var stringShortMode bool = false
-var stringFatalMode bool = false
+var (
+	stringShortMode bool = false
+	stringFatalMode bool = false
+)
 
 func nfsLogStripper(line string) (string, config.LogType, string) {
 	if line != "" {

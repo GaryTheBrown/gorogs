@@ -1,7 +1,7 @@
 package modes
 
 const (
-	Name = "Samba"
+	Name string = "Samba"
 )
 
 type System interface {

@@ -8,10 +8,14 @@ import (
 	"strings"
 )
 
-const DebugActive = true
+const (
+	DebugActive bool = true
+)
 
-var debugRegistry = make(map[string]bool)
-var allDebugActive = false
+var (
+	debugRegistry  map[string]bool = make(map[string]bool)
+	allDebugActive bool            = false
+)
 
 func init() {
 	envValue := os.Getenv("DEBUG_LOG")

@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	Name       = "ZeroCONF"
-	Type       = system.Beacon
-	IsCritical = false
-	AutoStart  = true
+	Name       string                = "ZeroCONF"
+	Type       system.SystemTypeEnum = system.Beacon
+	IsCritical bool                  = false
+	AutoStart  bool                  = true
 )
 
 type Struct struct {

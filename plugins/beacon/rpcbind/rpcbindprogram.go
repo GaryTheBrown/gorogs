@@ -18,7 +18,7 @@ func (s *Struct) startRPCBind() error {
 	rpcArgs := []string{"-i"}
 
 	if logger.IsDebugActive(Name) {
-		rpcArgs = append(rpcArgs, "-d") // Debug foreground tracking mode remains hot
+		rpcArgs = append(rpcArgs, "-d")
 	}
 
 	containerIPStr := config.SystemIP.String()
@@ -44,7 +44,6 @@ func (s *Struct) startRPCBind() error {
 	}
 	logger.Debug(Name, "[RPCBIND:START]")
 
-	// Wait for port 111 to stabilize over the internal runtime environment
 	if !helpers.WaitForSocket("tcp", "127.0.0.1:111", 5*time.Second) {
 		if s.rpcWriter != nil {
 			_ = s.rpcWriter.Close()

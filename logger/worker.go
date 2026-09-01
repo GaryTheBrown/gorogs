@@ -22,10 +22,10 @@ type logMessage struct {
 }
 
 var (
-	logChan    = make(chan logMessage, 1000)
-	fatalChan  = make(chan string)
-	fatalAck   = make(chan struct{})
-	workerDone = make(chan struct{})
+	logChan    chan logMessage = make(chan logMessage, 1000)
+	fatalChan  chan string     = make(chan string)
+	fatalAck   chan struct{}   = make(chan struct{})
+	workerDone chan struct{}   = make(chan struct{})
 )
 
 func init() {

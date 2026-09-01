@@ -6,17 +6,22 @@ import (
 )
 
 const (
-	ConstOriginalShareRoot = "/srv"
+	ConstOriginalShareRoot string = "/srv"
+	ConstOriginalWorkgroup string = "WORKGROUP"
 )
 
 var (
+	ShareRoot  string
 	Hostname   string
 	DomainName string
+	Workgroup  string
 	SystemIP   net.IP
 
-	ShareRoot = ConstOriginalShareRoot
-	Workgroup = "WORKGROUP"
+	disabled map[string]bool
+	enabled  map[string]bool
 )
+
+var massConfigMap = make(ConfigMap)
 
 func IsDisabled(service string) bool {
 	_, exists := disabled[strings.ToLower(service)]

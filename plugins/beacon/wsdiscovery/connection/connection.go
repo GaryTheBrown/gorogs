@@ -12,19 +12,17 @@ import (
 )
 
 const (
-	DiscoveryMulticastIP   = "239.255.255.250"
-	DiscoveryMulticastPort = "3702"
-	TransferTCPPort        = "5357"
-)
-
-var (
-	FastDecodingMode bool
+	DiscoveryMulticastIP   string = "239.255.255.250"
+	DiscoveryMulticastPort string = "3702"
+	TransferTCPPort        string = "5357"
 )
 
 var (
 	UDPConn     *net.UDPConn
 	TCPListener net.Listener
 	Name        string
+
+	FastDecodingMode bool
 )
 
 func InitUDPSocket() error {

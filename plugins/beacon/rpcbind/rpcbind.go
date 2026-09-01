@@ -11,15 +11,15 @@ import (
 )
 
 const (
-	Name       = "RPCBind"
-	Type       = system.Beacon
-	IsCritical = false
-	AutoStart  = true
+	Name       string                = "RPCBind"
+	Type       system.SystemTypeEnum = system.Beacon
+	IsCritical bool                  = false
+	AutoStart  bool                  = true
 )
 
 var (
-	programPath = "/usr/bin/rpcbind"
-	statdPath   = "/usr/bin/rpc.statd"
+	programPath string = "/usr/bin/rpcbind"
+	statdPath   string = "/usr/bin/rpc.statd"
 )
 
 type Struct struct {
@@ -46,9 +46,7 @@ func init() {
 	system.Register(&SystemInstance)
 }
 
-func (s *Struct) Config(cm config.ConfigMap) {
-	// NOTHING TO CONFIGURE IN HERE
-}
+func (s *Struct) Config(cm config.ConfigMap) {}
 
 func (s *Struct) Setup() {
 	logger.Debug(Name, "System Setup...")

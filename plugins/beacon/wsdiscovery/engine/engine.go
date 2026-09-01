@@ -8,7 +8,9 @@ import (
 	"gorogs/plugins/beacon/wsdiscovery/templates"
 )
 
-var Name string
+var (
+	Name string
+)
 
 type Engine struct {
 	DiscoveryQueue chan incoming.WSMessage

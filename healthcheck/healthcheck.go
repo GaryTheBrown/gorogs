@@ -15,8 +15,10 @@ import (
 	"gorogs/system"
 )
 
-const socketFile = "/run/gorogs-healtsock"
-const logName = "healthcheck"
+const (
+	socketFile string = "/run/gorogs-healtsock"
+	logName    string = "healthcheck"
+)
 
 type Level int
 

@@ -14,13 +14,12 @@ import (
 )
 
 const (
-	Name       = "NFS"
-	Type       = system.Share
-	IsCritical = true
-	AutoStart  = true
-)
+	Name       string                = "NFS"
+	Type       system.SystemTypeEnum = system.Share
+	IsCritical bool                  = true
+	AutoStart  bool                  = true
 
-const CONFIGFILE = `NFS_CORE_PARAM {
+	CONFIGFILE = `NFS_CORE_PARAM {
     mount_path_pseudo = true;
     NFS_Port = 2049;
     MNT_Port = 20048;
@@ -82,16 +81,18 @@ EXPORT {
     Squash = all_squash;
     Anonymous_uid = %d;
     Anonymous_gid = %d;
+    Clients = "*"
     FSAL {
         Name = VFS;
         fsid_type = uuid;
     }
 }`
+)
 
 var (
-	programPath = "/usr/bin/ganesha.nfsd"
-	ganeshaConf = "/etc/ganesha/ganesha.conf"
-	socketPath  = "/run/dbus/system_bus_socket"
+	programPath string = "/usr/bin/ganesha.nfsd"
+	ganeshaConf string = "/etc/ganesha/ganesha.conf"
+	socketPath  string = "/run/dbus/system_bus_socket"
 )
 
 type Struct struct {

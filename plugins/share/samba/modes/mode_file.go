@@ -10,6 +10,14 @@ import (
 	"time"
 )
 
+const (
+	debounceDuration time.Duration = 250 * time.Millisecond
+)
+
+var (
+	debounceTimer *time.Timer
+)
+
 type ModeFile struct {
 	ConfigMap structs.ConfigMap
 	SharesMap structs.ShareMap
@@ -53,10 +61,6 @@ func (m *ModeFile) NotifyCommentUpdate(shareName, comment string) error {
 	}
 	return fmt.Errorf("Share Not Found in List to Update Comment: %s", shareName)
 }
-
-var debounceTimer *time.Timer
-
-const debounceDuration = 250 * time.Millisecond
 
 func (m *ModeFile) notify() error {
 	if debounceTimer != nil {

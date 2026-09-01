@@ -26,7 +26,6 @@ func (s *Struct) broadcast(msg *dns.Msg, times uint8, wait time.Duration) error 
 func (s *Struct) broadcastHello() {
 	s.broadcast(s.probePacket(), 3, 250*time.Millisecond)
 
-	//conflict stuff here if needed
 	s.broadcast(s.packetAnnouncement(), 2, 1*time.Second)
 }
 

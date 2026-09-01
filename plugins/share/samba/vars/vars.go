@@ -3,17 +3,16 @@ package vars
 import "os/exec"
 
 const (
-	ProgramPath     = "/usr/bin/smbd"
-	NetPath         = "/usr/bin/net"
-	SmbpasswdPath   = "/usr/bin/smbpasswd"
-	DBWrapToolPath  = "/usr/bin/dbwrap_tool"
-	SambaBaseLibDir = "/var/lib/samba"
-	InternalDBPath  = SambaBaseLibDir + "/private"
-	InternalDBFile  = SambaBaseLibDir + "/registry.tdb"
-	RegistryDBFile  = SambaBaseLibDir + "/smbconf.tdb"
-
-	MasterConfigFile = "/etc/samba/smb.conf"
-	ShareConfigFile  = SambaBaseLibDir + "/smb-shares.conf"
+	ProgramPath      string = "/usr/bin/smbd"
+	NetPath          string = "/usr/bin/net"
+	SmbpasswdPath    string = "/usr/bin/smbpasswd"
+	DBWrapToolPath   string = "/usr/bin/dbwrap_tool"
+	SambaBaseLibDir  string = "/var/lib/samba"
+	InternalDBPath   string = SambaBaseLibDir + "/private"
+	InternalDBFile   string = SambaBaseLibDir + "/registry.tdb"
+	RegistryDBFile   string = SambaBaseLibDir + "/smbconf.tdb"
+	MasterConfigFile string = "/etc/samba/smb.conf"
+	ShareConfigFile  string = SambaBaseLibDir + "/smb-shares.conf"
 )
 
 var (
@@ -23,8 +22,6 @@ var (
 	VetoFiles           string
 	DefaultShareComment string
 	ServerComment       string
-)
 
-var (
 	Cmd *exec.Cmd
 )

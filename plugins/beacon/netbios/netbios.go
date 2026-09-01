@@ -13,15 +13,15 @@ import (
 )
 
 const (
-	Name       = "NetBIOS"
-	Type       = system.Beacon
-	IsCritical = false
-	AutoStart  = false
+	Name       string                = "NetBIOS"
+	Type       system.SystemTypeEnum = system.Beacon
+	IsCritical bool                  = false
+	AutoStart  bool                  = false
 )
 
 var (
-	programPath      = "/usr/bin/nmbd"
-	masterConfigPath = "/etc/nmbd.conf"
+	programPath      string = "/usr/bin/nmbd"
+	masterConfigPath string = "/etc/nmbd.conf"
 )
 
 type Struct struct {
@@ -46,8 +46,7 @@ func init() {
 	system.Register(&SystemInstance)
 }
 
-func (s *Struct) Config(cm config.ConfigMap) {
-}
+func (s *Struct) Config(cm config.ConfigMap) {}
 
 func (s *Struct) Setup() {
 	logger.Debug(Name, "System Setup...")

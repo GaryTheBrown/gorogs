@@ -4,11 +4,13 @@ import (
 	"errors"
 )
 
-var Name string
+var (
+	Name string
 
-var ErrVersionNotFound = errors.New("Version not found")
-var ErrActionNotFound = errors.New("Action not found")
-var ErrSchemaNotFound = errors.New("Schema not found")
+	ErrVersionNotFound = errors.New("Version not found")
+	ErrActionNotFound  = errors.New("Action not found")
+	ErrSchemaNotFound  = errors.New("Schema not found")
+)
 
 type SchemaTypeEnum uint8
 
@@ -27,15 +29,17 @@ const (
 
 type SchemaListArray [MaxSchemaType]string
 
-var schemaNamesArray = [MaxSchemaType]string{
-	Soap:       "soap",
-	Addressing: "wsa",
-	Discovery:  "wsd",
-	Mex:        "wsx",
-	DevProf:    "wsdp",
-	PnPX:       "un0",
-	Pub:        "pub",
-}
+var (
+	schemaNamesArray = [MaxSchemaType]string{
+		Soap:       "soap",
+		Addressing: "wsa",
+		Discovery:  "wsd",
+		Mex:        "wsx",
+		DevProf:    "wsdp",
+		PnPX:       "un0",
+		Pub:        "pub",
+	}
+)
 
 func (st SchemaTypeEnum) String() string {
 	if st >= MaxSchemaType {
@@ -62,20 +66,22 @@ const (
 	UNKNOWNACTION = MaxActionType
 )
 
-var actionNamesArray = [MaxActionType]string{
-	Hello:               "Hello",
-	Bye:                 "Bye",
-	Probe:               "Probe",
-	ProbeMatches:        "ProbeMatches",
-	Resolve:             "Resolve",
-	ResolveMatches:      "ResolveMatches",
-	GetMetadata:         "GetMetadata",
-	GetMetadataResponse: "GetMetadataResponse",
-	Get:                 "Get",
-	GetResponse:         "GetResponse",
-}
+var (
+	actionNamesArray = [MaxActionType]string{
+		Hello:               "Hello",
+		Bye:                 "Bye",
+		Probe:               "Probe",
+		ProbeMatches:        "ProbeMatches",
+		Resolve:             "Resolve",
+		ResolveMatches:      "ResolveMatches",
+		GetMetadata:         "GetMetadata",
+		GetMetadataResponse: "GetMetadataResponse",
+		Get:                 "Get",
+		GetResponse:         "GetResponse",
+	}
 
-var stringToActionMap map[string]ActionTypeEnum
+	stringToActionMap map[string]ActionTypeEnum
+)
 
 func init() {
 	stringToActionMap = make(map[string]ActionTypeEnum, MaxActionType)

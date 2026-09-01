@@ -5,14 +5,16 @@ import (
 	"time"
 )
 
-var EnableColors = true
+var (
+	EnableColors bool = true
+)
 
 const (
-	colorReset  = "\033[0m"
-	colorGreen  = "\033[32m"
-	colorYellow = "\033[33m"
-	colorRed    = "\033[31m"
-	colorCyan   = "\033[36m"
+	colorReset  string = "\033[0m"
+	colorGreen  string = "\033[32m"
+	colorYellow string = "\033[33m"
+	colorRed    string = "\033[31m"
+	colorCyan   string = "\033[36m"
 )
 
 func formatPrefix(subSystem, messageType string) string {

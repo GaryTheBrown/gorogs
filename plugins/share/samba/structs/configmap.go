@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	GlobalName    = "global"
-	ConfigBackend = "config backend"
-	SpaceBefore   = "\t"
+	GlobalName    string = "global"
+	ConfigBackend string = "config backend"
+	SpaceBefore   string = "\t"
 )
 
 type ConfigSection map[string]string
@@ -72,8 +72,6 @@ func (cm ConfigMap) ToINI(io io.Writer) {
 	if globalMap, hasGlobal := cm.sections[GlobalName]; hasGlobal {
 		fmt.Fprintf(io, "[%s]\n", GlobalName)
 		globalMap.ToINI(io)
-	} else {
-		// logger.Fatal()
 	}
 
 	var sortedSubsections []string

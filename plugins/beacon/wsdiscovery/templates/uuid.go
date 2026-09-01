@@ -5,7 +5,9 @@ import (
 	"fmt"
 )
 
-var currentInstanceUUID string
+var (
+	currentInstanceUUID string
+)
 
 func GenerateRandomUUIDv4() string {
 	bytes := make([]byte, 16)
