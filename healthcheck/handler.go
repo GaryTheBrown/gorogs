@@ -6,9 +6,12 @@ import (
 	"strings"
 
 	"gorogs/logger"
-	"gorogs/plugins/share/nfs"
-	"gorogs/plugins/share/samba"
 	"gorogs/system/systeminterface"
+)
+
+const (
+	nfsName   = "nfs"
+	sambaName = "samba"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -22,10 +25,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for name, share := range tracked {
-		if healthMode == Nfs && !strings.EqualFold(name, nfs.Name) {
+		if healthMode == Nfs && !strings.EqualFold(name, nfsName) {
 			continue
 		}
-		if healthMode == Samba && !strings.EqualFold(name, samba.Name) {
+		if healthMode == Samba && !strings.EqualFold(name, sambaName) {
 			continue
 		}
 
@@ -40,9 +43,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			case Shares:
 				shouldFail = (systeminterface.Share == share.Type())
 			case Nfs:
-				shouldFail = strings.EqualFold(name, nfs.Name)
+				shouldFail = strings.EqualFold(name, nfsName)
 			case Samba:
-				shouldFail = strings.EqualFold(name, samba.Name)
+				shouldFail = strings.EqualFold(name, sambaName)
 			case Default:
 				shouldFail = (systeminterface.Share == share.Type())
 			}
