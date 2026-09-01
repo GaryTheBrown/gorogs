@@ -1,11 +1,10 @@
 package engine
 
 import (
-	"context"
 	"gorogs/plugins/beacon/wsdiscovery/versions"
 )
 
-func (e *Engine) ActionDispatcher(ctx context.Context) {
+func (e *Engine) ActionDispatcher() {
 	defer close(e.ServiceDone)
 	for msg := range e.DiscoveryQueue {
 		switch msg.Header.ActionType {

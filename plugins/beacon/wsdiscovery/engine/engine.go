@@ -53,7 +53,7 @@ func (s *Engine) Start(ctx context.Context, configDir string) error {
 		return err
 	}
 	s.ListenerDone = doneChan
-	go s.ActionDispatcher(ctx)
+	go s.ActionDispatcher()
 	s.BroadcastHello()
 
 	return nil

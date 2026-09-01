@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/xml"
 	"errors"
-	"gorogs/logger"
 	"gorogs/plugins/beacon/wsdiscovery/versions"
 	"strings"
 )
@@ -20,7 +19,6 @@ func FullDecode(rawUDP []byte, message *WSMessage) error {
 		return ErrBadSchemaUnmarshalFailed{ExternalError: err}
 	}
 
-	logger.Debug(Name, "Parsing structural message header parameter elements")
 	if err := ParseHeader(&envelope, message); err != nil {
 		return ErrBadSchemaFailedHeaderRead{ExternalError: err}
 	}

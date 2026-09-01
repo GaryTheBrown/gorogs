@@ -62,7 +62,9 @@ func (s *Struct) Config(cm config.ConfigMap) {
 func (s *Struct) Setup() {
 	logger.Debug(Name, "System Setup...")
 
-	templates.PreCompileTemplates()
+	if err := templates.PreCompileTemplates(); err != nil {
+
+	}
 	logger.Debug(Name, "[PRECOMPILE TEMPLATES]")
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.engine = engine.NewEngineState()
