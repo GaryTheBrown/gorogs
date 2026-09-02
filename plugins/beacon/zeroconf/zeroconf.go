@@ -48,7 +48,7 @@ func (s *Struct) Config(cm config.ConfigMap) {
 
 	activebroadcaster = cm.Get("activebroadcaster", false)
 	forceLocalDomainName = cm.Get("forcelocaldomainname", false)
-	forceNoDomainName = cm.Get("forcelocaldomainname", false)
+	forceNoDomainName = cm.Get("forcenodomainname", false)
 	singleTextRecord = cm.Get("singletextrecord", false)
 
 	serverIcon = cm.Get("servericon", "nas")
