@@ -36,8 +36,9 @@ func loopedMapWrite(cmap map[string]any, keys []string, value any) bool {
 	return loopedMapWrite(nextMap, keys[1:], value)
 }
 
-func init() {
+func init() { //_getEnvironFillMap() {}
 	prefix := "gorogs."
+
 	for _, env := range os.Environ() {
 		if strings.HasPrefix(env, prefix) {
 			parts := strings.SplitN(env, "=", 2)
@@ -49,7 +50,9 @@ func init() {
 			}
 		}
 	}
+}
 
+func init() { //_getDisabled() {
 	if disabledStr, ok := massConfigMap["disabled"].(string); ok {
 		disabledSlice := strings.SplitSeq(strings.ToLower(disabledStr), ",")
 		for val := range disabledSlice {
@@ -57,7 +60,9 @@ func init() {
 			disabled[cleanVal] = true
 		}
 	}
+}
 
+func init() { //_getEnabled() {
 	if enabledStr, ok := massConfigMap["enabled"].(string); ok {
 		enabledSlice := strings.SplitSeq(strings.ToLower(enabledStr), ",")
 		for val := range enabledSlice {
@@ -65,13 +70,14 @@ func init() {
 			enabled[cleanVal] = true
 		}
 	}
+}
 
-	ShareRoot = massConfigMap.Get("shareroot", ConstOriginalShareRoot)
-
+func init() { //_getHostname() {
 	Hostname = os.Getenv("HOSTNAME")
-	if Hostname != "" {
+	if Hostname == "" {
 		return
 	}
+
 	var buf unix.Utsname
 	if err := unix.Uname(&buf); err == nil {
 		Hostname = strings.TrimSpace(string(buf.Nodename[:]))
@@ -82,7 +88,9 @@ func init() {
 	if err == nil && Hostname != "" {
 		return
 	}
+}
 
+func init() { //_getDomainName() {
 	if strings.Contains(Hostname, ".") {
 		DomainName = "." + strings.Join(strings.Split(Hostname, ".")[1:], ".")
 		return
@@ -106,9 +114,10 @@ func init() {
 	}
 
 	DomainName = ".local"
+}
 
-	Workgroup = massConfigMap.Get("workgroup", ConstOriginalWorkgroup)
-
+func init() { //_getSystemIP() {
+	var err error
 	if waitForSystemIP(5*time.Second) == nil {
 		return
 	}
