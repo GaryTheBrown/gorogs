@@ -116,6 +116,14 @@ func init() { //_getDomainName() {
 	DomainName = ".local"
 }
 
+func init() { //_getSharedRoot() {
+	ShareRoot = massConfigMap.Get("shareroot", ConstOriginalShareRoot)
+}
+
+func init() { //_getWorkgroup() {
+	Workgroup = massConfigMap.Get("workgroup", ConstOriginalWorkgroup)
+}
+
 func init() { //_getSystemIP() {
 	var err error
 	if waitForSystemIP(5*time.Second) == nil {
