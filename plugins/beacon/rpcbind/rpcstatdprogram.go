@@ -14,7 +14,6 @@ import (
 func (s *Struct) startRPCStatd() error {
 	statdArgs := []string{
 		"-F",
-		"-n", config.Hostname,
 		"-p", "32765",
 		"-o", "32766",
 	}

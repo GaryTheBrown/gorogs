@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"gorogs/config"
 	"gorogs/logger"
 	"net"
 	"os"
@@ -25,7 +26,6 @@ func (s *Struct) connectionStart() error {
 			var opErr error
 			c.Control(func(fd uintptr) {
 				opErr = os.NewSyscallError("setsockopt", syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1))
-
 				if opErr == nil {
 					_ = os.NewSyscallError("setsockopt", syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, 0xf, 1))
 				}
@@ -34,9 +34,10 @@ func (s *Struct) connectionStart() error {
 		},
 	}
 
-	packetConn, err := lc.ListenPacket(context.Background(), "udp4", ":5353")
+	bindAddress := fmt.Sprintf("%s:5353", config.SystemIP.String())
+	packetConn, err := lc.ListenPacket(context.Background(), "udp4", bindAddress)
 	if err != nil {
-		return fmt.Errorf("failed to bind dual-mode mDNS socket port: %w", err)
+		return fmt.Errorf("failed to bind explicit mDNS socket port %s: %w", bindAddress, err)
 	}
 	s.conn = packetConn.(*net.UDPConn)
 

@@ -32,7 +32,7 @@ func (s *Struct) listenForQueries() {
 
 			resp := new(dns.Msg)
 			resp.SetReply(msg)
-			resp.Compress = true
+			resp.Compress = false
 			resp.Authoritative = true
 			resp.Id = 0
 			resp.Question = nil
