@@ -18,7 +18,7 @@ func (s *Struct) StartProgram() error {
 		ganeshaArgs = append(ganeshaArgs, "-x", "-N", "FULL_DEBUG")
 	}
 
-	s.ganeshaCmd = exec.Command("/usr/bin/ganesha.nfsd", ganeshaArgs...)
+	s.ganeshaCmd = exec.Command(programPath, ganeshaArgs...)
 	s.ganeshaCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.Debug(Name, "[CMD SETUP]")
 

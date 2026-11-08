@@ -2,6 +2,7 @@
 # GLOBAL RUNTIME BUILD ARGUMENTS
 # ==============================================================================
 ARG GANESHA_AUR_URL="https://aur.archlinux.org/nfs-ganesha.git"
+ARG WSDD2_URL="https://github.com/oldium/wsdd2"
 ARG ENABLE_DEBUG=true
 ARG GOOS=linux
 ARG GOARCH=amd64
@@ -13,6 +14,7 @@ ARG GOARCH=amd64
 FROM archlinux:latest AS system-builder
 
 ARG GANESHA_AUR_URL
+ARG WSDD2_URL
 
 RUN sed -i 's/^#ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf && \
     pacman -Syu --noconfirm --needed \
@@ -25,9 +27,14 @@ RUN sed -i 's/^#ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf 
     rpcbind \
     nfs-utils \
     ca-certificates \
-    # THIS IS LEFT IN ONLY FOR IF WE NEED TO TRACK DOWN MISSING FILES.
+    avahi \
     strace \
     && pacman -Scc --noconfirm
+
+WORKDIR /src
+RUN git clone "${WSDD2_URL}"
+WORKDIR /src/wsdd2
+RUN make
 
 RUN useradd -m -G wheel aur-builder && \
     echo "aur-builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
@@ -56,6 +63,7 @@ RUN _custom_flags="-DUSE_DBUS=OFF \
     sed -i "/local _flags=(/a \    ${_flag}" PKGBUILD; \
     done && \
     makepkg -si --noconfirm --skipchecksums --skippgpcheck
+
 # hadolint ignore=DL3002
 USER root
 RUN gpasswd -d aur-builder wheel && \
@@ -71,6 +79,7 @@ ARG CACHE_STAGE2=1
 
 RUN mkdir -p /distroless \
     /distroless/etc \
+    /distroless/etc/avahi \
     /distroless/etc/ca-certificates \
     /distroless/etc/ca-certificates/extracted \
     /distroless/etc/ganesha \
@@ -80,6 +89,7 @@ RUN mkdir -p /distroless \
     /distroless/etc/ssl/certs \
     /distroless/run/ \
     /distroless/run/dbus \
+    /distroless/run/avahi-daemon \
     /distroless/run/ganesha \
     /distroless/run/rpcbind \
     /distroless/run/samba \
@@ -90,13 +100,14 @@ RUN mkdir -p /distroless \
     /distroless/tmp \
     /distroless/usr \
     /distroless/usr/bin \
-    /distroless/var/cache \
-    /distroless/var/cache/samba \
     /distroless/usr/lib \
     /distroless/usr/lib/gorogs \
     /distroless/usr/lib/ganesha \
     /distroless/usr/lib/libnfsidmap \
     /distroless/usr/lib/samba \
+    /distroless/usr/lib/samba/vfs \
+    /distroless/var/cache \
+    /distroless/var/cache/samba \
     /distroless/var/lib/nfs \
     /distroless/var/lib/nfs/sm \
     /distroless/var/lib/nfs/sm.bak \
@@ -106,12 +117,11 @@ RUN mkdir -p /distroless \
     /distroless/var/lib/nfs/ganesha \
     /distroless/var/lib/samba \
     /distroless/var/lib/samba/private \
-    /distroless/usr/lib/samba/vfs \
     /distroless/var/lock/samba \
     /distroless/var/log/samba \
     /distroless/var/run \
     /distroless/var/run/ganesha \
-    touch /distroless/var/lib/nfs/rmtab && \
+    && touch /distroless/var/lib/nfs/rmtab && \
     chmod 1777 /distroless/tmp && \
     chmod 0755 /distroless/srv && \
     chmod 0755 /distroless/var/lock/samba && \
@@ -123,6 +133,7 @@ RUN mkdir -p /distroless \
     chmod 0775 /distroless/run/rpcbind && \
     chmod 0755 /distroless/run/sendsigs.omit.d && \
     chmod 0755 /distroless/var/run/ganesha && \
+    chmod 0755 /distroless/run/avahi-daemon && \
     chmod 0644 /distroless/var/lib/nfs/rmtab && \
     chmod 0755 /distroless/var/lib/nfs/sm && \
     chmod 0755 /distroless/var/lib/nfs/sm.bak && \
@@ -131,15 +142,14 @@ RUN mkdir -p /distroless \
     ln -s bin /distroless/usr/sbin && \
     ln -s usr/lib /distroless/lib && \
     ln -s usr/lib /distroless/lib64 && \
-    grep -E '^root:|^nobody:|^rpc:' /etc/passwd > /distroless/etc/passwd && \
-    grep -E '^root:|^nobody:|^rpc:|^wheel:' /etc/group > /distroless/etc/group && \
+    grep -E '^root:|^nobody:|^rpc:|^avahi:' /etc/passwd > /distroless/etc/passwd && \
+    grep -E '^root:|^nobody:|^rpc:|^wheel:|^avahi:' /etc/group > /distroless/etc/group && \
     cp -a /etc/protocols /etc/services /etc/netconfig /distroless/etc/ && \
     if [ -f /etc/idmapd.conf ]; then cp -a /etc/idmapd.conf /distroless/etc/; fi && \
     echo "hosts: files dns" > /distroless/etc/nsswitch.conf && \
     cp -a /etc/ssl/certs/ca-certificates.crt /distroless/etc/ssl/certs/ && \
     cp -a /etc/ca-certificates/extracted/* /distroless/etc/ca-certificates/extracted/ && \
     ln -sf /proc/self/mounts /distroless/etc/mtab && \
-    # Programs
     cp /usr/bin/ganesha.nfsd /distroless/usr/bin/ && \
     cp /usr/bin/smbd /distroless/usr/bin/ && \
     cp /usr/bin/net /distroless/usr/bin/ && \
@@ -150,7 +160,10 @@ RUN mkdir -p /distroless \
     cp /usr/bin/nmbd /distroless/usr/bin/ && \
     cp /usr/bin/rpcbind /distroless/usr/bin/ && \
     cp /usr/bin/rpc.statd /distroless/usr/bin/ && \
-    cp /usr/bin/sm-notify    /distroless/usr/bin/ && \
+    cp /usr/bin/sm-notify /distroless/usr/bin/ && \
+    cp /usr/bin/avahi-daemon /distroless/usr/bin/ && \
+    # Copy manually compiled custom C wsdd2 executable safely into staging bin
+    cp /src/wsdd2/wsdd2 /distroless/usr/bin/ && \
     cp -a /usr/lib/ganesha/* /distroless/usr/lib/ganesha/ && \
     cp -r /usr/lib/samba/* /distroless/usr/lib/samba/ && \
     cp -vnP /usr/lib/libnss_files* /distroless/usr/lib/ && \
@@ -159,25 +172,17 @@ RUN mkdir -p /distroless \
     cp -vnP /usr/lib/libcups.so* /distroless/usr/lib/ && \
     cp -a /usr/lib/libnfsidmap/* /distroless/usr/lib/libnfsidmap/ && \
     cp -vnP /usr/lib/libdl.so* /distroless/usr/lib/ && \
-    cp -a /usr/lib/libnfsidmap/* /distroless/usr/lib/libnfsidmap/ && \
-    #Free Space Zero Script Samba
+    printf '[server]\nenable-dbus=no\nuse-ipv4=yes\nuse-ipv6=no\n[wide-area]\nenable-wide-area=no\n[publish]\npublish-workstation=no\npublish-hinfo=no\n' > /distroless/etc/avahi/avahi-daemon.conf && \
     printf '#!/sh\necho "100000 0"\n' > /distroless/usr/bin/smb-fake-dfree && \
     chmod +x /distroless/usr/bin/smb-fake-dfree && \
-    #Free Space Zero Trick for Nfs
     printf '#define _GNU_SOURCE\n#include <sys/vfs.h>\n#include <dlfcn.h>\nint statfs(const char *path, struct statfs *buf) {\n    int (*orig_statfs)(const char*, struct statfs*) = dlsym(RTLD_NEXT, "statfs");\n    int ret = orig_statfs(path, buf);\n    if (ret == 0) { buf->f_bfree = 0; buf->f_bavail = 0; }\n    return ret;\n}\nint statfs64(const char *path, struct statfs64 *buf) {\n    int (*orig_statfs64)(const char*, struct statfs64*) = dlsym(RTLD_NEXT, "statfs64");\n    int ret = orig_statfs64(path, buf);\n    if (ret == 0) { buf->f_bfree = 0; buf->f_bavail = 0; }\n    return ret;\n}\n' > /usr/src/fake_statfs.c && \
     gcc -shared -fPIC -o /distroless/usr/lib/libfake_statfs.so /usr/src/fake_statfs.c -ldl && \
-    # ==============================================================================
-    # DEBUG FILES TO BE REMOVED ONCE EVERYTHING IS
-    # ==============================================================================
-    # 1. Essential filesystem checking utilities
     cp /usr/bin/ls       /distroless/usr/bin/ && \
     cp /usr/bin/cat      /distroless/usr/bin/ && \
     cp /usr/bin/mkdir    /distroless/usr/bin/ && \
-    # 2. Critical networking socket tracking diagnostics (Highly Recommended)
     cp /usr/bin/ss       /distroless/usr/bin/ && \
     cp /usr/bin/rpcinfo  /distroless/usr/bin/ && \
-    # 3. tool for missing librarys
-    cp /usr/bin/strace /distroless/usr/bin/; 
+    cp /usr/bin/strace   /distroless/usr/bin/; 
 
 RUN for bin in /distroless/usr/bin/* \
     /distroless/usr/lib/samba/*.so \
@@ -191,6 +196,7 @@ RUN for bin in /distroless/usr/bin/* \
     done; \
     done
 
+
 # ==============================================================================
 # STAGE 3: Fast Go Binary Builder & Master Dependency Scanner
 # ==============================================================================
@@ -202,7 +208,6 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG ENABLE_DEBUG
 ARG GOOS
 ARG GOARCH
-
 ARG CACHE_STAGE3=1 
 
 COPY --from=distroless-setup /distroless /distroless
@@ -249,7 +254,7 @@ RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
     done
 
-# --- Beacon Plugins ---
+# --- Remaining Native Stack Infrastructure Beacons ---
 COPY plugins/beacon/rpcbind/ ./plugins/beacon/rpcbind/
 RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
     go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-rpcbind.so ./plugins/beacon/rpcbind/*.go && \
@@ -264,17 +269,17 @@ RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
     done
 
-COPY plugins/beacon/wsdiscovery/ ./plugins/beacon/wsdiscovery/
+COPY plugins/beacon/wsdd/ ./plugins/beacon/wsdd/
 RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
-    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-wsdiscovery.so ./plugins/beacon/wsdiscovery/*.go && \
-    ldd "/distroless/usr/lib/gorogs/gorogs-beacon-wsdiscovery.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-wsdd.so ./plugins/beacon/wsdd/*.go && \
+    ldd "/distroless/usr/lib/gorogs/gorogs-beacon-wsdd.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
     done
 
-COPY plugins/beacon/zeroconf/ ./plugins/beacon/zeroconf/
+COPY plugins/beacon/avahi/ ./plugins/beacon/avahi/
 RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
-    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-zeroconf.so ./plugins/beacon/zeroconf/*.go && \
-    ldd "/distroless/usr/lib/gorogs/gorogs-beacon-zeroconf.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-avahi.so ./plugins/beacon/avahi/*.go && \
+    ldd "/distroless/usr/lib/gorogs/gorogs-beacon-avahi.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
     done
 

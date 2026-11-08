@@ -51,7 +51,7 @@ func (s *Struct) Config(cm config.ConfigMap) {}
 func (s *Struct) Setup() {
 	logger.Debug(Name, "System Setup...")
 
-	if err := s.writeMasterNmbdConfig(); err != nil {
+	if err := s.writeMasterConfig(); err != nil {
 		logger.FatalF(Name, "failed to write %s config file", err, Name)
 	}
 	logger.Debug(Name, "[write config]")
@@ -60,7 +60,7 @@ func (s *Struct) Setup() {
 	logger.Debug(Name, "[DONE]")
 }
 
-func (s *Struct) writeMasterNmbdConfig() error {
+func (s *Struct) writeMasterConfig() error {
 
 	masterContent := fmt.Sprintf(`[global]
 	netbios name = %s
@@ -90,7 +90,7 @@ func (s *Struct) Start() error {
 		if s.logWriter != nil {
 			_ = s.logWriter.Close()
 		}
-		return fmt.Errorf("failed to start standalone nmbd beacon process: %w", err)
+		return fmt.Errorf("failed to start standalone %s beacon process: %w", Name, err)
 	}
 	logger.Debug(Name, "[CMD START]")
 
@@ -99,7 +99,7 @@ func (s *Struct) Start() error {
 			_ = s.logWriter.Close()
 		}
 		logger.Debug(Name, "[TIMEOUT][FAILED]")
-		return fmt.Errorf("timeout waiting for NetBIOS network interface to bind socket 137")
+		return fmt.Errorf("timeout waiting for %s network interface to bind socket 137", Name)
 	}
 
 	s.sState = system.STARTED
@@ -108,7 +108,7 @@ func (s *Struct) Start() error {
 }
 
 func (s *Struct) Stop() {
-	logger.Debug(Name, "Stopping NetBIOS...")
+	logger.DebugF(Name, "Stopping %s...", Name)
 	if s.cmd != nil && s.cmd.Process != nil {
 
 		if err := s.cmd.Process.Signal(syscall.SIGTERM); err != nil {
@@ -118,6 +118,7 @@ func (s *Struct) Stop() {
 		_ = s.cmd.Wait()
 		logger.Debug(Name, "[CMD Stop]")
 	}
+	_ = os.Remove(masterConfigPath)
 
 	if s.logWriter != nil {
 		_ = s.logWriter.Close()
@@ -129,7 +130,7 @@ func (s *Struct) Stop() {
 
 func (s *Struct) Healthcheck() error {
 	if s.cmd == nil || s.cmd.Process == nil {
-		return fmt.Errorf("netbios is not initialized")
+		return fmt.Errorf("%s is not initialized", Name)
 	}
 	return s.cmd.Process.Signal(syscall.Signal(0))
 }

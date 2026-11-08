@@ -138,6 +138,34 @@ func init() { //_getSystemIP() {
 
 }
 
+func init() { // _getActiveInterfaces() {
+	if interfaceStr, ok := massConfigMap["networkinterfaces"].(string); ok {
+		interfaceSlice := strings.SplitSeq(strings.ToLower(interfaceStr), ",")
+		for val := range interfaceSlice {
+			cleanVal := strings.TrimSpace(val)
+			NetworkInterfaces = append(NetworkInterfaces, cleanVal)
+		}
+		return
+	}
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		NetworkInterfaces = []string{"eth0"}
+		return
+	}
+
+	for _, iface := range interfaces {
+		if (iface.Flags & net.FlagUp) == 0 {
+			continue
+		}
+
+		if (iface.Flags & net.FlagLoopback) != 0 {
+			continue
+		}
+
+		NetworkInterfaces = append(NetworkInterfaces, iface.Name)
+	}
+}
+
 func waitForSystemIP(timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 

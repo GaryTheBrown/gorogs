@@ -11,14 +11,14 @@ const (
 )
 
 var (
-	ShareRoot  string
-	Hostname   string
-	DomainName string
-	Workgroup  string
-	SystemIP   net.IP
-
-	disabled map[string]bool
-	enabled  map[string]bool
+	ShareRoot         string
+	Hostname          string
+	DomainName        string
+	Workgroup         string
+	SystemIP          net.IP
+	NetworkInterfaces []string
+	disabled          map[string]bool
+	enabled           map[string]bool
 )
 
 var massConfigMap = make(ConfigMap)

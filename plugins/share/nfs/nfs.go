@@ -29,6 +29,7 @@ const CONFIGFILE = `NFS_CORE_PARAM {
     fsid_device = true;
     heartbeat_freq = 0;
     Dbus_Name_Prefix = "disabled.org.ganesha.nfsd";
+    manage_gids_expiration = 7200;
 }
 
 LOG {
@@ -94,7 +95,6 @@ EXPORT {
 var (
 	programPath string = "/usr/bin/ganesha.nfsd"
 	ganeshaConf string = "/etc/ganesha/ganesha.conf"
-	socketPath  string = "/run/dbus/system_bus_socket"
 )
 
 type Struct struct {
