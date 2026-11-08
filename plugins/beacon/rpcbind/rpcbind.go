@@ -7,6 +7,7 @@ import (
 
 	"gorogs/config"
 	"gorogs/logger"
+	"gorogs/subsystemwriter"
 	"gorogs/system"
 )
 
@@ -26,8 +27,8 @@ type Struct struct {
 	sState      system.SysStateEnum
 	rpcCmd      *exec.Cmd
 	statdCmd    *exec.Cmd
-	rpcWriter   *config.SubsystemWriter
-	statdWriter *config.SubsystemWriter
+	rpcWriter   *subsystemwriter.SubsystemWriter
+	statdWriter *subsystemwriter.SubsystemWriter
 }
 
 func (_ *Struct) Name() string                        { return Name }

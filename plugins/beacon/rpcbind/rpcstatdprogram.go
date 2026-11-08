@@ -7,8 +7,8 @@ import (
 	"syscall"
 	"time"
 
-	"gorogs/config"
 	"gorogs/logger"
+	"gorogs/subsystemwriter"
 )
 
 func (s *Struct) startRPCStatd() error {
@@ -22,7 +22,7 @@ func (s *Struct) startRPCStatd() error {
 	s.statdCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.Debug(Name, "[RPC.STATD:CMD SETUP]")
 
-	s.statdWriter = config.NewSubsystemWriter(Name, nil)
+	s.statdWriter = subsystemwriter.NewSubsystemWriter(Name, nil)
 	s.statdCmd.Stdout = s.statdWriter
 	s.statdCmd.Stderr = s.statdWriter
 	logger.Debug(Name, "[RPC.STATD:LINK STDOUT->LOG]")

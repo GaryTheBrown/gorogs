@@ -5,9 +5,9 @@ import (
 	"os/exec"
 	"syscall"
 
-	"gorogs/config"
 	"gorogs/logger"
 	"gorogs/plugins/share/samba/vars"
+	"gorogs/subsystemwriter"
 )
 
 func (s *Struct) ProgramStart() error {
@@ -23,7 +23,7 @@ func (s *Struct) ProgramStart() error {
 	vars.Cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.Debug(Name, "[COMMAND ARGS]")
 
-	s.logWriter = config.NewSubsystemWriter(Name, nil)
+	s.logWriter = subsystemwriter.NewSubsystemWriter(Name, nil)
 	vars.Cmd.Stdout = s.logWriter
 	vars.Cmd.Stderr = s.logWriter
 	logger.Debug(Name, "[LINK STDOUT->LOG]")

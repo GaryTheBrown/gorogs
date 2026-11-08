@@ -11,6 +11,7 @@ import (
 	"gorogs/plugins/share/samba/modes"
 	"gorogs/plugins/share/samba/structs"
 	"gorogs/plugins/share/samba/vars"
+	"gorogs/subsystemwriter"
 	"gorogs/system"
 
 	"github.com/fsnotify/fsnotify"
@@ -26,7 +27,7 @@ const (
 type Struct struct {
 	sState system.SysStateEnum
 
-	logWriter      *config.SubsystemWriter
+	logWriter      *subsystemwriter.SubsystemWriter
 	readyChan      chan struct{}
 	cancelWatch    context.CancelFunc
 	sys            modes.System

@@ -10,6 +10,7 @@ import (
 
 	"gorogs/config"
 	"gorogs/logger"
+	"gorogs/subsystemwriter"
 	"gorogs/system"
 )
 
@@ -100,7 +101,7 @@ var (
 type Struct struct {
 	sState        system.SysStateEnum
 	ganeshaCmd    *exec.Cmd
-	logWriter     *config.SubsystemWriter
+	logWriter     *subsystemwriter.SubsystemWriter
 	dbusListener  net.Listener
 	readyChan     chan struct{}
 	zeroFreeSpace bool

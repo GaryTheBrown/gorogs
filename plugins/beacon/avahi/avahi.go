@@ -5,6 +5,7 @@ import (
 	"gorogs/config"
 	"gorogs/helpers"
 	"gorogs/logger"
+	"gorogs/subsystemwriter"
 	"gorogs/system"
 	"os"
 	"os/exec"
@@ -33,7 +34,7 @@ var (
 type Struct struct {
 	sState    system.SysStateEnum
 	cmd       *exec.Cmd
-	logWriter *config.SubsystemWriter
+	logWriter *subsystemwriter.SubsystemWriter
 }
 
 func (_ *Struct) Name() string                        { return Name }
@@ -130,7 +131,7 @@ func (s *Struct) Start() error {
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.Debug(Name, "[CMD SETUP]")
 
-	s.logWriter = config.NewSubsystemWriter(Name, nil)
+	s.logWriter = subsystemwriter.NewSubsystemWriter(Name, nil)
 	s.cmd.Stdout = s.logWriter
 	s.cmd.Stderr = s.logWriter
 	logger.Debug(Name, "[LINK STDOUT->LOG]")

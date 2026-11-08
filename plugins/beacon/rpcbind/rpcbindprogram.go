@@ -10,6 +10,7 @@ import (
 	"gorogs/config"
 	"gorogs/helpers"
 	"gorogs/logger"
+	"gorogs/subsystemwriter"
 )
 
 func (s *Struct) startRPCBind() error {
@@ -31,7 +32,7 @@ func (s *Struct) startRPCBind() error {
 	s.rpcCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.Debug(Name, "[RPCBIND:CMD SETUP]")
 
-	s.rpcWriter = config.NewSubsystemWriter(Name, nil)
+	s.rpcWriter = subsystemwriter.NewSubsystemWriter(Name, nil)
 	s.rpcCmd.Stdout = s.rpcWriter
 	s.rpcCmd.Stderr = s.rpcWriter
 	logger.Debug(Name, "[RPCBIND:LINK STDOUT->LOG]")
