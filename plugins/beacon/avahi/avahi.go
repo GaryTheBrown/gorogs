@@ -20,21 +20,20 @@ const (
 	AutoStart  bool                  = true
 )
 
-var (
+const (
 	programPath       string = "/usr/bin/avahi-daemon"
 	masterConfigPath  string = "/etc/avahi/avahi-daemon.conf"
 	serviceConfigPath string = "/etc/avahi/services"
-	deviceInfoService string = serviceConfigPath + "/deviceinfo.service"
-	sambaService      string = serviceConfigPath + "/smb.service"
-	nfsService        string = serviceConfigPath + "/nfs.service"
+)
+
+var (
+	disabled map[string]bool
 )
 
 type Struct struct {
 	sState    system.SysStateEnum
 	cmd       *exec.Cmd
 	logWriter *config.SubsystemWriter
-
-	disabled map[string]bool
 }
 
 func (_ *Struct) Name() string                        { return Name }
@@ -54,14 +53,14 @@ func init() {
 }
 
 func (s *Struct) Config(cm config.ConfigMap) {
-	s.disabled = make(map[string]bool)
+	disabled = make(map[string]bool)
 	disabledStr := cm.Get("disabled", "")
 	disabledList := strings.SplitSeq(strings.ToLower(disabledStr), ",")
 	for di := range disabledList {
-		s.disabled[di] = true
+		disabled[di] = true
 	}
 
-	services["device-info"].TxtRecords["model"] = cm.Get("servericon", "TimeCapsule8,119")
+	services[0].TxtRecords["model"] = cm.Get("servericon", "TimeCapsule8,119")
 }
 
 func (s *Struct) Setup() {
@@ -116,40 +115,11 @@ enable-reflector=yes`,
 }
 
 func (s *Struct) writeServiceConfig() error {
-	_, deviceInfoDisabled := s.disabled["device-info"]
-	if !deviceInfoDisabled {
-		if sd, ok := services["device-info"]; ok {
-			b := sd.Service()
-			logger.Info(Name, string(b))
-			err := os.WriteFile(deviceInfoService, b, 0644)
-			if err != nil {
-				return err
-			}
+	for _, sd := range services {
+		if err := sd.WriteService(); err != nil {
+			return err
 		}
 	}
-	_, sambaDisabled := s.disabled["samba"]
-	if !sambaDisabled {
-		if sd, ok := services["samba"]; ok {
-			b := sd.Service()
-			logger.Info(Name, string(b))
-			err := os.WriteFile(sambaService, b, 0644)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	_, nfsDisabled := s.disabled["nfs"]
-	if !nfsDisabled {
-		if sd, ok := services["nfs"]; ok {
-			b := sd.Service()
-			logger.Info(Name, string(b))
-			err := os.WriteFile(nfsService, b, 0644)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -199,9 +169,10 @@ func (s *Struct) Stop() {
 	}
 
 	_ = os.Remove(masterConfigPath)
-	_ = os.Remove(deviceInfoService)
-	_ = os.Remove(sambaService)
-	_ = os.Remove(nfsService)
+	for _, sd := range services {
+		_ = os.Remove(sd.FilePath())
+
+	}
 
 	if s.logWriter != nil {
 		_ = s.logWriter.Close()

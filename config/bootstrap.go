@@ -72,48 +72,53 @@ func init() { //_getEnabled() {
 	}
 }
 
-func init() { //_getHostname() {
-	Hostname = os.Getenv("HOSTNAME")
+func init() { //_getHostnameAndDomain() {
+	tmpHostname := os.Getenv("HOSTNAME")
+	if tmpHostname != "" {
+		if strings.Contains(tmpHostname, ".") {
+			parts := strings.Split(tmpHostname, ".")
+			Hostname = parts[0]
+			DomainName = strings.Join(parts[1:], ".")
+			return
+		} else {
+			Hostname = tmpHostname
+		}
+	}
 	if Hostname == "" {
-		return
+		// Attempt to pull from native Linux Kernel Uname maps directly first (PID 1 Safe)
+		var buf unix.Utsname
+		if err := unix.Uname(&buf); err == nil {
+			// Clean out the raw kernel null-terminated byte array mapping elements
+			fields := strings.Split(string(buf.Nodename[:]), "\x00")
+			Hostname = strings.TrimSpace(fields[0])
+		}
 	}
-
-	var buf unix.Utsname
-	if err := unix.Uname(&buf); err == nil {
-		Hostname = strings.TrimSpace(string(buf.Nodename[:]))
-		return
+	if Hostname == "" {
+		if osHost, err := os.Hostname(); err == nil {
+			Hostname = osHost
+		}
 	}
-	var err error
-	Hostname, err = os.Hostname()
-	if err == nil && Hostname != "" {
-		return
+	if Hostname == "" {
+		Hostname = "gorogs"
 	}
-}
-
-func init() { //_getDomainName() {
-	if strings.Contains(Hostname, ".") {
-		DomainName = "." + strings.Join(strings.Split(Hostname, ".")[1:], ".")
-		return
-	}
-
 	if file, errFile := os.Open("/etc/resolv.conf"); errFile == nil {
 		defer file.Close()
-		rScanner := bufio.NewScanner(file)
-		for rScanner.Scan() {
-			rLine := rScanner.Text()
-			if strings.HasPrefix(rLine, "search ") {
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			rLine := scanner.Text()
+			if strings.HasPrefix(rLine, "search ") || strings.HasPrefix(rLine, "domain ") {
 				fields := strings.Fields(rLine)
 				if len(fields) > 1 {
-					DomainName = fields[1]
+					DomainName = strings.TrimPrefix(strings.TrimSpace(fields[1]), ".")
 					return
 				}
 			}
 		}
-		if errScan := rScanner.Err(); errScan != nil {
+		if err := scanner.Err(); err != nil {
 		}
-	}
 
-	DomainName = ".local"
+	}
+	DomainName = "local"
 }
 
 func init() { //_getSharedRoot() {

@@ -52,7 +52,8 @@ func (s *Struct) Setup() {
 
 func (s *Struct) Start() error {
 	logger.Debug(Name, "System Starting...")
-	s.cmd = exec.Command(programPath, "-4", "-G", config.Workgroup)
+	fqdn := fmt.Sprint(config.Hostname, ".", config.DomainName)
+	s.cmd = exec.Command(programPath, "-4", "-G", config.Workgroup, "-H", fqdn)
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.Debug(Name, "[CMD SETUP]")
 
