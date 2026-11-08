@@ -42,6 +42,5 @@ func LoadPlugins(pluginDir string) error {
 		logger.InfoF(logName, "Successfully registered plugin: %s", sys.Name())
 	}
 
-	logger.Info(logName, "Running case-insensitive topological dependency sort loop...")
 	return InitializeAndSort()
 }

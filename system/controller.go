@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	logName string = "gorogs.system"
+	logName string = "system"
 )
 
 func Config() {
