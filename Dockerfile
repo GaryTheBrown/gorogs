@@ -21,7 +21,8 @@ ARG GANESHA_AUR_URL
 ARG WSDD2_URL
 
 RUN sed -i 's/^#ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf && \
-    echo "DisableSandbox" >> /etc/pacman.conf && \
+    sed -i 's/^#DisableSandboxFilesystem/DisableSandboxFilesystem/' /etc/pacman.conf && \
+    sed -i 's/^#DisableSandboxSyscalls/DisableSandboxSyscalls/' /etc/pacman.conf && \
     pacman -Syu --noconfirm --needed \
     base-devel \
     go \
