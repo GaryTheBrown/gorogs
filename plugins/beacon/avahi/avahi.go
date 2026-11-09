@@ -127,7 +127,12 @@ func (s *Struct) writeServiceConfig() error {
 func (s *Struct) Start() error {
 	logger.Debug(Name, "System Starting...")
 
-	s.cmd = exec.Command(programPath, "--no-drop-root")
+	args := []string{"--no-drop-root"}
+	if logger.IsDebugActive(Name) {
+		args = append(args, "--debug")
+	}
+
+	s.cmd = exec.Command(programPath, args...)
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	logger.Debug(Name, "[CMD SETUP]")
 
