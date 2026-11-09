@@ -106,7 +106,7 @@ func (s ShareMap) Count() int {
 }
 
 func (s ShareMap) FirstFill() error {
-	entries, err := os.ReadDir(config.ShareRoot)
+	entries, err := os.ReadDir(config.ShareRoot())
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (s ShareMap) FirstFill() error {
 		if !validShareName.MatchString(entry.Name()) {
 			continue
 		}
-		s[entry.Name()] = NewShare(filepath.Join(config.ShareRoot, entry.Name()))
+		s[entry.Name()] = NewShare(filepath.Join(config.ShareRoot(), entry.Name()))
 	}
 
 	return nil

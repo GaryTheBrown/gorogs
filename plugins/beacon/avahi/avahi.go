@@ -109,8 +109,8 @@ publish-domain=yes
 
 [reflector]
 enable-reflector=yes`,
-		config.Hostname,
-		strings.Join(config.NetworkInterfaces, ","),
+		config.Hostname(),
+		strings.Join(config.NetworkInterfaces(), ","),
 	)
 	return os.WriteFile(masterConfigPath, []byte(masterContent), 0644)
 }

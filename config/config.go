@@ -11,18 +11,26 @@ const (
 )
 
 var (
-	ShareRoot         string
-	Hostname          string
-	DomainName        string
-	Workgroup         string
-	SystemIP          net.IP
-	NetworkInterfaces []string
-	UUID              string
+	shareRoot         string
+	hostname          string
+	domainName        string
+	workgroup         string
+	systemIP          net.IP
+	networkInterfaces []string
+	uuid              string
 	disabled          map[string]bool
 	enabled           map[string]bool
 )
 
 var massConfigMap = make(ConfigMap)
+
+func ShareRoot() string           { return shareRoot }
+func Hostname() string            { return hostname }
+func DomainName() string          { return domainName }
+func Workgroup() string           { return workgroup }
+func SystemIP() net.IP            { return systemIP }
+func NetworkInterfaces() []string { return networkInterfaces }
+func UUID() string                { return uuid }
 
 func IsDisabled(service string) bool {
 	_, exists := disabled[strings.ToLower(service)]

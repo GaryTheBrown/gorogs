@@ -143,7 +143,7 @@ func (s *Struct) writeGaneshaConfig() error {
 	detectedUID := 65534
 	detectedGID := 65534
 
-	if info, err := os.Stat(config.ShareRoot); err == nil {
+	if info, err := os.Stat(config.ShareRoot()); err == nil {
 		if sysData, ok := info.Sys().(*syscall.Stat_t); ok {
 			detectedUID = int(sysData.Uid)
 			detectedGID = int(sysData.Gid)
@@ -155,7 +155,7 @@ func (s *Struct) writeGaneshaConfig() error {
 		gLogLevel = "FULL_DEBUG"
 	}
 
-	configContent := fmt.Sprintf(CONFIGFILE, gLogLevel, config.DomainName, detectedUID, detectedGID, config.ShareRoot, detectedUID, detectedGID)
+	configContent := fmt.Sprintf(CONFIGFILE, gLogLevel, config.DomainName(), detectedUID, detectedGID, config.ShareRoot(), detectedUID, detectedGID)
 
 	return os.WriteFile(ganeshaConf, []byte(configContent), 0644)
 }

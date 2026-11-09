@@ -19,7 +19,7 @@ func (s *Struct) startFSEventDirectoryWatcher(ctx context.Context) {
 	}
 	defer watcher.Close()
 
-	if err := watcher.Add(config.ShareRoot); err != nil {
+	if err := watcher.Add(config.ShareRoot()); err != nil {
 		logger.ErrorF(Name, "Failed to register directory target inside fsnotify monitor tracking path: %w", err)
 		return
 	}
@@ -40,8 +40,8 @@ func (s *Struct) startFSEventDirectoryWatcher(ctx context.Context) {
 				continue
 			}
 			if event.Has(fsnotify.Create) {
-				if info, err := os.Stat(config.ShareRoot); err == nil && info.IsDir() {
-					if err := s.sys.NotifyCreate(shareName, config.ShareRoot); err == nil {
+				if info, err := os.Stat(config.ShareRoot()); err == nil && info.IsDir() {
+					if err := s.sys.NotifyCreate(shareName, config.ShareRoot()); err == nil {
 						if s.commentWatcher != nil {
 							_ = s.commentWatcher.Add(event.Name)
 						}

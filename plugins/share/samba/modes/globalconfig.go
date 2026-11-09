@@ -37,7 +37,7 @@ var (
 		"usershare allow guests":  "yes",
 		"use sendfile":            "yes",
 		"veto files":              "/.*/" + vars.VetoFiles,
-		"workgroup":               config.Workgroup,
+		"workgroup":               config.Workgroup(),
 	}
 
 	directoryconf = structs.ConfigSection{
@@ -48,7 +48,7 @@ var (
 	}
 
 	netbiosAdditions = structs.ConfigSection{
-		"netbios name":     config.Hostname,
+		"netbios name":     config.Hostname(),
 		"dns proxy":        "no",
 		"hostname lookups": "no",
 	}

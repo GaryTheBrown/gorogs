@@ -2,9 +2,7 @@ package modes
 
 import (
 	"fmt"
-	"gorogs/config"
 	"gorogs/logger"
-	"gorogs/plugins/share/samba/structs"
 	"gorogs/plugins/share/samba/vars"
 	"os"
 	"os/exec"
@@ -31,22 +29,22 @@ func sharedRegistrySystemSetup() error {
 	return nil
 }
 
-func injectRegistryOverrides() error {
+// func injectRegistryOverrides() error {
 
-	confToAdd := structs.ConfigSection{}
-	if !config.IsEnabled("netbios") {
-		confToAdd.SectionMerge(antiNetbiosAdditions)
-	}
-	confToAdd.SectionMerge(RegFailAdditions)
+// 	confToAdd := structs.ConfigSection{}
+// 	if !config.IsEnabled("netbios") {
+// 		confToAdd.SectionMerge(antiNetbiosAdditions)
+// 	}
+// 	confToAdd.SectionMerge(RegFailAdditions)
 
-	for param, value := range confToAdd {
-		key := fmt.Sprintf("global:%s", param)
+// 	for param, value := range confToAdd {
+// 		key := fmt.Sprintf("global:%s", param)
 
-		cmd := exec.Command(vars.DBWrapToolPath, "--persistent", vars.RegistryDBFile, "store", key, "string", value)
-		if output, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("failed to force-inject %s to TDB: %s ERROR: %w", param, strings.TrimSpace(string(output)), err)
-		}
-	}
+// 		cmd := exec.Command(vars.DBWrapToolPath, "--persistent", vars.RegistryDBFile, "store", key, "string", value)
+// 		if output, err := cmd.CombinedOutput(); err != nil {
+// 			return fmt.Errorf("failed to force-inject %s to TDB: %s ERROR: %w", param, strings.TrimSpace(string(output)), err)
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }

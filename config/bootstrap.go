@@ -78,29 +78,29 @@ func init() { //_getHostnameAndDomain() {
 	if tmpHostname != "" {
 		if strings.Contains(tmpHostname, ".") {
 			parts := strings.Split(tmpHostname, ".")
-			Hostname = parts[0]
-			DomainName = strings.Join(parts[1:], ".")
+			hostname = parts[0]
+			domainName = strings.Join(parts[1:], ".")
 			return
 		} else {
-			Hostname = tmpHostname
+			hostname = tmpHostname
 		}
 	}
-	if Hostname == "" {
+	if hostname == "" {
 		// Attempt to pull from native Linux Kernel Uname maps directly first (PID 1 Safe)
 		var buf unix.Utsname
 		if err := unix.Uname(&buf); err == nil {
 			// Clean out the raw kernel null-terminated byte array mapping elements
 			fields := strings.Split(string(buf.Nodename[:]), "\x00")
-			Hostname = strings.TrimSpace(fields[0])
+			hostname = strings.TrimSpace(fields[0])
 		}
 	}
-	if Hostname == "" {
+	if hostname == "" {
 		if osHost, err := os.Hostname(); err == nil {
-			Hostname = osHost
+			hostname = osHost
 		}
 	}
-	if Hostname == "" {
-		Hostname = "gorogs"
+	if hostname == "" {
+		hostname = "gorogs"
 	}
 	if file, errFile := os.Open("/etc/resolv.conf"); errFile == nil {
 		defer file.Close()
@@ -110,7 +110,7 @@ func init() { //_getHostnameAndDomain() {
 			if strings.HasPrefix(rLine, "search ") || strings.HasPrefix(rLine, "domain ") {
 				fields := strings.Fields(rLine)
 				if len(fields) > 1 {
-					DomainName = strings.TrimPrefix(strings.TrimSpace(fields[1]), ".")
+					domainName = strings.TrimPrefix(strings.TrimSpace(fields[1]), ".")
 					return
 				}
 			}
@@ -119,15 +119,15 @@ func init() { //_getHostnameAndDomain() {
 		}
 
 	}
-	DomainName = "local"
+	domainName = "local"
 }
 
 func init() { //_getSharedRoot() {
-	ShareRoot = massConfigMap.Get("shareroot", ConstOriginalShareRoot)
+	shareRoot = massConfigMap.Get("shareroot", ConstOriginalShareRoot)
 }
 
 func init() { //_getWorkgroup() {
-	Workgroup = massConfigMap.Get("workgroup", ConstOriginalWorkgroup)
+	workgroup = massConfigMap.Get("workgroup", ConstOriginalWorkgroup)
 }
 
 func init() { //_getSystemIP() {
@@ -136,9 +136,9 @@ func init() { //_getSystemIP() {
 		return
 	}
 
-	ip, err := net.LookupIP(Hostname)
+	ip, err := net.LookupIP(hostname)
 	if err == nil && len(ip) > 0 {
-		SystemIP = ip[0]
+		systemIP = ip[0]
 		return
 	}
 
@@ -149,13 +149,13 @@ func init() { // _getActiveInterfaces() {
 		interfaceSlice := strings.SplitSeq(strings.ToLower(interfaceStr), ",")
 		for val := range interfaceSlice {
 			cleanVal := strings.TrimSpace(val)
-			NetworkInterfaces = append(NetworkInterfaces, cleanVal)
+			networkInterfaces = append(networkInterfaces, cleanVal)
 		}
 		return
 	}
 	interfaces, err := net.Interfaces()
 	if err != nil {
-		NetworkInterfaces = []string{"eth0"}
+		networkInterfaces = []string{"eth0"}
 		return
 	}
 
@@ -168,28 +168,15 @@ func init() { // _getActiveInterfaces() {
 			continue
 		}
 
-		NetworkInterfaces = append(NetworkInterfaces, iface.Name)
+		networkInterfaces = append(networkInterfaces, iface.Name)
 	}
 }
 
 func init() { // _GenerateUUID {
-	// 1. Hash the hostname using MD5 (outputs exactly 16 bytes / 32 hex characters)
-	hash := md5.Sum([]byte(Hostname))
-
-	// 2. Format the 32-character lowercase string for /etc/machine-id
+	hash := md5.Sum([]byte(hostname))
 	machineID := fmt.Sprintf("%x", hash)
-
-	// Force-write it to the filesystem layer so wsdd2 captures it instantly on startup
 	_ = os.WriteFile("/etc/machine-id", []byte(machineID+"\n"), 0644)
-
-	// 3. Format those same exact deterministic bytes into a standardized 8-4-4-4-12 UUID string
-	UUID = fmt.Sprintf("urn:uuid:%x-%x-%x-%x-%x",
-		hash[0:4],   // 8 chars
-		hash[4:6],   // 4 chars
-		hash[6:8],   // 4 chars
-		hash[8:10],  // 4 chars
-		hash[10:16], // 12 chars
-	)
+	uuid = fmt.Sprintf("urn:uuid:%x-%x-%x-%x-%x", hash[0:4], hash[4:6], hash[6:8], hash[8:10], hash[10:16])
 }
 
 func waitForSystemIP(timeout time.Duration) error {
@@ -221,7 +208,7 @@ func waitForSystemIP(timeout time.Duration) error {
 				}
 
 				if ip != nil && ip.To4() != nil && !ip.IsLoopback() {
-					SystemIP = ip
+					systemIP = ip
 					return nil
 				}
 			}

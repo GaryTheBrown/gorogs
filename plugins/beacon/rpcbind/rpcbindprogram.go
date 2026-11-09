@@ -22,7 +22,7 @@ func (s *Struct) startRPCBind() error {
 		rpcArgs = append(rpcArgs, "-d")
 	}
 
-	containerIPStr := config.SystemIP.String()
+	containerIPStr := config.SystemIP().String()
 
 	if config.IsDisabled(Name) {
 		rpcArgs = append(rpcArgs, "-h", containerIPStr)

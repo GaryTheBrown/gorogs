@@ -25,7 +25,7 @@ func init() {
 		"127.0.0.1\tlocalhost\n"+
 			"::1\tlocalhost ip6-localhost ip6-loopback\n"+
 			"%s\t%s\n",
-		SystemIP.String(), Hostname,
+		systemIP.String(), hostname,
 	)
 	os.WriteFile("/etc/hosts", []byte(hostsContent), 0644)
 
