@@ -10,8 +10,12 @@ ARG GOARCH=amd64
 # ==============================================================================
 # STAGE 1: Heavy System, AUR Compilation & Complete Core Staging Prep
 # ==============================================================================
+ARG TARGETARCH
 # hadolint ignore=DL3007
-FROM archlinux:latest AS system-builder
+FROM archlinux:latest AS base-amd64
+FROM menci/archlinuxarm:base-devel AS base-arm64
+# hadolint ignore=DL3006
+FROM base-${TARGETARCH} AS system-builder
 
 ARG GANESHA_AUR_URL
 ARG WSDD2_URL
