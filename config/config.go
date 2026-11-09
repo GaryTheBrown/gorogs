@@ -17,6 +17,7 @@ var (
 	Workgroup         string
 	SystemIP          net.IP
 	NetworkInterfaces []string
+	UUID              string
 	disabled          map[string]bool
 	enabled           map[string]bool
 )

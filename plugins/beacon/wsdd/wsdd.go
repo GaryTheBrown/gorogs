@@ -55,7 +55,7 @@ func (s *Struct) Start() error {
 	logger.Debug(Name, "System Starting...")
 	fqdn := fmt.Sprint(config.Hostname, ".", config.DomainName)
 
-	args := []string{"-4", "-G", config.Workgroup, "-H", fqdn}
+	args := []string{"-4", "-G", config.Workgroup, "-H", fqdn, "-U", config.UUID}
 	if logger.IsDebugActive(Name) {
 		args = append(args, "-L", "-L", "-W", "-W")
 	}

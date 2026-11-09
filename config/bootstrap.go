@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	"crypto/md5"
 	"fmt"
 	"net"
 	"os"
@@ -169,6 +170,26 @@ func init() { // _getActiveInterfaces() {
 
 		NetworkInterfaces = append(NetworkInterfaces, iface.Name)
 	}
+}
+
+func init() { // _GenerateUUID {
+	// 1. Hash the hostname using MD5 (outputs exactly 16 bytes / 32 hex characters)
+	hash := md5.Sum([]byte(Hostname))
+
+	// 2. Format the 32-character lowercase string for /etc/machine-id
+	machineID := fmt.Sprintf("%x", hash)
+
+	// Force-write it to the filesystem layer so wsdd2 captures it instantly on startup
+	_ = os.WriteFile("/etc/machine-id", []byte(machineID+"\n"), 0644)
+
+	// 3. Format those same exact deterministic bytes into a standardized 8-4-4-4-12 UUID string
+	UUID = fmt.Sprintf("urn:uuid:%x-%x-%x-%x-%x",
+		hash[0:4],   // 8 chars
+		hash[4:6],   // 4 chars
+		hash[6:8],   // 4 chars
+		hash[8:10],  // 4 chars
+		hash[10:16], // 12 chars
+	)
 }
 
 func waitForSystemIP(timeout time.Duration) error {
