@@ -3,7 +3,7 @@
 # ==============================================================================
 ARG GANESHA_AUR_URL="https://aur.archlinux.org/nfs-ganesha.git"
 ARG WSDD2_URL="https://github.com/oldium/wsdd2"
-ARG ENABLE_DEBUG=true
+ARG ENABLE_DEBUG=false
 ARG GOOS=linux
 ARG GOARCH=amd64
 
