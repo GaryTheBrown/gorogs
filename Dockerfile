@@ -218,10 +218,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY config/ ./config/
-COPY logger/ ./logger/
 COPY healthcheck/ ./healthcheck/
-COPY system/ ./system/
 COPY helpers/ ./helpers/
+COPY logger/ ./logger/
+COPY subsystemwriter/ ./subsystemwriter/
+COPY system/ ./system/
 COPY main.go ./main.go
 
 ENV GOFLAGS="-ldflags=-s -w"
@@ -242,14 +243,14 @@ RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
 # --- Share Plugins ---
 COPY plugins/share/nfs/ ./plugins/share/nfs/
 RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
-    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-share-nfs.so ./plugins/share/nfs/*.go && \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-share-nfs.so ./plugins/share/nfs && \
     ldd "/distroless/usr/lib/gorogs/gorogs-share-nfs.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
     done
 
 COPY plugins/share/samba/ ./plugins/share/samba/
 RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
-    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-share-samba.so ./plugins/share/samba/*.go && \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-share-samba.so ./plugins/share/samba && \
     ldd "/distroless/usr/lib/gorogs/gorogs-share-samba.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
     done
@@ -257,28 +258,28 @@ RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
 # --- Remaining Native Stack Infrastructure Beacons ---
 COPY plugins/beacon/rpcbind/ ./plugins/beacon/rpcbind/
 RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
-    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-rpcbind.so ./plugins/beacon/rpcbind/*.go && \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-rpcbind.so ./plugins/beacon/rpcbind && \
     ldd "/distroless/usr/lib/gorogs/gorogs-beacon-rpcbind.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
     done
 
 COPY plugins/beacon/netbios/ ./plugins/beacon/netbios/
 RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
-    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-netbios.so ./plugins/beacon/netbios/*.go && \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-netbios.so ./plugins/beacon/netbios && \
     ldd "/distroless/usr/lib/gorogs/gorogs-beacon-netbios.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
     done
 
 COPY plugins/beacon/wsdd/ ./plugins/beacon/wsdd/
 RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
-    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-wsdd.so ./plugins/beacon/wsdd/*.go && \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-wsdd.so ./plugins/beacon/wsdd && \
     ldd "/distroless/usr/lib/gorogs/gorogs-beacon-wsdd.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
     done
 
 COPY plugins/beacon/avahi/ ./plugins/beacon/avahi/
 RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
-    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-avahi.so ./plugins/beacon/avahi/*.go && \
+    go build -buildmode=plugin -v -o /distroless/usr/lib/gorogs/gorogs-beacon-avahi.so ./plugins/beacon/avahi && \
     ldd "/distroless/usr/lib/gorogs/gorogs-beacon-avahi.so" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
     done
