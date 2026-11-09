@@ -21,7 +21,7 @@ ARG GANESHA_AUR_URL
 ARG WSDD2_URL
 
 RUN sed -i 's/^#ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf && \
-    pacman -Syu --noconfirm --needed \
+    pacman -Syu --noconfirm --needed --disable-sandbox \
     base-devel \
     go \
     git \
