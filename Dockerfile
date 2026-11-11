@@ -4,8 +4,6 @@
 ARG GANESHA_AUR_URL="https://aur.archlinux.org/nfs-ganesha.git"
 ARG WSDD2_URL="https://github.com/oldium/wsdd2"
 ARG ENABLE_DEBUG=false
-ARG GOOS=linux
-ARG GOARCH=amd64
 
 # ==============================================================================
 # STAGE 1: Heavy System, AUR Compilation & Complete Core Staging Prep
@@ -217,8 +215,8 @@ USER root
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG ENABLE_DEBUG
-ARG GOOS
-ARG GOARCH
+ARG TARGETOS
+ARG TARGETARCH
 ARG CACHE_STAGE3=1 
 
 COPY --from=distroless-setup /distroless /distroless
@@ -238,16 +236,17 @@ COPY main.go ./main.go
 
 ENV GOFLAGS="-ldflags=-s -w"
 ENV CGO_ENABLED=1
-ENV GOOS=${GOOS}
-ENV GOARCH=${GOARCH}
+ENV GOOS=${TARGETOS}
+ENV GOARCH=${TARGETARCH}
 
 RUN if [ "$ENABLE_DEBUG" = "true" ]; then echo "export GOFLAGS=\"-tags=debug ${GOFLAGS}\"" >> /etc/profile.d/go.sh; fi
 
 # --- Compile Core Master Orchestrator ---
 RUN . /etc/profile.d/go.sh 2>/dev/null || true; \
-    go build -a -v -o /gorogs main.go && \
-    cp /gorogs /distroless/usr/bin/gorogs && chmod +x /distroless/usr/bin/gorogs && \
-    ldd "/distroless/usr/bin/gorogs" 2>/dev/null | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
+    go build -v -o /gorogs main.go && \
+    cp /gorogs /distroless/usr/bin/gorogs && \
+    chmod +x /distroless/usr/bin/gorogs && \
+    (ldd "/distroless/usr/bin/gorogs" 2>/dev/null || true) | awk 'match($0, /\/[^ ]+/) {print substr($0, RSTART, RLENGTH)}' | while read -r lib; do \
     cp -vnL "$lib" "/distroless/usr/lib/$(basename "$lib")"; \
     done
 
