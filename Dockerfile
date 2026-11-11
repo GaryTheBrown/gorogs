@@ -304,7 +304,7 @@ WORKDIR /
 COPY --from=go-binary-builder /distroless/. /
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD ["/bin/gorogs", "--check-health"]
+    CMD ["/usr/bin/gorogs", "--check-health"]
 
 EXPOSE \
     135/tcp \
